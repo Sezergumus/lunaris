@@ -6,7 +6,7 @@ import { STRIP_ROWS } from "../charts/stripRows.ts";
 import { sampleAt } from "../engine/events.ts";
 import { sampleIndex } from "../engine/sky.ts";
 import type { PlaceData } from "../state/placeData.ts";
-import { SPEEDS, WINDOW_DAYS, WINDOW_HOURS, actions, placeTitle, startOfB, useScenario } from "../state/scenario.ts";
+import { SPEEDS, WINDOW_DAYS, actions, placeTitle, startOfB, useScenario } from "../state/scenario.ts";
 import { usePlayback } from "../state/usePlayback.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { DatePicker } from "../ui/DatePicker.tsx";
@@ -139,7 +139,7 @@ export function TimelineBar({ ref, a, b, macroExtra, summary }: TimelineBarProps
   );
 }
 
-/** Mission length in days: a free field and two quick choices. Sets the timeline window too. */
+/** Mission length in days, typed (14 by default). Sets the timeline window too. */
 function MissionLength({ windowHours }: { windowHours: number }) {
   const [text, setText] = useState(formatDays(windowHours / 24));
   const days = parseDecimal(text);
@@ -160,16 +160,6 @@ function MissionLength({ windowHours }: { windowHours: number }) {
         suffix="d"
         invalid={!valid}
         chars={4}
-      />
-      <Segmented
-        label="Mission length presets"
-        size="sm"
-        value={String(windowHours)}
-        onChange={(value) => actions.setWindowHours(Number(value))}
-        options={[
-          { value: String(WINDOW_HOURS.mission), label: "14 d" },
-          { value: String(WINDOW_HOURS.month), label: "30 d" },
-        ]}
       />
     </div>
   );

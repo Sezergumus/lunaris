@@ -652,7 +652,7 @@
 /* ---------- Mission parameters (popover in the sites header) ---------- */
 
 /* Nearly opaque: it sits over the map legends, whose text must not show through. */
-.popover--params {
+.popover.popover--params {
   background: rgba(20, 20, 24, 0.95);
   width: 320px;
   max-width: calc(100vw - 24px);

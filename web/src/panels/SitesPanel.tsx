@@ -60,7 +60,8 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
           <p className="brand__tagline">{collapsed && placeA ? placeTitle(placeA) : "Lunar south pole landing sites"}</p>
         </div>
         <div className="brand__actions">
-          <MissionParameters views={views} />
+          {/* On phones it sits in the dock instead. */}
+          {mobile ? null : <MissionParameters views={views} />}
           <IconButton
             className="sidebar__collapse"
             label={collapsed ? "Expand sites" : "Collapse sites"}

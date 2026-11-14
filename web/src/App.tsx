@@ -123,8 +123,10 @@ export default function App() {
     const edges = { top: 0, right: 0, bottom: 0, left: 0 };
     const height = window.innerHeight;
     if (window.innerWidth < DOCKED_MIN_WIDTH) {
-      const dock = dockRef.current?.getBoundingClientRect();
-      edges.bottom = dock ? height - dock.top : 0;
+      // From its layout, not its rect: while a sheet is open the dock is slid down a little
+      // (sheet.css), and the space above it must not change with that.
+      const dock = dockRef.current;
+      edges.bottom = dock ? dock.offsetHeight + parseFloat(getComputedStyle(dock).bottom) : 0;
       const open = sheetRef.current;
       // Read from the state, not the screen: the sheet may still be sliding in.
       if (open?.id === "timeline") edges.bottom = Math.max(edges.bottom, timelineRef.current?.parentElement?.offsetHeight ?? 0);
@@ -304,7 +306,7 @@ export default function App() {
           />
         </Sheet>
 
-        <MobileDock ref={dockRef} placeA={placeA} onOpen={openSheet} />
+        <MobileDock ref={dockRef} placeA={placeA} views={views} onOpen={openSheet} />
         {tablesError ? (
           <p className="hud__error" role="alert">
             Sun and Earth tables could not be loaded ({tablesError}).

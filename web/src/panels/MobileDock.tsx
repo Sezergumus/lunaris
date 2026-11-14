@@ -1,12 +1,16 @@
 import type { Ref } from "react";
 import { ChevronUp, Info, List } from "lucide-react";
 import { placeTitle, type Place } from "../state/scenario.ts";
+import type { ScenarioView } from "../state/view.ts";
+import { MissionParameters } from "./MissionParameters.tsx";
 
 export type SheetId = "sites" | "inspector" | "timeline";
 
 interface MobileDockProps {
   ref?: Ref<HTMLElement>;
   placeA: Place | null;
+  /** The scenarios on screen, for the mission parameters. */
+  views: ScenarioView[];
   onOpen: (sheet: SheetId) => void;
 }
 
@@ -14,13 +18,13 @@ interface MobileDockProps {
  * Narrow screens only (index.css): the map takes the whole screen and the panels wait behind
  * these buttons, each opening its own bottom sheet.
  */
-export function MobileDock({ ref, placeA, onOpen }: MobileDockProps) {
+export function MobileDock({ ref, placeA, views, onOpen }: MobileDockProps) {
   return (
     <nav ref={ref} className="dock glass glass--thick" aria-label="Panels">
-      <button type="button" className="dock__button" onClick={() => onOpen("sites")}>
+      <button type="button" className="dock__button dock__button--icon" onClick={() => onOpen("sites")} aria-label="Sites">
         <List aria-hidden="true" />
-        Sites
       </button>
+      <MissionParameters views={views} side="top" />
       {placeA ? (
         <button type="button" className="dock__button dock__button--place" onClick={() => onOpen("inspector")} aria-label={`Details of ${placeTitle(placeA)}`}>
           <Info aria-hidden="true" />
