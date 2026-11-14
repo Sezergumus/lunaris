@@ -7,6 +7,98 @@ commit messages are in English (they are shared with the jury). This standard ap
 new file and change until the end of the project: jury-ready English, no Turkish in code,
 comments, CLI output or docs.
 
+## Session handoff (read this first; keep it current)
+
+**Rule for Claude:** this section replaces the chat history. A new chat, on either
+developer's machine, must be able to continue from this file alone, without anyone
+re-explaining anything. Update it without being asked whenever something changes that a fresh
+session would need: at the end of each piece of work, after every decision, and when a new
+pitfall is found. Keep it short; move details into the sections below and delete what is no
+longer true. Say which side (backend / frontend) a note belongs to.
+
+**The repository is the single source of truth** (https://github.com/Sezergumus/lunaris,
+branch `main`), since 2026-11-14 ~15:00. Two people work here: Kerem (backend owner, macOS,
+GitHub `KeremGull`, collaborator with push access) and Sezer (frontend, Windows, repository
+owner). Both commit directly to `main`. Pull before starting; do not commit or push without
+the user asking.
+
+Kerem's Mac: the clone is `~/Desktop/lunaris` and is complete and self-sufficient: `.venv`
+(from `requirements.txt`), `kernels/` and the full LOLA DEM
+(`data/lola/LDEM_60S_60MPP_ADJ.TIF`, 2.9 GB) are in place, all git-ignored; every command
+runs offline except the remote layers read by `horizon`. Open new chats in that folder. The
+older folder `~/Desktop/Nasa Space App` is superseded (stale copies of code and results
+only); never edit it. Two untracked files `gitignore` and `web/gitignore` (no leading dot)
+are accidental duplicates of the real `.gitignore` files; do not commit them, ask before
+deleting.
+
+**Never add Claude/AI attribution anywhere** (user instruction, overrides tool defaults): no
+`Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line, in commits, pull
+requests, code or docs.
+
+**Where we are (2026-11-14, ~15:30 local):** everything is committed and pushed; the working
+tree is clean apart from the two stray files above. Nothing is in progress.
+- Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
+  risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
+- Frontend: scaffold, data build script, TypeScript risk engine (validated against
+  `risk_<site>.json`) and a south polar map with Moon Trek tiles. Visual design is
+  deliberately blank until the frontend developer gives a design prompt.
+- Not built: `api/` (FastAPI `/horizon`), `data/ephemeris_vectors.csv`, `data/grid_<site>.json`,
+  the landing-precision profile parameter, README.
+
+**Next action (backend):** start by asking Kerem what he wants next; the pending item on
+the backend side is that Kerem must confirm or amend the contracts in "Custom coordinates and
+nearby alternatives" (proposed by the frontend side), then build them. Note the mismatch to
+resolve: the existing `nearby` command searches rings at 1/2/5/10 km with a `--ellipse` slope
+radius (default 1000 m), while the agreed UI search area is a ±500 m square grid (9×9 at
+125 m, 5×5 at 250 m live) with a 100 m landing precision. The building blocks are shared
+(`compute_points`, `compute_horizon(..., near=, far=)`, DEM-derived slope), so the grid
+function is a small variation of `run_nearby`.
+
+**Open decisions (user/team; do not decide silently):**
+- The API/contract proposal above (backend owner has not confirmed).
+- Mission-profile defaults: mission length, battery survival hours, max comm outage, slope
+  limit, minimum Sun/comm share (`DEFAULT_PROFILE` in `lunar_risk.py`, mirrored in
+  `web/src/engine/risk.ts`; change both and re-run `npm run validate`).
+- Landing precision / ellipse radius. Results flip with it: Malapert A `nearby` finds nothing
+  low-risk at 1000 m but a risk-3 point 2 km E at 300 m.
+- Demo story. Candidates: Mons Mouton slip (risk 18 → 100 with a 7-day slip → 18 at +28 d);
+  Malapert A "a point 2 km east saves it".
+- Official site coordinates (all approximate), date range of the tables.
+
+**How Kerem works (confirmed in practice):**
+- Talks Turkish; wants every code/doc artifact in jury-ready English.
+- Wants direct answers with concrete numbers and a recommendation, asks "why not X?"
+  follow-ups; explain trade-offs with estimates and say clearly what was not verified.
+- Ask before large downloads (state file, source, size).
+- Commit messages: English, Conventional Commits (`type(scope): imperative summary`, types
+  such as `feat`, `fix`, `docs`, `chore`, `refactor`, `test`; scopes used so far: `backend`,
+  `data`, `web`; optional body explaining what and why). One logical change per commit.
+- README is deliberately last. CLAUDE.md is internal and names the user; the repository is
+  public, so keep personal details out of it beyond what is already here.
+
+**Pitfalls already hit (do not rediscover):**
+- Skyfield `Loader`: pass bare kernel file names, not paths (caused a 404 on second run).
+- PGDA server: slow, drops connections, intermittent 503. `curl --retry` with `-C -`
+  discards progress; curl without `-f` treats a 503 page as success. Use the resume loop in
+  "Status". A partial file under the final name breaks reads (use `.part`).
+- `horizon` reads slope/error/effres/PSR layers remotely even with the local DEM; it fails
+  when the server is down. `nearby`, `risk`, `rank`, `metrics`, `mast` need no server
+  (`nearby` and `mast` need the DEM, local or remote).
+- `risk` counts whole hourly samples; `metrics` interpolates events. Small differences
+  between the two are expected.
+- `nearby` uses DEM-derived slope, `risk` uses LOLA LDSM → centre surface score can differ
+  slightly (Mons Mouton 23 vs 18).
+- CSV writers use LF line endings on purpose (CRLF created whole-file diffs in git).
+- `risk_<site>.json` is the reference for the frontend engine test: after regenerating it,
+  run `npm run validate` in `web/`. Adding keys is safe; changing `window`/`slips`/`scan`
+  values is not.
+- A `.venv` cannot be copied between machines or operating systems; recreate it.
+- The terrain-sensitivity experiment (hypothetical uniform horizons by latitude) was a
+  throwaway script; only its result table is kept below.
+
+**Not validated yet:** rise/set event times against Horizons; Mazarico 2011 percentages
+quoted from memory; DSN station coordinates approximate.
+
 ## Challenge (summary)
 
 An intuitive tool for mission planners, educators and the public to quickly compare lunar
@@ -25,35 +117,41 @@ Horizons, precomputed CSVs) ✔; LOLA topography for horizons ✔ (surface *visu
 no atmosphere → horizon from terrain + limb of the sphere, no refraction ✔; solar elevation
 computed ✔ but must be shown prominently in the UI.
 
-## Status at handover (2026-11-14, ~12:00 local)
+## Status (2026-11-14, ~15:00 local)
 
 The whole computation backend works end to end for five sites over one year
-(2026-12-01 → 2027-12-01, hourly). **No UI yet** (see "Frontend status" below for the current state of `web/`). A git repository
-exists since 2026-11-14 (branch `main`, no commit yet).
+(2026-12-01 → 2027-12-01, hourly), including alternatives (dates, sites, nearby points).
+The frontend has its non-visual parts and a map (see "Frontend status"). The git repository
+has commits on `main` and is pushed to GitHub.
 
-**Moving to another computer:** copy the project folder including `data/` (results are
-precomputed there; `data/lola/` can be skipped, see below). Then:
+**Setting up a machine:** clone the repository (`data/` results are tracked), then:
 
 ```
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python lunar_sky.py sites
 ```
 
-`kernels/` (19 MB) is re-downloaded automatically by Skyfield on first `compute`/`dsn` if missing.
-
-On Windows a `.venv` copied from macOS does not work; delete it and recreate it (the pinned
-requirements resolve to Windows wheels on Python 3.13, checked with a pip dry run only):
+Windows (the pinned requirements resolve to Windows wheels on Python 3.13, checked with a
+pip dry run only):
 
 ```
 python -m venv .venv; .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python lunar_sky.py sites
 ```
 
-**LOLA DEM download is incomplete.** `data/lola/LDEM_60S_60MPP_ADJ.TIF.part` was at 1.23 GB of
-3,089,110,093 bytes; the PGDA server throttles (~0.1 MB/s), drops connections and returns 503
-at times. Everything so far was computed by reading windows remotely, so the local file is an
-optimization, not a requirement. To resume on any machine (keeps progress across drops; do
-NOT use curl's `--retry` with `-C -`, it discards progress):
+`kernels/` (19 MB, git-ignored) is downloaded automatically by Skyfield on first use.
+
+**LOLA DEM** (`data/lola/LDEM_60S_60MPP_ADJ.TIF`, 3,089,110,093 bytes, git-ignored) is
+optional. Kerem's Mac has a complete copy (in the old working folder until moved here).
+Without it terrain windows are read remotely (~50 s per site instead of 0.3 s; `nearby`
+becomes slow but works). The horizon from the local file equals the remote-derived one within
+0.00005° at all five sites. Measured on the Mac with the local DEM: one horizon including
+window reads 0.2–0.8 s; `nearby` with 33 points (windows read once, Skyfield angles, horizon,
+slope, one-year risk scan per point) 8 s in total.
+
+The PGDA server throttles and drops large downloads (the DEM took ~3 h). To download it,
+resume in a loop and never leave a partial file under the final name (the code would try to
+read it); do NOT combine curl's `--retry` with `-C -`:
 
 ```
 cd data/lola; f=LDEM_60S_60MPP_ADJ.TIF
@@ -62,14 +160,18 @@ until [ "$(stat -f%z $f.part 2>/dev/null)" = 3089110093 ]; do
 mv $f.part $f
 ```
 
-A file placed at `data/lola/<exact product name>` is used automatically; never leave a partial
-file under the final name (the code would try to read it). After the download completes,
-verify once that the local horizon equals the stored (remote-derived) one.
-
 ## Custom coordinates and nearby alternatives (plan, 2026-11-14)
 
 Proposed from the frontend side on 2026-11-14. **The backend owner should confirm the contracts
 below before anyone builds on them.**
+
+Backend state against this plan (2026-11-14 ~15:00): date suggestions exist (`dates` block
+in `risk_<site>.json`: nearest low-risk dates, slip tolerance, low-risk windows) and a
+nearby-point search exists as the CLI command `nearby` (rings at 1/2/5/10 km, 8 bearings,
+slope derived from the DEM within `--ellipse`, output `data/nearby_<site>.json`). Not built:
+`ephemeris_vectors.csv`, the `/horizon` API, `grid_<site>.json`, the landing-precision
+parameter. The ring search and the ±500 m grid below answer different questions (another
+site a few km away vs. fine placement); decide whether the UI wants both.
 
 **Goal.** The user clicks any point in the south polar region and gets the same assessment as
 for a built-in site, plus two kinds of suggestion: a better landing date close in time, and a
@@ -277,6 +379,8 @@ python lunar_sky.py metrics  --site malapert_a --terrain     # uses data/horizon
 python lunar_sky.py dsn      --start 2026-12-01 --days 365   # Moon elevation at Goldstone/Madrid/Canberra
 python lunar_sky.py risk     --site malapert_a --landing 2026-12-16 --duration 14
 python lunar_sky.py mast     --site malapert_a --masts 2,5,10
+python lunar_sky.py rank     --landing 2026-12-16            # all precomputed sites, same date/profile
+python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16   # --radii 1,2,5,10 --ellipse 1000
 # custom point: --lat -85 --lon 30 --site custom85   step: --step 60 (min)
 # risk profile overrides: --battery-hours 50 --max-outage-hours 24 --max-slope 10 --mask 0 --sphere
 ```
@@ -291,8 +395,10 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 | `metrics_<site>.json`, `metrics_<site>_terrain.json` | per track `sun`/`earth`/`both`: `summary`, `events`, `windows` (+ `status` with `--at`) |
 | `horizon_<site>.json` | `horizon_deg` and `horizon_range_km` per azimuth (0.5° step), `ground_height_m`, `surface` (slope stats from LOLA LDSM and derived from DEM, `height_error_m`, `effective_resolution_m`, `psr`) |
 | `dsn_moon.csv` | `utc, goldstone_alt_deg, madrid_alt_deg, canberra_alt_deg` (site independent) |
-| `risk_<site>.json` | `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `scan` (every landing date) |
+| `risk_<site>.json` | `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date) |
 | `mast_<site>.json` | Sun/Earth visibility for several mast heights |
+| `ranking.json` | all sites for one landing date: window, score, date alternatives; sorted by risk |
+| `nearby_<site>.json` | 33 candidate points (site + 8 bearings × rings): position, height, slope, indicators, scores, slip tolerance, low-risk date count; `best_for_date`, `most_slip_tolerant`, `most_low_risk_dates` |
 
 ### Conventions
 
@@ -340,6 +446,12 @@ surface = 95th-percentile slope within the ellipse vs slope limit. Overall = wor
 10° slope, 50 % minimum Sun/comm) are **placeholder assumptions** — the team must choose a
 mission profile.
 
+Alternatives: `dates` block = nearest low-risk landing date before/after, slip tolerance
+(days the landing can slip and stay low-risk), list of low-risk landing windows. `rank`
+compares the preset sites. `nearby` evaluates rings around a site with one shared DEM window;
+it uses slope derived from the DEM for every candidate, so the centre's surface score can
+differ slightly from `risk` (which uses LDSM).
+
 Covered risk items: terrain eclipse, continuous darkness/battery, eclipse by Earth, grazing
 Sun/partial disk, Earth occultation, solar RF conjunction, low-elevation multipath indicator,
 DSN visibility gap, slope/tip-over, mast-height sensitivity, PSR access.
@@ -377,7 +489,8 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
   (~86 % / ~92 %, quoted from memory; confirm in the paper).
 - Earth-caused eclipse found on 2027-08-17 (max 53 % of the disk), the date of a penumbral
   lunar eclipse.
-- **Not validated:** rise/set event times against Horizons; local-file vs remote horizon.
+- Horizon from the local DEM equals the remote-derived one within 0.00005° at all five sites.
+- **Not validated:** rise/set event times against Horizons.
 
 ### One year from 2026-12-01, terrain vs ideal sphere (observer 2 m above ground)
 
@@ -406,6 +519,18 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
 
 Slip example (Mons Mouton): +0 d risk 18; +7 d Sun 51 %, 6.6 d dark → 100; +14 d Sun 1 % →
 100; +28 d back to 18. This is the natural demo story.
+
+Ranking for that date: mons_mouton 18 (low, slip tolerance 1 d), chandrayaan3 28 (low),
+the other three 100. Mons Mouton low-risk landing windows: 14–17 Dec 2026, 13–15 Jan 2027,
+then short windows in May, Aug, Sep, Oct, Nov 2027 (22 dates in total).
+
+Nearby search (rings to 10 km), landing 2026-12-16:
+- Malapert A, 1 km ellipse: every point within 10 km is limited by slope; best is 5 km N,
+  risk 58 (medium). With `--ellipse 300`: 2 km E → risk 3 (low), 100 % Sun, 43 low-risk dates
+  in the year (the site itself: risk 100, none).
+- Connecting ridge: no low-risk point within 10 km (comm outage or slope); 1 km N drops to
+  14 % Sun — extreme position sensitivity near the pole.
+- Mons Mouton: the site itself is the best of its 33 candidates.
 
 Mast height (2 → 10 m), Sun visible over the year: connecting ridge 82.7 → 95.7 % (longest
 dark 9.7 → 3.1 d); Mons Mouton 45.6 → 46.6 %; Malapert A 39.0 → 40.1 %.
@@ -460,9 +585,10 @@ Backend and frontend run in parallel; the frontend needs nothing new for built-i
 
 1. Backend: `data/ephemeris_vectors.csv` and `dsn_moon.csv` over the agreed date range. This
    unblocks custom coordinates and longer date ranges in the UI.
-2. Backend: grid horizon function (windows read once, reused for all points) and the
-   `/horizon` API around it; measure the window read time on the local DEM and verify that
-   the local horizon equals the stored remote-derived one.
+2. Backend: grid horizon function (windows read once, reused for all points; `run_nearby`
+   in `lunar_sky.py` already does this for rings) and the `/horizon` API around it. Done
+   already: local horizon verified against the remote-derived one; window read + horizon
+   measured at 0.2–0.8 s per point on the local DEM.
 3. Backend: `data/grid_<site>.json` for the built-in sites (run the function from step 2).
    The grid no longer has to wait for the local DEM: one remote window read per site is enough.
 4. Frontend: UI reading `data/`: TypeScript port of the risk model validated against
