@@ -9,8 +9,9 @@ import { TerrainError, fetchHorizon, insideTerrainCoverage, terrainConfigured } 
 import { findTransitions, limbClearance, type Transitions } from "../engine/events.ts";
 import { pointHorizon } from "../engine/grid.ts";
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
-import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, presetProfile, raisedHorizon, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
+import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, raisedHorizon, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
+import { effectiveProfile } from "./limits.ts";
 import { useScenario, type Place } from "./scenario.ts";
 
 let tablesPromise: Promise<SkyTables> | null = null;
@@ -253,6 +254,8 @@ export function usePlaceSeries(tables: SkyTables | null, place: Place | null, ma
     terrain?.mastM ?? null,
   );
   const profileKey = useScenario((s) => s.profileKey);
+  const limitOverrides = useScenario((s) => s.limitOverrides);
+  const profile = useMemo(() => effectiveProfile(profileKey, limitOverrides), [profileKey, limitOverrides]);
   return useMemo(() => {
     if (!tables || !place || !terrainState) return null;
     const { status, reason, center } = terrainState;
@@ -270,6 +273,6 @@ export function usePlaceSeries(tables: SkyTables | null, place: Place | null, ma
         horizon = terrain.horizon;
       }
     }
-    return buildPlaceData(tables, place, terrain, horizon, status, reason, center, mast, presetProfile(profileKey));
-  }, [tables, place, terrainState, terrain, exact, mastM, profileKey]);
+    return buildPlaceData(tables, place, terrain, horizon, status, reason, center, mast, profile);
+  }, [tables, place, terrainState, terrain, exact, mastM, profile]);
 }

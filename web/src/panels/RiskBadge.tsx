@@ -91,6 +91,7 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
 export function RiskBadge({ views }: { views: ScenarioView[] }) {
   const profile = views[0].data.series.profile;
   const profileKey = useScenario((s) => s.profileKey);
+  const edited = useScenario((s) => Object.keys(s.limitOverrides).length > 0);
   return (
     <section className="risk" aria-label="Mission risk">
       <h3 className="metric__label">
@@ -105,9 +106,9 @@ export function RiskBadge({ views }: { views: ScenarioView[] }) {
         ))}
       </div>
       <p className="risk__foot">
-        Worst category counts. Limits: {profile.battery_survival_h} h battery, {profile.max_comm_outage_h} h without contact, {profile.max_slope_deg}° slope.
+        Worst category counts. Limits: {profile.battery_survival_h} h of darkness, {profile.max_comm_outage_h} h without contact, {profile.min_daily_contact_h} h contact every day, {profile.max_slope_deg}° slope.
         <br />
-        {PROFILE_PRESETS[profileKey].basis}
+        {edited ? "Limits changed by hand below." : PROFILE_PRESETS[profileKey].basis}
       </p>
     </section>
   );

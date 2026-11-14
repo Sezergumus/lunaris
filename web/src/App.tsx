@@ -5,12 +5,14 @@ import { MoonMap, type Insets, type MapPick, type MapPoint } from "./map/MoonMap
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { Explainer } from "./panels/Explainer.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
+import { LimitsControl } from "./panels/LimitsControl.tsx";
 import { MastControl } from "./panels/MastControl.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
 import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
+import type { LimitKey } from "./state/limits.ts";
 import { readUrl, syncUrl } from "./state/url.ts";
 import { useViews } from "./state/view.ts";
 
@@ -52,6 +54,7 @@ export default function App() {
       actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, url.startMs, url.windowHours);
       if (url.mastM !== null) actions.setMast(url.mastM);
       if (url.profileKey) actions.setProfile(url.profileKey);
+      for (const [key, value] of Object.entries(url.limitOverrides)) actions.setLimit(key as LimitKey, value);
       if (url.placeA) actions.selectPlace(url.placeA);
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
       if (url.placeA && url.slipDays > 0) actions.slip(url.slipDays);
@@ -155,6 +158,7 @@ export default function App() {
         {views.length > 0 ? (
           <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
             <RiskBadge views={views} />
+            <LimitsControl />
             <MastControl views={views} />
             <Explainer views={views} />
           </InspectorPanel>

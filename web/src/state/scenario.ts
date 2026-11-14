@@ -8,6 +8,7 @@ import { useSyncExternalStore } from "react";
 import type { SiteInfo } from "../data/load.ts";
 import type { ProfileKey } from "../engine/risk.ts";
 import { siteTitle } from "../sites.ts";
+import type { LimitKey, LimitOverrides } from "./limits.ts";
 
 const HOUR_MS = 3600000;
 const DAY_MS = 86400000;
@@ -59,6 +60,8 @@ export interface ScenarioState {
   mastM: number;
   /** Mission profile: the limits the risk score is judged against. */
   profileKey: ProfileKey;
+  /** Limits changed by hand on top of the profile; empty = the profile as it is. */
+  limitOverrides: LimitOverrides;
   /** First and last instant of the data; null until the tables have loaded. */
   limits: { minMs: number; maxMs: number } | null;
 }
@@ -74,6 +77,7 @@ let state: ScenarioState = {
   speed: SPEEDS[1],
   mastM: 2,
   profileKey: "generic",
+  limitOverrides: {},
   limits: null,
 };
 
@@ -166,8 +170,15 @@ export const actions = {
   setMast(mastM: number) {
     set({ mastM });
   },
+  /** Choosing a profile drops the limits changed by hand. */
   setProfile(profileKey: ProfileKey) {
-    set({ profileKey });
+    set({ profileKey, limitOverrides: {} });
+  },
+  setLimit(key: LimitKey, value: number) {
+    set({ limitOverrides: { ...state.limitOverrides, [key]: value } });
+  },
+  resetLimits() {
+    set({ limitOverrides: {} });
   },
 };
 

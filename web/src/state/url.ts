@@ -1,10 +1,12 @@
 // Scenario <-> URL, so a view can be shared as a link:
-//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708&mast=10&profile=battery_rover
+//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708&mast=10&profile=battery_rover&dark=72&slope=12
+// Limits changed by hand travel as dark / sun / outage / contact / slope (state/limits.ts).
 // A custom point is written as `lat,lon` (for example site=-85.3,31), the reference as `apollo11`.
 import type { SiteInfo } from "../data/load.ts";
 import { MAST_RANGE_M } from "../engine/mast.ts";
 import { PROFILE_PRESETS, type ProfileKey } from "../engine/risk.ts";
 import { isoDay } from "../ui/format.ts";
+import { LIMITS, type LimitOverrides } from "./limits.ts";
 import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, type Place } from "./scenario.ts";
 
 function placeToParam(place: Place): string {
@@ -32,6 +34,7 @@ export interface UrlScenario {
   windowHours: number | null;
   mastM: number | null;
   profileKey: ProfileKey | null;
+  limitOverrides: LimitOverrides;
 }
 
 export function readUrl(sites: SiteInfo[]): UrlScenario {
@@ -42,7 +45,14 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
   const windowHours = Number(params.get("window"));
   const mast = Number(params.get("mast"));
   const profile = params.get("profile");
+  const limitOverrides: LimitOverrides = {};
+  for (const limit of LIMITS) {
+    const raw = params.get(limit.param);
+    const value = raw === null ? NaN : Number(raw);
+    if (value >= limit.min && value <= limit.max) limitOverrides[limit.key] = value;
+  }
   return {
+    limitOverrides,
     placeA: paramToPlace(params.get("site"), sites),
     placeB: paramToPlace(params.get("compare"), sites),
     startMs: Number.isNaN(startMs) ? null : startMs,
@@ -67,6 +77,10 @@ export function syncUrl(): () => void {
     if (s.windowHours !== WINDOW_HOURS.mission) params.set("window", String(s.windowHours));
     if (s.mastM !== MAST_RANGE_M.min) params.set("mast", String(s.mastM));
     if (s.profileKey !== "generic") params.set("profile", s.profileKey);
+    for (const limit of LIMITS) {
+      const value = s.limitOverrides[limit.key];
+      if (value !== undefined) params.set(limit.param, String(value));
+    }
     const query = params.toString();
     // The store also changes on every playback frame; the URL only when the scenario does.
     if (query === last) return;
