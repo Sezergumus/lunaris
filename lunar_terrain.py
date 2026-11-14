@@ -24,7 +24,8 @@ import numpy as np
 
 MOON_RADIUS_M = 1737400.0
 REMOTE_BASE = "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/"
-LOCAL_DIR = os.path.join("data", "lola")
+# Directory with local copies of the products; LUNAR_TERRAIN_DIR overrides it.
+LOCAL_DIR = os.environ.get("LUNAR_TERRAIN_DIR", os.path.join("data", "lola"))
 
 # Products covering 60S..90S at 60 m/pixel.
 PRODUCTS = {
@@ -34,7 +35,16 @@ PRODUCTS = {
     "effective_resolution_m": "LDEM_60S_60MPP_ADJ_EFFRES.TIF",
     # Permanently shadowed regions (1 = PSR), 80S..90S at 20 m/pixel.
     "psr": "LPSR_80S_20MPP_ADJ.TIF",
+    # Surface roughness at a 100 m baseline, 80S..90S at 50 m/pixel (local copy only).
+    "roughness": "LDRM_80S_50MPP_ADJ_ROUGH_100M.TIF",
 }
+# Other local file names accepted for a product, tried after the name above.
+# The 120 m/pixel slope map is a smaller download than the 60 m/pixel one.
+LOCAL_ALTERNATES = {
+    "slope_deg": ("LDSM_60S_120MPP_ADJ.TIF",),
+}
+LOCAL_ONLY = {"roughness"}
+DEM_HALF_SIZE_M = 931_200.0  # half-size of the 60S..90S products
 PSR_COVERAGE_M = 304_000.0   # half-size of the PSR map
 
 NEAR_RADIUS_M = 25_000.0     # full-resolution window half-size
@@ -72,16 +82,33 @@ def destination(lat_deg, lon_deg, azimuth_deg, distance_m):
 
 
 # ----------------------------------------------------------------- raster
+def local_product(name):
+    """Path of a local copy of a product, or None.
+
+    File names are matched without regard to case and to a .tif/.tiff ending.
+    """
+    if os.environ.get("LUNAR_TERRAIN_REMOTE") or not os.path.isdir(LOCAL_DIR):
+        return None
+    present = {os.path.splitext(f)[0].upper(): f for f in os.listdir(LOCAL_DIR)
+               if f.lower().endswith((".tif", ".tiff"))}
+    for filename in (PRODUCTS[name],) + LOCAL_ALTERNATES.get(name, ()):
+        found = present.get(os.path.splitext(filename)[0].upper())
+        if found:
+            return os.path.join(LOCAL_DIR, found)
+    return None
+
+
 def product_path(name):
     """Local file if present, otherwise the remote URL (range reads).
 
     Set LUNAR_TERRAIN_REMOTE=1 to force remote reads.
     """
-    filename = PRODUCTS[name]
-    local = os.path.join(LOCAL_DIR, filename)
-    if os.path.exists(local) and not os.environ.get("LUNAR_TERRAIN_REMOTE"):
+    local = local_product(name)
+    if local:
         return local
-    return "/vsicurl/" + REMOTE_BASE + filename
+    if name in LOCAL_ONLY:
+        raise FileNotFoundError(f"{PRODUCTS[name]} is only read from {LOCAL_DIR}")
+    return "/vsicurl/" + REMOTE_BASE + PRODUCTS[name]
 
 
 def download_product(name):
@@ -255,10 +282,42 @@ def surface_properties(lat, lon, radius_m=1000.0, near=None):
         values = _disk_values(grid, grid.data, x, y, radius_m)
         if name == "slope_deg":
             out["slope_lola_deg"] = _slope_stats(values)
+            out["slope_lola_pixel_m"] = grid.pixel_m
         else:
             out[name] = {"site": float(grid.sample(x, y)),
                          "median": float(np.median(values)), "max": float(values.max())}
     return out
+
+
+def slope_grid(x, y, radius_m, near=None):
+    """Slope map (deg) covering `radius_m` around a projected point.
+
+    Uses a local copy of the LOLA slope map (LDSM) when there is one;
+    otherwise slope is derived from the height grid, so a deployment needs
+    the height file only. Returns (Grid, description of the source).
+    """
+    if local_product("slope_deg"):
+        grid = read_window("slope_deg", x, y, radius_m + 300.0)
+        return grid, f"LOLA slope map (LDSM), {grid.pixel_m:.0f} m/pixel"
+    if near is None:
+        near = read_window("height_m", x, y, radius_m + 300.0)
+    return (Grid(slope_from_heights(near), near.x0, near.y0, near.pixel_m),
+            f"derived from the {near.pixel_m:.0f} m LOLA height grid")
+
+
+def value_within(grid, x, y, radius_m, percentile=95.0, spacing_m=30.0):
+    """Percentile of a map inside a circle, from bilinear samples on a fine lattice.
+
+    Sampling on a lattice (instead of picking pixel centers) keeps the result
+    well defined when the circle is not much larger than a pixel.
+    """
+    n = max(1, int(math.ceil(radius_m / spacing_m)))
+    offsets = np.arange(-n, n + 1) * (radius_m / n)
+    dx, dy = np.meshgrid(offsets, offsets)
+    inside = np.hypot(dx, dy) <= radius_m * (1.0 + 1e-9)
+    values = grid.sample(x + dx[inside], y + dy[inside])
+    values = values[~np.isnan(values)]
+    return float(np.percentile(values, percentile)) if values.size else None
 
 
 def psr_access(lat, lon, search_radius_m=20_000.0, near=None):
@@ -315,6 +374,119 @@ def _slope_stats(values):
         "pct_below_5deg": float(100.0 * np.mean(values < 5.0)),
         "pct_below_10deg": float(100.0 * np.mean(values < 10.0)),
     }
+
+
+# ------------------------------------------------------------------- grid
+def in_coverage(lat, lon):
+    """True if the point lies inside the 60S..90S products."""
+    x, y = latlon_to_xy(lat, lon)
+    return bool(lat < 0 and max(abs(float(x)), abs(float(y))) < DEM_HALF_SIZE_M)
+
+
+def snap_to_pixel(lat, lon, pixel_m=60.0):
+    """Nearest pixel center of the height grid, as (lat, lon in -180..180).
+
+    Requests for neighbouring coordinates then share one cached answer.
+    """
+    x, y = latlon_to_xy(lat, lon)
+    xs = (math.floor(float(x) / pixel_m) + 0.5) * pixel_m
+    ys = (math.floor(float(y) / pixel_m) + 0.5) * pixel_m
+    lat2, lon2 = xy_to_latlon(xs, ys)
+    return float(lat2), float(lon2)
+
+
+def offset_point(lat, lon, east_m, north_m):
+    """Point `east_m`, `north_m` away from (lat, lon) on the sphere."""
+    if east_m == 0.0 and north_m == 0.0:
+        return lat, lon
+    lat2, lon2 = destination(lat, lon, math.degrees(math.atan2(east_m, north_m)),
+                             math.hypot(east_m, north_m))
+    return float(lat2), float((float(lon2) + 180.0) % 360.0 - 180.0)
+
+
+def compute_grid(lat, lon, n=1, step_m=125.0, mast_m=2.0, precision_m=100.0):
+    """Terrain horizon and slope for an n x n square of points around (lat, lon).
+
+    The height windows are read once and shared by every point. Returns a
+    dict with `points` (center first, then row by row from the south-west)
+    and the settings used. Each point holds its position, the offsets from
+    the center, ground height, the horizon profile, the slope at the point
+    and the 95th-percentile slope within `precision_m` (landing precision).
+    Raises ValueError if the center is outside the height grid.
+    """
+    if n < 1 or n % 2 == 0:
+        raise ValueError("grid size must be an odd number")
+    if not in_coverage(lat, lon):
+        raise ValueError("point is outside the LOLA south-pole grid (60S to the pole)")
+    x, y = latlon_to_xy(lat, lon)
+    x, y = float(x), float(y)
+    half = (n - 1) // 2
+    reach = half * step_m * math.sqrt(2.0) + precision_m + 300.0
+    near = read_window("height_m", x, y, NEAR_RADIUS_M + reach)
+    far = read_window("height_m", x, y, FAR_RADIUS_M + reach, FAR_DECIMATION)
+    if math.isnan(float(near.sample(x, y))):
+        raise ValueError("no height data at this point")
+    slope, slope_source = slope_grid(x, y, reach, near)
+    derived = Grid(slope_from_heights(near), near.x0, near.y0, near.pixel_m)
+    rough = None
+    if local_product("roughness") and max(abs(x), abs(y)) + reach < PSR_COVERAGE_M:
+        rough = read_window("roughness", x, y, reach)
+
+    offsets = [(0, 0)] + [(i, j) for j in range(-half, half + 1)
+                          for i in range(-half, half + 1) if (i, j) != (0, 0)]
+    points = []
+    for i, j in offsets:
+        east, north = i * step_m, j * step_m
+        plat, plon = offset_point(lat, lon, east, north)
+        px, py = (float(v) for v in latlon_to_xy(plat, plon))
+        horizon = compute_horizon(plat, plon, mast_m=mast_m, near=near, far=far)
+        ground = horizon["ground_height_m"]
+        at_point = float(slope.sample(px, py))
+        points.append({
+            "lat": plat, "lon": plon, "east_m": east, "north_m": north,
+            "ground_height_m": None if math.isnan(ground) else ground,
+            "mast_m": mast_m,
+            "azimuth_step_deg": float(horizon["azimuth_deg"][1] - horizon["azimuth_deg"][0]),
+            "horizon_deg": horizon["horizon_deg"],
+            "slope_deg": value_within(slope, px, py, precision_m),
+            "slope_at_point_deg": None if math.isnan(at_point) else at_point,
+            "slope_derived_deg": value_within(derived, px, py, precision_m),
+            "roughness": None if rough is None else value_within(rough, px, py, precision_m),
+        })
+    return {
+        "center": {"lat": lat, "lon": lon},
+        "grid": n, "step_m": step_m, "mast_m": mast_m, "precision_m": precision_m,
+        "source": "LOLA " + PRODUCTS["height_m"] + " (pgda.gsfc.nasa.gov/products/90)",
+        "slope_source": slope_source,
+        "slope_deg_meaning": "95th-percentile slope within precision_m of the point",
+        "slope_derived_source": f"derived from the {near.pixel_m:.0f} m LOLA height grid, same statistic",
+        "roughness_source": None if rough is None else
+        "LOLA roughness map (LDRM), 100 m baseline, 95th percentile within precision_m",
+        # False when terrain farther than the map edge may be missing from the horizon.
+        "horizon_coverage_complete":
+            bool(max(abs(x), abs(y)) + FAR_RADIUS_M <= DEM_HALF_SIZE_M),
+        "points": points,
+    }
+
+
+def grid_to_json(doc, indent=None):
+    """Serialize a `compute_grid` result (horizon to 4 decimals, as in horizon files)."""
+    def number(v, digits):
+        return None if v is None else round(float(v), digits)
+
+    out = {k: v for k, v in doc.items() if k != "points"}
+    out["points"] = [{
+        "lat": round(p["lat"], 6), "lon": round(p["lon"], 6),
+        "east_m": p["east_m"], "north_m": p["north_m"],
+        "ground_height_m": number(p["ground_height_m"], 2),
+        "mast_m": p["mast_m"], "azimuth_step_deg": p["azimuth_step_deg"],
+        "horizon_deg": [round(float(v), 4) for v in p["horizon_deg"]],
+        "slope_deg": number(p["slope_deg"], 3),
+        "slope_at_point_deg": number(p["slope_at_point_deg"], 3),
+        "slope_derived_deg": number(p["slope_derived_deg"], 3),
+        "roughness": number(p["roughness"], 3),
+    } for p in doc["points"]]
+    return json.dumps(out, indent=indent, separators=None if indent else (",", ":"))
 
 
 # -------------------------------------------------------------------- I/O

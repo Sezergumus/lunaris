@@ -50,6 +50,7 @@ DEFAULT_PROFILE = {
     "conjunction_deg": 2.0,         # Sun-Earth separation that jams the link
     "low_elevation_deg": 2.0,       # Earth center this close to terrain = degraded
     "max_slope_deg": 10.0,          # tip-over / landing limit
+    "landing_precision_m": 100.0,   # radius in which slope is judged when comparing nearby spots
     "mask_deg": 0.0,                # extra elevation margin on every horizon
 }
 

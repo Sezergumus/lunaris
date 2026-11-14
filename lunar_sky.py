@@ -17,6 +17,10 @@ Subcommands:
   rank      Compare all sites for one landing date      -> data/ranking.json
   nearby    Search alternative landing points around a
             site (rings out to 10 km; needs the LOLA DEM) -> data/nearby_<site>.json
+  vectors   Sun and Earth position vectors from the Moon's
+            center, valid for any site                  -> data/ephemeris_vectors.csv
+  grid      Terrain horizon and slope for a square of
+            points around a site (needs the LOLA DEM)   -> data/grid_<site>.json
 
 Example:
   python lunar_sky.py compute  --site malapert_a --start 2026-12-01 --days 30
@@ -30,6 +34,8 @@ Example:
   python lunar_sky.py mast     --site malapert_a --masts 2,5,10
   python lunar_sky.py rank     --landing 2026-12-16
   python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16
+  python lunar_sky.py vectors  --start 2026-12-01 --days 1491
+  python lunar_sky.py grid     --site malapert_a --grid 9 --grid-step 125
 
 Notes:
 - compute/horizons angles are relative to the local horizontal plane of an
@@ -137,6 +143,87 @@ def compute(lat, lon, height_m, times, kernel_dir):
     ]
 
 
+def moon_centered_vectors(times, kernel_dir):
+    """Apparent position of the Sun and Earth centers from the Moon's center.
+
+    Vectors are in the Moon-fixed frame MOON_ME_DE421, in km. One table
+    serves every site: subtract the site vector and project on the local
+    horizontal frame (`vectors_to_altaz`). Returns {"sun": (3, n), "earth": (3, n)}.
+    """
+    ts, eph, _, frame = load_skyfield(kernel_dir)
+    t = ts.from_datetimes(times)
+    center = eph["moon"].at(t)
+    return {body: center.observe(eph[body]).apparent().frame_xyz(frame).km
+            for body in ("sun", "earth")}
+
+
+def vectors_to_altaz(vector_km, lat, lon, height_m=0.0):
+    """Azimuth and elevation (deg) of Moon-centered vectors seen from a site.
+
+    This is the computation the web client does for a custom coordinate;
+    `vector_km` has shape (3, n). Azimuth is clockwise from north.
+    """
+    import numpy as np
+
+    la, lo = math.radians(lat), math.radians(lon)
+    up = np.array([math.cos(la) * math.cos(lo), math.cos(la) * math.sin(lo), math.sin(la)])
+    east = np.array([-math.sin(lo), math.cos(lo), 0.0])
+    north = np.cross(up, east)
+    rel = np.asarray(vector_km) - (MOON_RADIUS_KM + height_m / 1000.0) * up[:, None]
+    e, n, u = east @ rel, north @ rel, up @ rel
+    return np.degrees(np.arctan2(e, n)) % 360.0, np.degrees(np.arctan2(u, np.hypot(e, n)))
+
+
+VECTOR_HEADER = ["utc", "sun_x_km", "sun_y_km", "sun_z_km", "earth_x_km", "earth_y_km", "earth_z_km"]
+
+
+def run_vectors(a):
+    """Write the site-independent vectors table and check it against the per-site tables."""
+    import numpy as np
+
+    times = time_grid(a.start, a.days, a.step)
+    os.makedirs(a.kernels, exist_ok=True)
+    os.makedirs(a.out, exist_ok=True)
+    vectors = moon_centered_vectors(times, a.kernels)
+    path = os.path.join(a.out, "ephemeris_vectors.csv")
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(VECTOR_HEADER)
+        sun, earth = vectors["sun"], vectors["earth"]
+        for i, t in enumerate(times):
+            w.writerow([t.strftime("%Y-%m-%dT%H:%MZ")]
+                       + [f"{sun[k][i]:.1f}" for k in range(3)]
+                       + [f"{earth[k][i]:.3f}" for k in range(3)])
+    print("wrote:", path, f"({len(times)} rows, {times[0]:%Y-%m-%d} .. {times[-1]:%Y-%m-%d})")
+
+    # Read the file back, so the check covers the rounding of the written values.
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    index = {r["utc"]: i for i, r in enumerate(rows)}
+    table = {body: np.array([[float(r[f"{body}_{k}_km"]) for r in rows] for k in "xyz"])
+             for body in ("sun", "earth")}
+    print("  Check against the per-site tables (max |difference|, deg):")
+    for key, (_, lat, lon) in SITES.items():
+        site_path = os.path.join(a.out, f"skyfield_{key}.csv")
+        if not os.path.exists(site_path):
+            continue
+        site = read_csv(site_path)
+        common = [u for u in site if u in index]
+        if not common:
+            print(f"    {key:17s} no common timestamps")
+            continue
+        pick = [index[u] for u in common]
+        ref = np.array([site[u] for u in common])
+        worst = []
+        for col, body in ((0, "sun"), (2, "earth")):
+            az, alt = vectors_to_altaz(table[body][:, pick], lat, lon)
+            # Azimuth differences are scaled to great-circle size (cos of elevation).
+            d_az = np.abs((az - ref[:, col] + 180.0) % 360.0 - 180.0) * np.cos(np.radians(alt))
+            worst += [d_az.max(), np.abs(alt - ref[:, col + 1]).max()]
+        print(f"    {key:17s} sun az {worst[0]:.5f} alt {worst[1]:.5f}   "
+              f"earth az {worst[2]:.5f} alt {worst[3]:.5f}   ({len(common)} samples)")
+
+
 def station_moon_elevation(times, kernel_dir):
     """Elevation of the Moon's center at each DSN complex (no refraction).
 
@@ -242,7 +329,7 @@ def compare(sky, hor):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("cmd", choices=["compute", "horizons", "compare", "metrics", "horizon", "dsn", "risk", "mast",
-                                  "rank", "nearby", "sites"])
+                                  "rank", "nearby", "vectors", "grid", "sites"])
     p.add_argument("--site", default="malapert_a", help="built-in site key, or a name for custom coordinates")
     p.add_argument("--lat", type=float, help="custom latitude (degrees, north positive)")
     p.add_argument("--lon", type=float, help="custom longitude (degrees, east positive)")
@@ -269,6 +356,12 @@ def main():
                    help="risk: ignore the terrain horizon even if one is available")
     p.add_argument("--radii", default="1,2,5,10",
                    help="nearby: ring radii around the site (km, comma-separated)")
+    p.add_argument("--grid", type=int, default=9,
+                   help="grid: points per side of the square around the site (odd number)")
+    p.add_argument("--grid-step", type=float, default=125.0,
+                   help="grid: distance between neighbouring points (m)")
+    p.add_argument("--precision", type=float,
+                   help="grid/risk profile: landing precision, the radius in which slope is judged (m)")
     p.add_argument("--masts", default="2,5,10", help="mast: heights to compare (m, comma-separated)")
     p.add_argument("--at", help="metrics: report the status at this UTC instant, YYYY-MM-DDTHH:MM")
     a = p.parse_args()
@@ -294,6 +387,10 @@ def main():
 
     if a.cmd == "rank":
         run_rank(a)
+        return
+
+    if a.cmd == "vectors":
+        run_vectors(a)
         return
 
     key, label, lat, lon = resolve_site(a)
@@ -340,6 +437,9 @@ def main():
     elif a.cmd == "nearby":
         run_nearby(a, key, label, lat, lon, sky_path)
 
+    elif a.cmd == "grid":
+        run_grid(a, key, label, lat, lon, sky_path)
+
 
 def parse_instant(text):
     fmt = "%Y-%m-%dT%H:%M" if "T" in text else "%Y-%m-%d"
@@ -353,7 +453,7 @@ def build_profile(a):
     profile = dict(lr.DEFAULT_PROFILE)
     for name, value in (("duration_days", a.duration), ("battery_survival_h", a.battery_hours),
                         ("max_comm_outage_h", a.max_outage_hours), ("max_slope_deg", a.max_slope),
-                        ("mask_deg", a.mask or None)):
+                        ("landing_precision_m", a.precision), ("mask_deg", a.mask or None)):
         if value is not None:
             profile[name] = value
     return profile
@@ -531,6 +631,75 @@ def run_nearby(a, key, label, lat, lon, sky_path):
     print(f"  Most slip-tolerant  : {where(robust)} -> {robust['slip_tolerance_days']} d "
           f"(risk {robust['risk_overall']:.0f})")
     print(f"  Most low-risk dates : {where(flexible)} -> {flexible['low_risk_dates']} dates in the year")
+
+
+def run_grid(a, key, label, lat, lon, sky_path):
+    """Horizon and slope for a square of points around a site (needs the LOLA DEM).
+
+    The file has the shape of the terrain service's `/horizon` response. If
+    the site's Sun/Earth table exists, every point is also scored for the
+    landing date and the best neighbour is printed (the file is not affected).
+    """
+    import numpy as np
+
+    import lunar_metrics as lm
+    import lunar_risk as lr
+    import lunar_terrain as lt
+
+    profile, stations = build_profile(a), load_stations(a)
+    doc = lt.compute_grid(lat, lon, n=a.grid, step_m=a.grid_step, mast_m=a.mast,
+                          precision_m=profile["landing_precision_m"])
+    doc = {"site": {"key": key, "name": label, "lat": lat, "lon": lon}, **doc}
+    path = os.path.join(a.out, f"grid_{key}.json")
+    os.makedirs(a.out, exist_ok=True)
+    with open(path, "w") as f:
+        f.write(lt.grid_to_json(doc) + "\n")
+    points = doc["points"]
+    print("wrote:", path, f"({len(points)} points)")
+    print(f"{label}  ({lat}, {lon}); {a.grid} x {a.grid} points every {a.grid_step:g} m, "
+          f"slope within {doc['precision_m']:g} m from the {doc['slope_source']}")
+    if not doc["horizon_coverage_complete"]:
+        print("  Note: terrain beyond the edge of the map is missing from these horizons")
+    if not os.path.exists(sky_path):
+        return
+
+    times = lm.load_series(sky_path)[0]
+    landing = parse_instant(a.landing) if a.landing else times[0]
+    angles = compute_points([(pt["lat"], pt["lon"]) for pt in points], times, a.kernels)
+    rows = []
+    for pt, ang in zip(points, angles):
+        horizon = {"azimuth_deg": pt["azimuth_step_deg"] * np.arange(len(pt["horizon_deg"])),
+                   "horizon_deg": pt["horizon_deg"]}
+        series = lr.build_series(times, ang["sun_alt"], ang["earth_alt"], ang["sun_az"],
+                                 ang["earth_az"], horizon=horizon, stations=stations, profile=profile)
+        window = lr.analyze_window(series, landing)
+        score = lr.score_window(window, profile, {"slope_lola_deg": {"p95": pt["slope_deg"]}})
+        rows.append((pt, window, score))
+
+    def where(pt):
+        if pt["east_m"] == 0 and pt["north_m"] == 0:
+            return "site itself"
+        parts = [f"{abs(v):g} m {pos if v > 0 else neg}"
+                 for v, pos, neg in ((pt["north_m"], "N", "S"), (pt["east_m"], "E", "W")) if v]
+        return ", ".join(parts)
+
+    def line(title, row):
+        pt, w, sc = row
+        return (f"  {title:14s}: {where(pt):>16s}  usable Sun {w['power']['sunlit_pct']:5.1f}%  "
+                f"dark max {lm.format_duration(w['power']['longest_darkness_h']):>7s}  "
+                f"link {w['comm']['available_pct']:5.1f}%  slope {pt['slope_deg']:4.1f} deg  "
+                f"risk {sc['overall']:3.0f} ({sc['level']}, {sc['driver']})")
+
+    best = min(rows, key=lambda r: (r[2]["overall"], -r[1]["power"]["sunlit_pct"],
+                                    math.hypot(r[0]["east_m"], r[0]["north_m"])))
+    scores = [r[2]["overall"] for r in rows]
+    sun = [r[1]["power"]["sunlit_pct"] for r in rows]
+    print(f"  Landing {lm.format_time(landing)}, {profile['duration_days']:g}-day mission")
+    print(line("Requested site", rows[0]))
+    print(line("Best neighbour", best))
+    print(f"  Over the grid : risk {min(scores):.0f} .. {max(scores):.0f}, "
+          f"usable Sun {min(sun):.1f} .. {max(sun):.1f}%, "
+          f"{sum(1 for v in scores if v < 33)} of {len(rows)} points low-risk")
 
 
 def run_risk(a, key, label, lat, lon, sky_path):
