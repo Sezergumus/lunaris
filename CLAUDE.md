@@ -33,8 +33,9 @@ only); never edit it.
 `Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line, in commits, pull
 requests, code or docs.
 
-**Where we are (2026-11-14, ~22:30 local):** everything is committed and pushed, the working
-tree is clean, nothing is in progress. Work of the evening on Kerem's Mac, in order:
+**Where we are (2026-11-15, ~01:15 local):** everything is committed and pushed, the working
+tree is clean, nothing is in progress. The terrain API was deployed after the work listed
+here (see the block on the live API below). Work of the evening on Kerem's Mac, in order:
 mission-profile presets, the Chandrayaan-3 backtest, the profile selector, the
 horizon-uncertainty score, then:
 
@@ -66,11 +67,53 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
 - Built on 2026-11-14 evening: profile presets and the backtest (above). Not done there:
   a heated / nuclear preset (no sourced numbers), the `date_alternatives` midnight quirk
   (see pitfalls), a `validate` check that the Python and TypeScript presets are equal.
-- Not built: deployment of the API (no Docker on Kerem's Mac, image never built), every
-  visual part of the frontend (see "Frontend status"), README.
+- Not built: the visual parts of the frontend that are still open (see "Frontend status"),
+  README.
 
-**Next action (backend):** ask Kerem what he wants next. Open backend items: deploy the API
-(Hugging Face Space, or a laptop for the demo), decide the slope source and the surface-score
+**The terrain API is live (since 2026-11-15 ~00:45):**
+`https://lunaris-terrain-601609650151.europe-west1.run.app` (`/health`, `/horizon`).
+
+- Host: Google Cloud Run, Kerem's account (free trial), project
+  `project-df92223b-059a-42b1-82a`, region `europe-west1`, service `lunaris-terrain`, public,
+  2 GiB / 2 CPU, at most 2 instances, scales to zero. Redeploy:
+  `sh api/deploy_cloud_run.sh project-df92223b-059a-42b1-82a` (needs `gcloud auth login` as
+  Kerem; gcloud 593 is installed with Homebrew). Logs:
+  `gcloud run services logs read lunaris-terrain --project <id> --region europe-west1`.
+- The container holds no terrain. It reads the height grid and the 60 m slope map by range
+  requests from the public bucket `gs://lunaris-lola-601609650151` (same region;
+  `LDEM_60S_60MPP_ADJ.TIF` 2.9 GB, `LDSM_60S_60MPP_ADJ.TIF` 4.0 GB) through the settings
+  `LUNAR_TERRAIN_URL=https://storage.googleapis.com/lunaris-lola-601609650151`
+  (`lunar_terrain.REMOTE_BASE`) and `LUNAR_TERRAIN_REMOTE_SLOPE=1`
+  (`lunar_terrain.slope_map_available`). Mirror of all six local GeoTIFFs (9.4 GB):
+  https://huggingface.co/datasets/KeremGull/lunaris-lola (account `KeremGull`); the first
+  deployment read from it and was 2-3 times slower.
+- Measured on the live service (bucket): first request after a deploy 4.4 s, a new point
+  1.1-1.7 s, a repeated point 0.27 s (in-memory cache), 5x5 grid 8.0 s, 422 outside
+  coverage, CORS `*`, immutable cache header. **Horizon, ground height and slope equal the
+  local computation exactly** for the same point with `snap=false` (Mons Mouton slope 3.298,
+  Malapert A 13.109 deg, horizon difference 0.0). With the Hugging Face source a custom
+  point in the web UI (dev server, `VITE_TERRAIN_API` set to the URL in the git-ignored
+  `web/.env.local` on Kerem's Mac) got its terrain from the service; not repeated in the
+  browser after the move to the bucket.
+- The local slope source changed on 2026-11-14 20:20: `LDSM_60S_60MPP_ADJ.tiff` (4.0 GB,
+  60 m) is now in `data/lola` and is **picked before the 120 m map**, so `grid`, the API and
+  a re-run of `horizon` use 60 m slopes; `grid_<site>.json` in the repository was made with
+  the 120 m map and was not regenerated. Two `LDEC_*` files are also there (not used by any
+  code, product not identified).
+- Still to do: set `VITE_TERRAIN_API` to the URL in the Vercel project (Sezer) and redeploy
+  the site; then restrict `LUNARIS_CORS_ORIGINS` to the site's origin (a list with commas
+  needs another delimiter in `--set-env-vars`); optionally a scheduled `/health` call so a
+  demo does not start cold. The 5x5 grid takes 8 s (computation, not reading). The UI calls
+  `/horizon` with `grid=1` only (`/health` and the nearby-spot search have no component).
+- Cost: the bucket is public, so downloads by others are billed as egress to Kerem's trial
+  credit; storage of 6.6 GiB is small. Not priced exactly.
+- Dead ends, do not retry: Hugging Face Docker Spaces need a PRO subscription since 2026
+  (HTTP 402 on create); Render's free 512 MB is too close to the 500 MB peak measured. A new
+  Google Cloud project refuses the first build until the default Compute service account
+  has `roles/run.builder` (Kerem granted it). The slim Python image lacks `libexpat1`, which
+  rasterio's GDAL needs (installed in `api/Dockerfile`).
+
+**Next action (backend):** ask Kerem what he wants next. Open backend items: decide the slope source and the surface-score
 radius (see open decisions), then "Next steps".
 **Next action (frontend):** the design is decided and planned in `frontend-plan.md`. Phase 8
 has its explainer lines (`Explainer.tsx`) and URL state (`state/url.ts`); whether phase 8 is
@@ -397,8 +440,12 @@ enough), and the center of every precomputed grid, scored from the vectors table
 the backend's mission window. Best neighbours equal the backend's `grid` output (Malapert A
 500 m N, 250 m W, risk 52). A live test against the local API for a custom point
 (-85.3, 31.0, grid 5) gave the same scores as Python for landings in 2026 and 2029. `tsc -b`,
-`oxlint` and `vite build` pass. The client in `terrain.ts` was type-checked but its fetch
-code has not run in a browser yet.
+`oxlint` and `vite build` pass. The client in `terrain.ts` was run in a
+browser against the local API on 2026-11-14 (`VITE_TERRAIN_API=http://localhost:8000` in
+`web/.env.local`): a custom point (-85.3, 31) got its terrain horizon, the snapped center
+and the exact 10 m mast horizon; CORS and caching headers are in place. The UI calls
+`/horizon` with `grid=1` only: `/health` (service status) and the `grid=5` nearby-spot
+search are not used by any component yet.
 
 Not built yet: everything visual and interactive (horizon panorama with Sun and Earth, time
 slider and animation, status cards with elevation and time to sunset / Earthset, risk card,
