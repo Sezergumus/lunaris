@@ -3,7 +3,7 @@ import { ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
 import { PROFILE_PRESETS, analyzeWindow, scoreWindow, type ProfileKey, type RiskLevel, type Score } from "../engine/risk.ts";
 import { actions, useScenario } from "../state/scenario.ts";
 import { Segmented } from "../ui/Segmented.tsx";
-import { formatDays } from "../ui/format.ts";
+import { Tip } from "../ui/Tooltip.tsx";
 import type { ScenarioView } from "../state/view.ts";
 
 const LEVEL_TEXT: Record<RiskLevel, string> = { low: "Low", medium: "Medium", high: "High" };
@@ -72,12 +72,14 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
         })}
       </dl>
       {worse && mapError ? (
-        <p className="risk__error" data-changed={worse.level !== score.level || undefined}>
-          With map height error ({mapError.heightErrorM.toFixed(1)} m, horizon up to {mapError.maxDeg.toFixed(2)}° higher):{" "}
-          <strong>
-            {worse.overall.toFixed(0)} · {LEVEL_TEXT[worse.level]}
-          </strong>
-        </p>
+        <Tip label={`With map height error (${mapError.heightErrorM.toFixed(1)} m, horizon up to ${mapError.maxDeg.toFixed(2)}° higher)`} side="bottom">
+          <p className="risk__error" data-changed={worse.level !== score.level || undefined}>
+            Height error (+{mapError.heightErrorM.toFixed(1)} m):{" "}
+            <strong>
+              {worse.overall.toFixed(0)} · {LEVEL_TEXT[worse.level]}
+            </strong>
+          </p>
+        </Tip>
       ) : null}
     </div>
   );
@@ -86,17 +88,15 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
 /**
  * Overall risk (the worst category) and the three categories behind it, for the mission
  * that lands at the start date. A transparent heuristic with placeholder limits, as the
- * footnote says; it is always shown with its level in words, never as a color alone.
- * The limits come from the selected mission profile, whose source is stated below it.
+ * limits say; it is always shown with its level in words, never as a color alone.
+ * The limits come from the selected mission profile (see the mission parameters).
  */
 export function RiskBadge({ views }: { views: ScenarioView[] }) {
-  const profile = views[0].data.series.profile;
   const profileKey = useScenario((s) => s.profileKey);
-  const edited = useScenario((s) => Object.keys(s.limitOverrides).length > 0);
   return (
     <section className="risk" aria-label="Mission risk">
       <h3 className="metric__label">
-        Mission risk<span className="metric__hint"> · {formatDays(profile.duration_days)}-day mission · 0 best, 100 worst</span>
+        Mission risk
       </h3>
       <div className="risk__profile">
         <Segmented value={profileKey} onChange={actions.setProfile} options={PROFILE_OPTIONS} label="Mission profile" size="sm" />
@@ -106,11 +106,6 @@ export function RiskBadge({ views }: { views: ScenarioView[] }) {
           <ScoreColumn key={view.tag} view={view} tagged={views.length > 1} />
         ))}
       </div>
-      <p className="risk__foot">
-        Worst category counts. Limits: {profile.battery_survival_h} h of darkness, {profile.max_comm_outage_h} h without contact, {profile.min_daily_contact_h} h contact every day, {profile.max_slope_deg}° slope.
-        <br />
-        {edited ? "Limits changed by hand below." : PROFILE_PRESETS[profileKey].basis}
-      </p>
     </section>
   );
 }

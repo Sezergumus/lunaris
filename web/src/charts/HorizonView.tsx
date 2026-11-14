@@ -185,7 +185,6 @@ export function HorizonView({ view, compact = false }: { view: ScenarioView; com
   const height = compact ? 118 : 150;
   const frame = useMemo(() => makeFrame(view.data, height), [view.data, height]);
   const id = `hv-${view.tag}`;
-  const exaggeration = Math.round(frame.yScale / (W / 360));
 
   return (
     <figure className="hv">
@@ -199,9 +198,6 @@ export function HorizonView({ view, compact = false }: { view: ScenarioView; com
         <TerrainOverlay data={view.data} frame={frame} id={id} />
         <Bodies view={view} frame={frame} layer="front" />
       </svg>
-      <figcaption className="hv__caption">
-        {view.data.horizon ? "Terrain horizon" : "Ideal horizon (sphere)"} · north in the middle · heights ×{exaggeration}, disks to that scale
-      </figcaption>
     </figure>
   );
 }

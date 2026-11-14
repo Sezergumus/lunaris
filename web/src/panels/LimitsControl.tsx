@@ -1,8 +1,8 @@
-import { PROFILE_PRESETS } from "../engine/risk.ts";
 import { LIMITS, effectiveProfile } from "../state/limits.ts";
 import { actions, useScenario } from "../state/scenario.ts";
 import { Button } from "../ui/Button.tsx";
 import { Slider } from "../ui/Slider.tsx";
+import { Tip } from "../ui/Tooltip.tsx";
 
 /**
  * The limits the risk score is judged against, one slider each. A mission profile sets
@@ -18,9 +18,7 @@ export function LimitsControl() {
   return (
     <section className="limits" aria-label="Mission limits">
       <div className="limits__head">
-        <h3 className="metric__label">
-          Mission limits<span className="metric__hint"> · what the vehicle tolerates</span>
-        </h3>
+        <h3 className="metric__label">Mission limits</h3>
         {edited ? (
           <Button variant="plain" size="sm" onClick={actions.resetLimits}>
             Reset
@@ -31,11 +29,12 @@ export function LimitsControl() {
         const value = profile[limit.key];
         return (
           <div key={limit.key} className="limits__row" data-edited={overrides[limit.key] !== undefined || undefined}>
-            <p className="limits__label">
-              <span className="limits__category">{limit.category}</span>
-              {limit.label}
-              <span className="metric__hint"> · {limit.hint}</span>
-            </p>
+            <Tip label={limit.hint} side="left">
+              <p className="limits__label">
+                <span className="limits__category">{limit.category}</span>
+                {limit.label}
+              </p>
+            </Tip>
             <output className="limits__value">
               {value}
               {limit.unit === "°" ? "°" : ` ${limit.unit}`}
@@ -52,11 +51,6 @@ export function LimitsControl() {
           </div>
         );
       })}
-      <p className="limits__note">
-        {edited
-          ? `Changed by hand from the ${PROFILE_PRESETS[profileKey].label} profile. Score: 0 while at most half of a limit is used, 100 at the limit.`
-          : "Set by the mission profile above. Score: 0 while at most half of a limit is used, 100 at the limit."}
-      </p>
     </section>
   );
 }

@@ -282,13 +282,6 @@
   fill: var(--text-2);
 }
 
-.hv__caption {
-  margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.35;
-  color: var(--text-3);
-}
-
 /* ---------- Metric cards ---------- */
 
 .metrics {
@@ -583,7 +576,6 @@
   margin-top: 8px;
 }
 
-.risk__foot,
 .risk__none {
   margin-top: 8px;
   font-size: 11px;

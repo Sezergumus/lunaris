@@ -10,11 +10,11 @@ import { actions, customPlace, placeTitle, useScenario } from "../state/scenario
 import { useInstant, type ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Tip } from "../ui/Tooltip.tsx";
-import { formatAngle, formatDuration, formatHours, formatPercent, formatUtcDate, formatUtcDayTime } from "../ui/format.ts";
+import { formatAngle, formatDuration, formatHours, formatUtcDate, formatUtcDayTime } from "../ui/format.ts";
 import "./panels.css";
 
 const HOUR_MS = 3600000;
-const LINK_BLOCK_LABEL = { terrain: "terrain", station: "no station", conjunction: "conjunction" };
+const LINK_BLOCK_LABEL = { terrain: "Terrain", station: "No station", conjunction: "Conjunction" };
 const KICKER = { site: "Landing site", custom: "Custom point", reference: "Equatorial reference" };
 
 interface InspectorPanelProps {
@@ -80,10 +80,10 @@ function Summary({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
   const { data } = view;
   const parts = [`${formatLat(data.lat)}, ${formatLon(data.lon)}`, `${formatDistance(surfaceDistanceM(data.lat, data.lon, -90, 0))} to pole`];
   if (data.slopeP95Deg !== null) parts.push(`Slope p95 ${data.slopeP95Deg.toFixed(1)}°`);
-  const mastNote = data.mast.mode === "estimate" ? ", estimate" : "";
+  const mastNote = data.mast.mode === "estimate" ? " (est.)" : "";
   const model =
     data.status === "terrain"
-      ? `LOLA terrain horizon · ${data.mast.heightM} m mast${mastNote}`
+      ? `LOLA terrain · ${data.mast.heightM} m mast${mastNote}`
       : data.status === "loading"
         ? "Sphere model · loading terrain…"
         : "Sphere model · no terrain";
@@ -184,15 +184,14 @@ function Metric({ label, hint, views, cell: Cell }: MetricProps) {
 function ElevationCell({ view }: { view: ScenarioView }) {
   const at = useInstant(view);
   const output = panelYield(at.sunAlt, at.solarFraction);
-  const clearance = Math.abs(at.sunAboveTerrain).toFixed(2);
   return (
     <>
       <p className="metric__value metric__value--xl">{formatAngle(at.sunAlt)}</p>
       <p className="metric__sub">
-        {clearance}° {at.sunAboveTerrain >= 0 ? "above" : "below"} {view.data.horizon ? "the terrain" : "the horizon"}
+        {formatAngle(at.sunAboveTerrain, 1)} vs {view.data.horizon ? "terrain" : "horizon"}
       </p>
       <p className="metric__sub">
-        Panel yield: upright <b>{formatPercent(output.vertical * 100)}</b> · flat <b>{formatPercent(output.horizontal * 100)}</b>
+        Panel: <b>{(output.vertical * 100).toFixed(0)}%</b> upright · <b>{(output.horizontal * 100).toFixed(0)}%</b> flat
       </p>
     </>
   );
@@ -216,7 +215,7 @@ function SunsetCell({ view }: { view: ScenarioView }) {
     return (
       <>
         <p className="metric__value is-danger">In shadow</p>
-        <p className="metric__sub">{sun.hours !== null ? `sunrise in ${formatDuration(sun.hours)}` : "no sunrise in the data"}</p>
+        <p className="metric__sub">{sun.hours !== null ? `sunrise in ${formatDuration(sun.hours)}` : "None in window"}</p>
         {sun.atMs !== null ? <p className="metric__sub">{formatUtcDayTime(sun.atMs)}</p> : null}
       </>
     );
@@ -224,7 +223,7 @@ function SunsetCell({ view }: { view: ScenarioView }) {
   return (
     <>
       <p className="metric__value">{sun.hours !== null ? formatDuration(sun.hours) : "Always lit"}</p>
-      <p className="metric__sub">{sun.atMs !== null ? `Sunset ${formatUtcDayTime(sun.atMs)}` : "no sunset in the data"}</p>
+      <p className="metric__sub">{sun.atMs !== null ? `Sunset ${formatUtcDayTime(sun.atMs)}` : "None in window"}</p>
     </>
   );
 }
@@ -246,7 +245,7 @@ function EarthsetCell({ view }: { view: ScenarioView }) {
       ) : null}
       <p className="metric__status" data-state={at.link ? "good" : "bad"}>
         <Radio aria-hidden="true" />
-        DTE link: {at.link ? "Active" : `Blocked · ${LINK_BLOCK_LABEL[at.linkBlock!]}`}
+        Link: {at.link ? "Active" : LINK_BLOCK_LABEL[at.linkBlock!]}
       </p>
     </>
   );
@@ -263,9 +262,9 @@ function DarknessCell({ view }: { view: ScenarioView }) {
       <p className="metric__value">{formatHours(window.power.longest_darkness_h)}</p>
       <p className="metric__status" data-state={survives ? "good" : "bad"}>
         {survives ? <BatteryFull aria-hidden="true" /> : <BatteryWarning aria-hidden="true" />}
-        {survives ? "Within" : "Exceeds"} the {battery} h battery
+        {survives ? "≤" : ">"} {battery} h battery
       </p>
-      <p className="metric__sub">Usable Sun {formatPercent(window.power.sunlit_pct)} of this window</p>
+      <p className="metric__sub">{window.power.sunlit_pct.toFixed(0)}% sunlit</p>
     </>
   );
 }

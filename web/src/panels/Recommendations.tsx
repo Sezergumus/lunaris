@@ -86,9 +86,6 @@ export function Recommendations({ view, nearby }: { view: ScenarioView; nearby: 
             <p>
               Better spot <b>{offsetText(spot.point)}</b> · {riskText(spot.score.overall, spot.score.level)}, Sun {signedPoints(spot.window.power.sunlit_pct - center.window.power.sunlit_pct)}
             </p>
-            <p className="suggest__note">
-              Here: {riskText(center.score.overall, center.score.level)} with the same rules (slope within {grid.precision_m} m)
-            </p>
           </div>
           <div className="suggest__actions">
             <Button size="sm" variant="filled" onClick={() => open("a")}>
@@ -111,7 +108,7 @@ export function Recommendations({ view, nearby }: { view: ScenarioView; nearby: 
             <p className="suggest__note" data-tone={state.status === "error" ? "error" : undefined}>
               {state.status === "error"
                 ? state.message
-                : `${LIVE_GRID.grid * LIVE_GRID.grid} points ${LIVE_GRID.step} m apart from the terrain service, about 8 s`}
+                : `±${(LIVE_GRID.grid >> 1) * LIVE_GRID.step} m grid · ~8 s`}
             </p>
           </div>
           <div className="suggest__actions">
@@ -158,7 +155,7 @@ export function Recommendations({ view, nearby }: { view: ScenarioView; nearby: 
   return (
     <section className="suggest" aria-label="Suggestions">
       <h3 className="metric__label">
-        Suggestions<span className="metric__hint"> · for this mission</span>
+        Suggestions
       </h3>
       <ul>
         {spotRow}
