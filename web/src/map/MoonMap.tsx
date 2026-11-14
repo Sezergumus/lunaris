@@ -4,10 +4,14 @@ import { Minus, Plus, Scan } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import type { SiteInfo } from "../data/load.ts";
 import { formatLat, formatLon, latLonToXY } from "../geo/polar.ts";
+import { sampleAt } from "../engine/events.ts";
 import { siteTitle } from "../sites.ts";
+import { getScenario, subscribeScenario } from "../state/scenario.ts";
+import type { ScenarioView } from "../state/view.ts";
 import { createCapMask, createGraticule } from "./graticule.ts";
 import { MAX_ZOOM, MoonSouthPolarCRS, TREK_LAYERS, ZOOM0_M_PER_PX, createTrekLayer, nativeZoomAt } from "./trek.ts";
 import { ScaleBar } from "./ScaleBar.tsx";
+import { createSkyArrows } from "./SkyArrows.ts";
 import { Tip } from "../ui/Tooltip.tsx";
 import "./map.css";
 
@@ -30,6 +34,8 @@ interface MoonMapProps {
   picked: MapPoint | null;
   /** View request: the map flies there when the object changes. Null leaves the view alone. */
   flyTarget: MapPoint | null;
+  /** Scenarios on screen; each gets Sun and Earth direction arrows at its place. */
+  views: ScenarioView[];
   onSelectSite: (key: string) => void;
   onHoverSite: (key: string | null) => void;
   onPick: (point: MapPoint) => void;
@@ -81,7 +87,7 @@ function zoomToFit(map: L.Map, halfWidthM: number, insets: Insets): number {
   return Math.floor(Math.log2((ZOOM0_M_PER_PX * free) / (2 * halfWidthM)) * 4) / 4;
 }
 
-export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
+export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, views, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
@@ -238,6 +244,28 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, onS
     };
   }, [map, picked]);
 
+  // Sun and Earth arrows. They follow the timeline cursor through a direct store
+  // subscription, so playback turns them without re-rendering React.
+  useEffect(() => {
+    if (!map) return;
+    const arrows = views
+      .filter((view) => view.data.place.kind !== "reference")
+      .map((view) => ({ view, layer: createSkyArrows(map, view.data.lat, view.data.lon, view.tag === "B") }));
+    let lastOffset = NaN;
+    const apply = () => {
+      const { offsetMs } = getScenario();
+      if (offsetMs === lastOffset) return;
+      lastOffset = offsetMs;
+      for (const { view, layer } of arrows) layer.update(sampleAt(view.data.series, view.data.sky, view.startMs + offsetMs));
+    };
+    apply();
+    const unsubscribe = subscribeScenario(apply);
+    return () => {
+      unsubscribe();
+      arrows.forEach(({ layer }) => layer.remove());
+    };
+  }, [map, views]);
+
   const resetView = () => {
     if (!map) return;
     const insets = getInsets();
@@ -278,6 +306,23 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, onS
           <span className="readout__lon" />
         </div>
         {map && <ScaleBar map={map} />}
+        {views.some((view) => view.data.place.kind !== "reference") ? (
+          <div className="arrow-legend glass">
+            <span className="arrow-legend__item">
+              <svg viewBox="0 0 22 6" aria-hidden="true">
+                <path className="arrow-legend__sun" d="M1,3H21" />
+              </svg>
+              Sun
+            </span>
+            <span className="arrow-legend__item">
+              <svg viewBox="0 0 22 6" aria-hidden="true">
+                <path className="arrow-legend__earth" d="M1,3H21" />
+              </svg>
+              Earth
+            </span>
+            <span className="arrow-legend__note">faded = below the horizon</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="map-attribution">

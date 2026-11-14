@@ -155,6 +155,14 @@
   border-color: rgba(255, 255, 255, 0.18);
 }
 
+/* A pin with direction arrows carries its label underneath, clear of the arrows' usual sweep. */
+.site-pin.is-selected .site-pin__label,
+.site-pin.is-compare .site-pin__label {
+  left: 0;
+  top: 15px;
+  transform: translateX(-50%);
+}
+
 /* ---------- Picked point ---------- */
 
 .pick-pin__ring {
@@ -189,6 +197,105 @@
   margin: -2px 0 0 -2px;
   border-radius: 50%;
   background: #fff;
+}
+
+/* ---------- Sun and Earth direction arrows ---------- */
+
+.sky-arrows svg {
+  position: absolute;
+  left: -75px;
+  top: -75px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sky-arrow path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sky-arrow {
+  transition: opacity 200ms ease;
+}
+
+.sky-arrow__halo {
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 5.5;
+}
+
+.sky-arrow__shaft,
+.sky-arrow__head {
+  stroke-width: 2.5;
+}
+
+.sky-arrow--sun .sky-arrow__shaft,
+.sky-arrow--sun .sky-arrow__head {
+  stroke: var(--sun);
+}
+
+/* Sun: dashed. Earth: solid. The pair never relies on color alone. */
+.sky-arrow--sun .sky-arrow__shaft {
+  stroke-dasharray: 5 5;
+}
+
+.sky-arrow--earth .sky-arrow__shaft,
+.sky-arrow--earth .sky-arrow__head {
+  stroke: var(--earth);
+}
+
+.sky-arrow[data-hidden] {
+  opacity: 0.32;
+}
+
+.sky-arrows--b .sky-arrow__shaft,
+.sky-arrows--b .sky-arrow__head {
+  stroke-width: 1.8;
+}
+
+.arrow-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.arrow-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.arrow-legend svg {
+  width: 22px;
+  height: 6px;
+}
+
+.arrow-legend path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.arrow-legend__sun {
+  stroke: var(--sun);
+  stroke-dasharray: 4 4;
+}
+
+.arrow-legend__earth {
+  stroke: var(--earth);
+}
+
+.arrow-legend__note {
+  color: var(--text-3);
+  font-weight: 450;
 }
 
 /* ---------- Controls ---------- */
@@ -300,8 +407,8 @@
 .map-attribution {
   position: absolute;
   z-index: 1000;
-  right: 392px;
-  bottom: calc(var(--hud-bottom, 0px) + 22px);
+  left: 360px;
+  top: 16px;
   display: flex;
   gap: 12px;
   font-size: 11px;
@@ -325,7 +432,8 @@
 @media (prefers-reduced-motion: reduce) {
   .site-pin__dot,
   .pick-pin__ring,
-  .scale-bar__rule {
+  .scale-bar__rule,
+  .sky-arrow {
     transition: none;
   }
 }
@@ -337,7 +445,8 @@
     bottom: auto;
   }
 
-  .readout {
+  .readout,
+  .arrow-legend {
     display: none;
   }
 

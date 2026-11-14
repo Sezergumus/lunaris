@@ -120,6 +120,7 @@ export default function App() {
         hoveredKey={hoveredKey}
         picked={picked}
         flyTarget={flyTarget}
+        views={views}
         onSelectSite={(key) => {
           const site = sites.find((s) => s.key === key);
           if (site) choose(sitePlace(site));
