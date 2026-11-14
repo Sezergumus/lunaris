@@ -1,0 +1,385 @@
+{
+ "landing": "2026-12-16T00:00Z",
+ "profile": {
+  "duration_days": 14.0,
+  "battery_survival_h": 50.0,
+  "min_sunlit_pct": 50.0,
+  "min_solar_fraction": 0.5,
+  "max_comm_outage_h": 24.0,
+  "min_comm_pct": 50.0,
+  "station_min_elevation_deg": 10.0,
+  "conjunction_deg": 2.0,
+  "low_elevation_deg": 2.0,
+  "max_slope_deg": 10.0,
+  "mask_deg": 0.0
+ },
+ "sites": [
+  {
+   "key": "mons_mouton",
+   "name": "Mons Mouton / IM-2 region",
+   "lat": -84.79,
+   "lon": 29.2,
+   "horizon_model": "terrain",
+   "window": {
+    "landing": "2026-12-16T00:00Z",
+    "end": "2026-12-30T00:00Z",
+    "duration_days": 14.0,
+    "power": {
+     "sunlit_pct": 100.0,
+     "mean_solar_fraction_pct": 100.0,
+     "longest_darkness_h": 0.0,
+     "dark_at_landing": false,
+     "partial_disk_h": 1.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      0.267,
+      7.64
+     ]
+    },
+    "comm": {
+     "available_pct": 99.702,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 1.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 10.0,
+     "earth_above_terrain_deg": [
+      1.466,
+      11.948
+     ]
+    }
+   },
+   "score": {
+    "power": 0.0,
+    "comm": 0.0,
+    "surface": 17.84,
+    "overall": 17.84,
+    "level": "low",
+    "driver": "surface"
+   },
+   "dates": {
+    "requested": "2026-12-16T00:00Z",
+    "nearest_earlier": "2026-12-15T00:00Z",
+    "nearest_later": "2026-12-17T00:00Z",
+    "slip_tolerance_days": 1,
+    "low_risk_now": true,
+    "low_risk_dates": 22,
+    "windows": [
+     {
+      "start": "2026-12-14T00:00Z",
+      "end": "2026-12-17T00:00Z",
+      "days": 4
+     },
+     {
+      "start": "2027-01-13T00:00Z",
+      "end": "2027-01-15T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-05-12T00:00Z",
+      "end": "2027-05-12T00:00Z",
+      "days": 1
+     },
+     {
+      "start": "2027-08-10T00:00Z",
+      "end": "2027-08-10T00:00Z",
+      "days": 1
+     },
+     {
+      "start": "2027-09-06T00:00Z",
+      "end": "2027-09-09T00:00Z",
+      "days": 4
+     },
+     {
+      "start": "2027-10-05T00:00Z",
+      "end": "2027-10-09T00:00Z",
+      "days": 5
+     },
+     {
+      "start": "2027-11-04T00:00Z",
+      "end": "2027-11-07T00:00Z",
+      "days": 4
+     }
+    ]
+   }
+  },
+  {
+   "key": "chandrayaan3",
+   "name": "Chandrayaan-3 (Shiv Shakti)",
+   "lat": -69.37,
+   "lon": 32.32,
+   "horizon_model": "terrain",
+   "window": {
+    "landing": "2026-12-16T00:00Z",
+    "end": "2026-12-30T00:00Z",
+    "duration_days": 14.0,
+    "power": {
+     "sunlit_pct": 89.881,
+     "mean_solar_fraction_pct": 89.983,
+     "longest_darkness_h": 32.0,
+     "dark_at_landing": false,
+     "partial_disk_h": 3.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -5.545,
+      20.49
+     ]
+    },
+    "comm": {
+     "available_pct": 99.702,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 1.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      12.653,
+      20.564
+     ]
+    }
+   },
+   "score": {
+    "power": 28.0,
+    "comm": 0.0,
+    "surface": 0.0,
+    "overall": 28.0,
+    "level": "low",
+    "driver": "power"
+   },
+   "dates": {
+    "requested": "2026-12-16T00:00Z",
+    "nearest_earlier": "2026-12-15T00:00Z",
+    "nearest_later": "2027-01-12T00:00Z",
+    "slip_tolerance_days": 0,
+    "low_risk_now": true,
+    "low_risk_dates": 37,
+    "windows": [
+     {
+      "start": "2026-12-13T00:00Z",
+      "end": "2026-12-16T00:00Z",
+      "days": 4
+     },
+     {
+      "start": "2027-01-12T00:00Z",
+      "end": "2027-01-14T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-02-10T00:00Z",
+      "end": "2027-02-12T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-03-12T00:00Z",
+      "end": "2027-03-14T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-04-11T00:00Z",
+      "end": "2027-04-12T00:00Z",
+      "days": 2
+     },
+     {
+      "start": "2027-05-10T00:00Z",
+      "end": "2027-05-12T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-06-09T00:00Z",
+      "end": "2027-06-10T00:00Z",
+      "days": 2
+     },
+     {
+      "start": "2027-07-08T00:00Z",
+      "end": "2027-07-10T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-08-06T00:00Z",
+      "end": "2027-08-09T00:00Z",
+      "days": 4
+     },
+     {
+      "start": "2027-09-05T00:00Z",
+      "end": "2027-09-07T00:00Z",
+      "days": 3
+     },
+     {
+      "start": "2027-10-04T00:00Z",
+      "end": "2027-10-07T00:00Z",
+      "days": 4
+     },
+     {
+      "start": "2027-11-03T00:00Z",
+      "end": "2027-11-05T00:00Z",
+      "days": 3
+     }
+    ]
+   }
+  },
+  {
+   "key": "shackleton",
+   "name": "Shackleton crater (center)",
+   "lat": -89.67,
+   "lon": 129.78,
+   "horizon_model": "terrain",
+   "window": {
+    "landing": "2026-12-16T00:00Z",
+    "end": "2026-12-30T00:00Z",
+    "duration_days": 14.0,
+    "power": {
+     "sunlit_pct": 0.0,
+     "mean_solar_fraction_pct": 0.0,
+     "longest_darkness_h": 336.0,
+     "dark_at_landing": true,
+     "partial_disk_h": 0.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -22.485,
+      -18.623
+     ]
+    },
+    "comm": {
+     "available_pct": 0.0,
+     "longest_outage_h": 336.0,
+     "terrain_occultation_h": 336.0,
+     "station_gap_h": 0.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      -25.767,
+      -16.003
+     ]
+    }
+   },
+   "score": {
+    "power": 100.0,
+    "comm": 100.0,
+    "surface": 87.1,
+    "overall": 100.0,
+    "level": "high",
+    "driver": "power"
+   },
+   "dates": {
+    "requested": "2026-12-16T00:00Z",
+    "nearest_earlier": null,
+    "nearest_later": null,
+    "slip_tolerance_days": 0,
+    "low_risk_now": false,
+    "low_risk_dates": 0,
+    "windows": []
+   }
+  },
+  {
+   "key": "connecting_ridge",
+   "name": "Shackleton-de Gerlache ridge",
+   "lat": -89.45,
+   "lon": 222.69,
+   "horizon_model": "terrain",
+   "window": {
+    "landing": "2026-12-16T00:00Z",
+    "end": "2026-12-30T00:00Z",
+    "duration_days": 14.0,
+    "power": {
+     "sunlit_pct": 100.0,
+     "mean_solar_fraction_pct": 100.0,
+     "longest_darkness_h": 0.0,
+     "dark_at_landing": false,
+     "partial_disk_h": 0.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      0.991,
+      3.121
+     ]
+    },
+    "comm": {
+     "available_pct": 83.333,
+     "longest_outage_h": 55.0,
+     "terrain_occultation_h": 55.0,
+     "station_gap_h": 1.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 48.0,
+     "earth_above_terrain_deg": [
+      -4.367,
+      6.355
+     ]
+    }
+   },
+   "score": {
+    "power": 0.0,
+    "comm": 100.0,
+    "surface": 100.0,
+    "overall": 100.0,
+    "level": "high",
+    "driver": "comm"
+   },
+   "dates": {
+    "requested": "2026-12-16T00:00Z",
+    "nearest_earlier": null,
+    "nearest_later": null,
+    "slip_tolerance_days": 0,
+    "low_risk_now": false,
+    "low_risk_dates": 0,
+    "windows": []
+   }
+  },
+  {
+   "key": "malapert_a",
+   "name": "Malapert A / IM-1 Odysseus",
+   "lat": -80.13,
+   "lon": 1.44,
+   "horizon_model": "terrain",
+   "window": {
+    "landing": "2026-12-16T00:00Z",
+    "end": "2026-12-30T00:00Z",
+    "duration_days": 14.0,
+    "power": {
+     "sunlit_pct": 80.952,
+     "mean_solar_fraction_pct": 80.991,
+     "longest_darkness_h": 62.0,
+     "dark_at_landing": true,
+     "partial_disk_h": 4.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -9.117,
+      11.206
+     ]
+    },
+    "comm": {
+     "available_pct": 99.702,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 1.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      5.617,
+      16.112
+     ]
+    }
+   },
+   "score": {
+    "power": 100.0,
+    "comm": 0.0,
+    "surface": 100.0,
+    "overall": 100.0,
+    "level": "high",
+    "driver": "power"
+   },
+   "dates": {
+    "requested": "2026-12-16T00:00Z",
+    "nearest_earlier": null,
+    "nearest_later": null,
+    "slip_tolerance_days": 0,
+    "low_risk_now": false,
+    "low_risk_dates": 0,
+    "windows": []
+   }
+  }
+ ]
+}

@@ -265,6 +265,15 @@
    }
   }
  ],
+ "dates": {
+  "requested": "2026-12-16T00:00Z",
+  "nearest_earlier": null,
+  "nearest_later": null,
+  "slip_tolerance_days": 0,
+  "low_risk_now": false,
+  "low_risk_dates": 0,
+  "windows": []
+ },
  "scan": [
   {
    "landing": "2026-12-01T00:00Z",
