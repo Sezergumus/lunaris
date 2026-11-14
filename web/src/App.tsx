@@ -6,6 +6,7 @@ import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
 import { Recommendations } from "./panels/Recommendations.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
+import { MissionParametersPanel } from "./panels/MissionParameters.tsx";
 import { MobileDock, type SheetId } from "./panels/MobileDock.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
@@ -38,6 +39,7 @@ export default function App() {
   const sidebarRef = useRef<HTMLElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
   const timelineRef = useRef<HTMLElement>(null);
+  const paramsRef = useRef<HTMLElement>(null);
   const dockRef = useRef<HTMLElement>(null);
 
   const placeA = useScenario((s) => s.placeA);
@@ -88,7 +90,7 @@ export default function App() {
   const onSheetState = (id: SheetId) => (state: SheetState) => showSheet({ id, state });
   const openSheet = useCallback(
     (id: SheetId) => {
-      showSheet({ id, state: id === "timeline" ? "full" : "half" });
+      showSheet({ id, state: id === "timeline" || id === "params" ? "full" : "half" });
       // The card covers the lower half: bring the place into the half above it.
       const place = getScenario().placeA;
       if (id === "inspector" && place && place.lat <= MAP_NORTH_LIMIT_DEG) setFlyTarget({ lat: place.lat, lon: place.lon });
@@ -129,7 +131,9 @@ export default function App() {
       edges.bottom = dock ? dock.offsetHeight + parseFloat(getComputedStyle(dock).bottom) : 0;
       const open = sheetRef.current;
       // Read from the state, not the screen: the sheet may still be sliding in.
-      if (open?.id === "timeline") edges.bottom = Math.max(edges.bottom, timelineRef.current?.parentElement?.offsetHeight ?? 0);
+      // A fit sheet covers its own height; the others half the screen.
+      const fitPanel = open?.id === "timeline" ? timelineRef.current : open?.id === "params" ? paramsRef.current : null;
+      if (fitPanel) edges.bottom = Math.max(edges.bottom, fitPanel.parentElement?.offsetHeight ?? 0);
       else if (open) edges.bottom = Math.max(edges.bottom, height / 2);
       return edges;
     }
@@ -170,7 +174,7 @@ export default function App() {
     };
     update();
     const observer = new ResizeObserver(update);
-    for (const ref of [sidebarRef, inspectorRef, timelineRef, dockRef]) if (ref.current) observer.observe(ref.current);
+    for (const ref of [sidebarRef, inspectorRef, timelineRef, paramsRef, dockRef]) if (ref.current) observer.observe(ref.current);
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
@@ -287,6 +291,13 @@ export default function App() {
           />
         </Sheet>
 
+        {/* Wide screens open these from the sites header as a popover instead. */}
+        {mobile ? (
+          <Sheet label="Mission parameters" fit state={sheetState("params")} onStateChange={onSheetState("params")}>
+            <MissionParametersPanel ref={paramsRef} views={views} />
+          </Sheet>
+        ) : null}
+
         {views.length > 0 ? (
           <Sheet label="Details" state={sheetState("inspector")} onStateChange={onSheetState("inspector")}>
             <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
@@ -306,7 +317,7 @@ export default function App() {
           />
         </Sheet>
 
-        <MobileDock ref={dockRef} placeA={placeA} views={views} onOpen={openSheet} />
+        <MobileDock ref={dockRef} placeA={placeA} onOpen={openSheet} />
         {tablesError ? (
           <p className="hud__error" role="alert">
             Sun and Earth tables could not be loaded ({tablesError}).

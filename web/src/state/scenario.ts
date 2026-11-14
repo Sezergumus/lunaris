@@ -6,6 +6,7 @@
 // with a selector), not the whole tree.
 import { useSyncExternalStore } from "react";
 import type { SiteInfo } from "../data/load.ts";
+import { MAST_RANGE_M } from "../engine/mast.ts";
 import type { ProfileKey } from "../engine/risk.ts";
 import { siteTitle } from "../sites.ts";
 import type { LimitKey, LimitOverrides } from "./limits.ts";
@@ -215,4 +216,9 @@ export const actions = {
 /** Start instant of scenario B. */
 export function startOfB(s: ScenarioState): number {
   return s.startMs + s.slipDays * DAY_MS;
+}
+
+/** Whether any limit or the mast differs from the defaults (the dot on the parameters buttons). */
+export function parametersChanged(s: ScenarioState): boolean {
+  return Object.keys(s.limitOverrides).length > 0 || s.mastM !== MAST_RANGE_M.min;
 }

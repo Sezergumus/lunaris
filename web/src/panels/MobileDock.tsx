@@ -1,16 +1,12 @@
 import type { Ref } from "react";
-import { ChevronUp, Info, MapPin } from "lucide-react";
-import { placeTitle, type Place } from "../state/scenario.ts";
-import type { ScenarioView } from "../state/view.ts";
-import { MissionParameters } from "./MissionParameters.tsx";
+import { ChevronUp, Info, MapPin, SlidersHorizontal } from "lucide-react";
+import { parametersChanged, placeTitle, useScenario, type Place } from "../state/scenario.ts";
 
-export type SheetId = "sites" | "inspector" | "timeline";
+export type SheetId = "sites" | "params" | "inspector" | "timeline";
 
 interface MobileDockProps {
   ref?: Ref<HTMLElement>;
   placeA: Place | null;
-  /** The scenarios on screen, for the mission parameters. */
-  views: ScenarioView[];
   onOpen: (sheet: SheetId) => void;
 }
 
@@ -18,13 +14,17 @@ interface MobileDockProps {
  * Narrow screens only (index.css): the map takes the whole screen and the panels wait behind
  * these buttons, each opening its own bottom sheet.
  */
-export function MobileDock({ ref, placeA, views, onOpen }: MobileDockProps) {
+export function MobileDock({ ref, placeA, onOpen }: MobileDockProps) {
+  const changed = useScenario(parametersChanged);
   return (
     <nav ref={ref} className="dock glass glass--thick" aria-label="Panels">
       <button type="button" className="dock__button dock__button--icon" onClick={() => onOpen("sites")} aria-label="Sites">
         <MapPin aria-hidden="true" />
       </button>
-      <MissionParameters views={views} side="top" />
+      <button type="button" className="dock__button dock__button--icon params-trigger" onClick={() => onOpen("params")} aria-label="Mission parameters">
+        <SlidersHorizontal aria-hidden="true" />
+        {changed ? <span className="params-trigger__dot" aria-hidden="true" /> : null}
+      </button>
       {placeA ? (
         <button type="button" className="dock__button dock__button--place" onClick={() => onOpen("inspector")} aria-label={`Details of ${placeTitle(placeA)}`}>
           <Info aria-hidden="true" />
