@@ -28,6 +28,29 @@ const DOCKED_MIN_WIDTH = 760;
 const MOBILE_GAP = 8;
 /** Height kept clear above the bottom chrome (the zoom buttons are the tallest). */
 const CHROME_ZONE = 140;
+interface Box {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/**
+ * Where an element's layout box sits on the screen, ignoring transforms. A panel is measured
+ * while it may still be animating in (scale, slide); its rect would be off by that much, and
+ * no ResizeObserver fires when the animation ends.
+ */
+function layoutBox(el: HTMLElement | null | undefined): Box | undefined {
+  if (!el) return undefined;
+  let left = 0;
+  let top = 0;
+  for (let node: HTMLElement | null = el; node; node = node.offsetParent as HTMLElement | null) {
+    left += node.offsetLeft;
+    top += node.offsetTop;
+  }
+  return { left, top, right: left + el.offsetWidth, bottom: top + el.offsetHeight };
+}
+
 /** The basemap ends near 55°S; places north of this are not flown to. */
 const MAP_NORTH_LIMIT_DEG = -56;
 
@@ -138,9 +161,9 @@ export default function App() {
       else if (open) edges.bottom = Math.max(edges.bottom, height / 2);
       return edges;
     }
-    const sidebar = sidebarRef.current?.getBoundingClientRect();
-    const inspector = inspectorRef.current?.getBoundingClientRect();
-    const timeline = timelineRef.current?.getBoundingClientRect();
+    const sidebar = layoutBox(sidebarRef.current);
+    const inspector = layoutBox(inspectorRef.current);
+    const timeline = layoutBox(timelineRef.current);
     if (timeline) edges.bottom = height - timeline.top;
     if (sidebar) edges.left = sidebar.right;
     if (inspector) edges.right = window.innerWidth - inspector.left;
@@ -160,12 +183,12 @@ export default function App() {
         return;
       }
       const height = window.innerHeight;
-      const sidebar = sidebarRef.current?.getBoundingClientRect();
-      const inspector = inspectorRef.current?.getBoundingClientRect();
+      const sidebar = layoutBox(sidebarRef.current);
+      const inspector = layoutBox(inspectorRef.current);
       // The bottom chrome steps beside a panel only when that panel reaches down to it
       // (a collapsed sites panel or a short landing-site card leaves the corner free).
       const zoneTop = height - edges.bottom - CHROME_ZONE;
-      const beside = (rect: DOMRect | undefined, edge: number) => (rect && rect.bottom > zoneTop ? edge + CHROME_GAP : PANEL_GAP);
+      const beside = (rect: Box | undefined, edge: number) => (rect && rect.bottom > zoneTop ? edge + CHROME_GAP : PANEL_GAP);
       set("bottom", edges.bottom > 0 ? edges.bottom + CHROME_GAP : PANEL_GAP);
       set("left", beside(sidebar, edges.left));
       set("right", beside(inspector, edges.right));
@@ -175,7 +198,9 @@ export default function App() {
     };
     update();
     const observer = new ResizeObserver(update);
-    for (const ref of [sidebarRef, inspectorRef, timelineRef, paramsRef, dockRef]) if (ref.current) observer.observe(ref.current);
+    // The app itself too: the viewport can change width without a resize event (a scrollbar
+    // that comes and goes), and the panels may then only move, not resize.
+    for (const ref of [appRef, sidebarRef, inspectorRef, timelineRef, paramsRef, dockRef]) if (ref.current) observer.observe(ref.current);
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
