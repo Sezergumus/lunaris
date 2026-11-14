@@ -56,6 +56,27 @@ The risk-card additions of the evening are visual changes in the frontend's area
 Kerem's approval; tell Sezer. Still open from Kerem's idea list: a battery state-of-charge
 model as an extra indicator (not started; no sourced Wh / W numbers).
 
+**Frontend, built after that (Sezer's machine, plan in `frontend-new-plan.md`, all committed):**
+
+- `data/terrain.ts`: one `/horizon` request at a time (queue; a request whose caller aborted
+  before it was sent is dropped; a sent one finishes and is cached; one retry after 1.5 s on
+  429). Fixes the 429 on quick clicks against the 2-job limit.
+- Mission length is free (1-60 d, presets 14 d / 30 d, URL `window=<hours>`) and **sets
+  `profile.duration_days`** (`effectiveProfile(..., windowHours)` / `useEffectiveProfile` in
+  `state/limits.ts`), so every score, scan and grid follows it. The slip is one field that
+  sets B = A + N days (not additive); `slipDays` may be negative (URL `slip=-6`).
+- Saved points (`state/savedPoints.ts`, localStorage, max 10, terrain stored with the point:
+  no request when reopened); list + menu in `SitesPanel`, Save button in the inspector.
+- Live risk of the five sites for the mission on screen (`state/siteScores.ts`, window-only
+  scoring via `scorePlace` in `engine/grid.ts`): chip + "Best" in the list, level ring and
+  score on the map pins. Nearby grid (`state/nearby.ts`): heat-map dots around scenario A on
+  the map, and a "Suggestions" card (`panels/Recommendations.tsx`) with a better spot (vs
+  the grid center, same rules) and a better landing date (from the landing-date scan).
+  Custom points scan 5x5 / 250 m only on a button press.
+- Checked in headless Chromium against the dev server without a terrain service (custom
+  points sphere-only there): live-API paths (custom scan, saved terrain from the service)
+  are not tried in a browser yet. Not checked on a phone-sized screen.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
@@ -800,9 +821,9 @@ backtest, horizon uncertainty, the daily contact rule, mission-limit sliders, th
    `grid_<site>.json` / `horizon_<site>.json` with the 60 m slope map; surface-score radius;
    default mission profile and the unsourced numbers in it (24 h for `solar_lander`, 8 h of
    daily contact); the demo story; the connecting ridge longitude.
-4. **Frontend, if time allows:** terrain-service status from `/health`; the nearby-spot
-   search (`grid=5` takes 8 s on the service, `grid_<site>.json` is instant for built-in
-   sites) with its heat map; saved custom points; a phone-sized check of the new cards.
+4. **Frontend, if time allows:** terrain-service status from `/health`; try the custom-point
+   nearby scan and saved points against the live API in a browser; a phone-sized check of
+   the new cards. (Nearby search, heat map and saved points are built, see the handoff.)
 5. **Backend, if time allows:** horizon uncertainty for custom points (the API would have to
    return `horizon_range_km` and a height error); the `date_alternatives` midnight quirk;
    a `validate` check that the Python and TypeScript presets are equal; a battery
