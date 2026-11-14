@@ -1,0 +1,66 @@
+{
+  "site": {
+    "key": "shackleton",
+    "name": "Shackleton crater (center)",
+    "lat": -89.67,
+    "lon": 129.78,
+    "height_m": 0.0
+  },
+  "period": {
+    "start": "2026-12-01T00:00Z",
+    "end": "2027-12-01T00:00Z",
+    "days": 365.0
+  },
+  "horizon_model": "terrain",
+  "thresholds_deg": {
+    "sun_radius": 0.27,
+    "earth_radius": 0.95,
+    "horizon_dip": 0.0,
+    "mask": 0.0
+  },
+  "sun": {
+    "summary": {
+      "visible_pct": 0.0,
+      "window_count": 0,
+      "longest_window_h": 0.0,
+      "longest_window_truncated": false,
+      "longest_outage_h": 8760.0,
+      "longest_outage_truncated": true,
+      "mean_disk_fraction_pct": 0.0,
+      "elevation_range_deg": [
+        -1.8752,
+        1.8743
+      ]
+    },
+    "events": [],
+    "windows": []
+  },
+  "earth": {
+    "summary": {
+      "visible_pct": 0.0,
+      "window_count": 0,
+      "longest_window_h": 0.0,
+      "longest_window_truncated": false,
+      "longest_outage_h": 8760.0,
+      "longest_outage_truncated": true,
+      "elevation_range_deg": [
+        -7.277,
+        6.3297
+      ]
+    },
+    "events": [],
+    "windows": []
+  },
+  "both": {
+    "summary": {
+      "visible_pct": 0.0,
+      "window_count": 0,
+      "longest_window_h": 0.0,
+      "longest_window_truncated": false,
+      "longest_outage_h": 8760.0,
+      "longest_outage_truncated": true
+    },
+    "events": [],
+    "windows": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+ "site": {
+  "key": "malapert_a",
+  "name": "Malapert A / IM-1 Odysseus",
+  "lat": -80.13,
+  "lon": 1.44
+ },
+ "period": [
+  "2026-12-01T00:00Z",
+  "2027-12-01T00:00Z"
+ ],
+ "rows": [
+  {
+   "mast_m": 2.0,
+   "mean_horizon_deg": 4.815,
+   "sun_visible_pct": 38.95,
+   "longest_darkness_h": 451.072,
+   "earth_visible_pct": 100.0,
+   "longest_earth_outage_h": 0.0
+  },
+  {
+   "mast_m": 5.0,
+   "mean_horizon_deg": 4.562,
+   "sun_visible_pct": 39.475,
+   "longest_darkness_h": 447.38,
+   "earth_visible_pct": 100.0,
+   "longest_earth_outage_h": 0.0
+  },
+  {
+   "mast_m": 10.0,
+   "mean_horizon_deg": 4.221,
+   "sun_visible_pct": 40.095,
+   "longest_darkness_h": 442.454,
+   "earth_visible_pct": 100.0,
+   "longest_earth_outage_h": 0.0
+  }
+ ]
+}

@@ -1,0 +1,413 @@
+{
+  "site": {
+    "key": "chandrayaan3",
+    "name": "Chandrayaan-3 (Shiv Shakti)",
+    "lat": -69.37,
+    "lon": 32.32,
+    "height_m": 0.0
+  },
+  "period": {
+    "start": "2026-12-01T00:00Z",
+    "end": "2027-12-01T00:00Z",
+    "days": 365.0
+  },
+  "horizon_model": "terrain",
+  "thresholds_deg": {
+    "sun_radius": 0.27,
+    "earth_radius": 0.95,
+    "horizon_dip": 0.0,
+    "mask": 0.0
+  },
+  "sun": {
+    "summary": {
+      "visible_pct": 46.9346,
+      "window_count": 12,
+      "longest_window_h": 357.9126,
+      "longest_window_truncated": false,
+      "longest_outage_h": 380.9932,
+      "longest_outage_truncated": false,
+      "mean_disk_fraction_pct": 46.5328,
+      "elevation_range_deg": [
+        -22.1637,
+        22.1697
+      ]
+    },
+    "events": [
+      {
+        "utc": "2026-12-13T19:44Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2026-12-28T15:20Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-01-12T13:11Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-01-27T02:24Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-02-11T07:34Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-02-25T12:17Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-03-13T01:14Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-03-26T21:51Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-04-11T16:49Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-04-25T08:39Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-05-11T05:39Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-05-24T20:34Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-06-09T15:46Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-06-23T09:48Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-07-08T23:55Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-07-23T00:50Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-08-07T07:15Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-08-21T15:54Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-09-05T15:05Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-09-20T07:03Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-10-05T00:42Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-10-19T21:46Z",
+        "type": "sunset"
+      },
+      {
+        "utc": "2027-11-03T13:05Z",
+        "type": "sunrise"
+      },
+      {
+        "utc": "2027-11-18T11:00Z",
+        "type": "sunset"
+      }
+    ],
+    "windows": [
+      {
+        "start": "2026-12-13T19:44Z",
+        "end": "2026-12-28T15:20Z",
+        "hours": 355.6076,
+        "truncated": false
+      },
+      {
+        "start": "2027-01-12T13:11Z",
+        "end": "2027-01-27T02:24Z",
+        "hours": 349.2162,
+        "truncated": false
+      },
+      {
+        "start": "2027-02-11T07:34Z",
+        "end": "2027-02-25T12:17Z",
+        "hours": 340.7103,
+        "truncated": false
+      },
+      {
+        "start": "2027-03-13T01:14Z",
+        "end": "2027-03-26T21:51Z",
+        "hours": 332.6255,
+        "truncated": false
+      },
+      {
+        "start": "2027-04-11T16:49Z",
+        "end": "2027-04-25T08:39Z",
+        "hours": 327.8316,
+        "truncated": false
+      },
+      {
+        "start": "2027-05-11T05:39Z",
+        "end": "2027-05-24T20:34Z",
+        "hours": 326.9293,
+        "truncated": false
+      },
+      {
+        "start": "2027-06-09T15:46Z",
+        "end": "2027-06-23T09:48Z",
+        "hours": 330.0347,
+        "truncated": false
+      },
+      {
+        "start": "2027-07-08T23:55Z",
+        "end": "2027-07-23T00:50Z",
+        "hours": 336.9128,
+        "truncated": false
+      },
+      {
+        "start": "2027-08-07T07:15Z",
+        "end": "2027-08-21T15:54Z",
+        "hours": 344.6581,
+        "truncated": false
+      },
+      {
+        "start": "2027-09-05T15:05Z",
+        "end": "2027-09-20T07:03Z",
+        "hours": 351.9676,
+        "truncated": false
+      },
+      {
+        "start": "2027-10-05T00:42Z",
+        "end": "2027-10-19T21:46Z",
+        "hours": 357.0666,
+        "truncated": false
+      },
+      {
+        "start": "2027-11-03T13:05Z",
+        "end": "2027-11-18T11:00Z",
+        "hours": 357.9126,
+        "truncated": false
+      }
+    ]
+  },
+  "earth": {
+    "summary": {
+      "visible_pct": 100.0,
+      "window_count": 1,
+      "longest_window_h": 8760.0,
+      "longest_window_truncated": true,
+      "longest_outage_h": 0.0,
+      "longest_outage_truncated": false,
+      "elevation_range_deg": [
+        11.3344,
+        22.6465
+      ]
+    },
+    "events": [],
+    "windows": [
+      {
+        "start": "2026-12-01T00:00Z",
+        "end": "2027-12-01T00:00Z",
+        "hours": 8760.0,
+        "truncated": true
+      }
+    ]
+  },
+  "both": {
+    "summary": {
+      "visible_pct": 46.9346,
+      "window_count": 12,
+      "longest_window_h": 357.9126,
+      "longest_window_truncated": false,
+      "longest_outage_h": 380.9932,
+      "longest_outage_truncated": false
+    },
+    "events": [
+      {
+        "utc": "2026-12-13T19:44Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2026-12-28T15:20Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-01-12T13:11Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-01-27T02:24Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-02-11T07:34Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-02-25T12:17Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-03-13T01:14Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-03-26T21:51Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-04-11T16:49Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-04-25T08:39Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-05-11T05:39Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-05-24T20:34Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-06-09T15:46Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-06-23T09:48Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-07-08T23:55Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-07-23T00:50Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-08-07T07:15Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-08-21T15:54Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-09-05T15:05Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-09-20T07:03Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-10-05T00:42Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-10-19T21:46Z",
+        "type": "both_end"
+      },
+      {
+        "utc": "2027-11-03T13:05Z",
+        "type": "both_start"
+      },
+      {
+        "utc": "2027-11-18T11:00Z",
+        "type": "both_end"
+      }
+    ],
+    "windows": [
+      {
+        "start": "2026-12-13T19:44Z",
+        "end": "2026-12-28T15:20Z",
+        "hours": 355.6076,
+        "truncated": false
+      },
+      {
+        "start": "2027-01-12T13:11Z",
+        "end": "2027-01-27T02:24Z",
+        "hours": 349.2162,
+        "truncated": false
+      },
+      {
+        "start": "2027-02-11T07:34Z",
+        "end": "2027-02-25T12:17Z",
+        "hours": 340.7103,
+        "truncated": false
+      },
+      {
+        "start": "2027-03-13T01:14Z",
+        "end": "2027-03-26T21:51Z",
+        "hours": 332.6255,
+        "truncated": false
+      },
+      {
+        "start": "2027-04-11T16:49Z",
+        "end": "2027-04-25T08:39Z",
+        "hours": 327.8316,
+        "truncated": false
+      },
+      {
+        "start": "2027-05-11T05:39Z",
+        "end": "2027-05-24T20:34Z",
+        "hours": 326.9293,
+        "truncated": false
+      },
+      {
+        "start": "2027-06-09T15:46Z",
+        "end": "2027-06-23T09:48Z",
+        "hours": 330.0347,
+        "truncated": false
+      },
+      {
+        "start": "2027-07-08T23:55Z",
+        "end": "2027-07-23T00:50Z",
+        "hours": 336.9128,
+        "truncated": false
+      },
+      {
+        "start": "2027-08-07T07:15Z",
+        "end": "2027-08-21T15:54Z",
+        "hours": 344.6581,
+        "truncated": false
+      },
+      {
+        "start": "2027-09-05T15:05Z",
+        "end": "2027-09-20T07:03Z",
+        "hours": 351.9676,
+        "truncated": false
+      },
+      {
+        "start": "2027-10-05T00:42Z",
+        "end": "2027-10-19T21:46Z",
+        "hours": 357.0666,
+        "truncated": false
+      },
+      {
+        "start": "2027-11-03T13:05Z",
+        "end": "2027-11-18T11:00Z",
+        "hours": 357.9126,
+        "truncated": false
+      }
+    ]
+  }
+}
