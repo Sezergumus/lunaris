@@ -35,27 +35,42 @@ deleting.
 `Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line, in commits, pull
 requests, code or docs.
 
-**Where we are (2026-11-14, ~15:30 local):** everything is committed and pushed; the working
-tree is clean apart from the two stray files above. Nothing is in progress.
+**Where we are (2026-11-14, ~16:15 local):** everything is committed and pushed, including
+the backend side of the custom-coordinate plan (vectors table, grid files, landing precision,
+terrain service in `api/`). The working tree is clean apart from the two stray files above.
+Nothing is in progress.
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
   `risk_<site>.json`) and a south polar map with Moon Trek tiles. Visual design is
   deliberately blank until the frontend developer gives a design prompt.
-- Not built: `api/` (FastAPI `/horizon`), `data/ephemeris_vectors.csv`, `data/grid_<site>.json`,
-  the landing-precision profile parameter, README.
+- Built on 2026-11-14 (backend, contracts confirmed by Kerem as proposed): `vectors` and
+  `grid` commands, the `landing_precision_m` profile key, the terrain service in `api/`.
+  See "Backend state against this plan" below for the exact shapes and measured numbers.
+- Not built: deployment of the API (no Docker on Kerem's Mac, image never built), the
+  frontend side of the plan (vectors table in the browser, API calls, grid heat map), README.
 
-**Next action (backend):** start by asking Kerem what he wants next; the pending item on
-the backend side is that Kerem must confirm or amend the contracts in "Custom coordinates and
-nearby alternatives" (proposed by the frontend side), then build them. Note the mismatch to
-resolve: the existing `nearby` command searches rings at 1/2/5/10 km with a `--ellipse` slope
-radius (default 1000 m), while the agreed UI search area is a ±500 m square grid (9×9 at
-125 m, 5×5 at 250 m live) with a 100 m landing precision. The building blocks are shared
-(`compute_points`, `compute_horizon(..., near=, far=)`, DEM-derived slope), so the grid
-function is a small variation of `run_nearby`.
+**Next action (backend):** ask Kerem what he wants next. Open backend items: deploy the API
+(Hugging Face Space, or a laptop for the demo), decide the slope source and the surface-score
+radius (see open decisions), then "Next steps".
+**Next action (frontend):** read `data/ephemeris_vectors.csv` and `data/grid_<site>.json`
+(the build script does not convert them yet), port `vectors_to_altaz` from `lunar_sky.py`,
+call `GET /horizon`; add `landing_precision_m` to `Profile` in `web/src/engine/risk.ts`.
 
 **Open decisions (user/team; do not decide silently):**
-- The API/contract proposal above (backend owner has not confirmed).
+- Slope source for scores. Kerem supplied local `LDSM_60S_120MPP_ADJ.tiff` and asked to use
+  it; `grid`/API use it when present. It is 120 m/pixel and reads lower than the 60 m map
+  stored in `horizon_<site>.json` (p95 within 1000 m: Shackleton 7.6 vs 9.4, ridge 14.3 vs
+  15.1, Malapert A 15.5 vs 15.9, Mons Mouton 5.3 vs 5.9, Chandrayaan-3 2.5 vs 3.2 deg).
+  `horizon_<site>.json` and the risk files were NOT regenerated, so they still carry the
+  60 m values; re-running `horizon` now would switch them to the 120 m map and move the
+  surface scores (Shackleton 87 -> about 51). Every grid point also carries
+  `slope_derived_deg` (from the 60 m heights) so either can be chosen.
+- Surface score radius: `risk` judges slope within the 1000 m ellipse of the horizon file,
+  `grid`/API within `landing_precision_m` (100 m). Same point, different surface score
+  (Mons Mouton 18 vs 0). Decide one rule for the UI.
+- Roughness (`LDRM`, 80S to the pole only) is reported per grid point but not scored; its
+  unit was not checked against the product description.
 - Mission-profile defaults: mission length, battery survival hours, max comm outage, slope
   limit, minimum Sun/comm share (`DEFAULT_PROFILE` in `lunar_risk.py`, mirrored in
   `web/src/engine/risk.ts`; change both and re-run `npm run validate`).
@@ -93,6 +108,13 @@ function is a small variation of `run_nearby`.
   run `npm run validate` in `web/`. Adding keys is safe; changing `window`/`slips`/`scan`
   values is not.
 - A `.venv` cannot be copied between machines or operating systems; recreate it.
+- `web/scripts/build-data.mjs` cuts `dsn_moon.csv` to the length of the per-site tables,
+  because the station table now runs to 2030 while `skyfield_<site>.csv` covers one year.
+- Local terrain files are matched without regard to case and `.tif`/`.tiff`; the slope map
+  may be the 60 m or the 120 m file. `roughness` is local-only (no remote fallback).
+- The API snaps a clicked point to the nearest 60 m height pixel (moves it up to ~42 m); the
+  UI must use the `center` returned, not the clicked coordinate. `snap=false` turns it off.
+- `fastapi`/`uvicorn` are in `api/requirements.txt` only (installed in Kerem's `.venv`).
 - The terrain-sensitivity experiment (hypothetical uniform horizons by latitude) was a
   throwaway script; only its result table is kept below.
 
@@ -165,13 +187,40 @@ mv $f.part $f
 Proposed from the frontend side on 2026-11-14. **The backend owner should confirm the contracts
 below before anyone builds on them.**
 
-Backend state against this plan (2026-11-14 ~15:00): date suggestions exist (`dates` block
-in `risk_<site>.json`: nearest low-risk dates, slip tolerance, low-risk windows) and a
-nearby-point search exists as the CLI command `nearby` (rings at 1/2/5/10 km, 8 bearings,
-slope derived from the DEM within `--ellipse`, output `data/nearby_<site>.json`). Not built:
-`ephemeris_vectors.csv`, the `/horizon` API, `grid_<site>.json`, the landing-precision
-parameter. The ring search and the ±500 m grid below answer different questions (another
-site a few km away vs. fine placement); decide whether the UI wants both.
+Backend state against this plan (2026-11-14 ~16:00): **contracts confirmed by the backend
+owner as proposed and built.** Differences from the table below are additions only.
+
+- `data/ephemeris_vectors.csv`: `python lunar_sky.py vectors --start 2026-12-01 --days 1491`
+  (35,785 hourly rows to 2030-12-31T00:00Z, 3.0 MB; Sun to 0.1 km, Earth to 0.001 km). The
+  command checks itself against every `skyfield_<site>.csv`: max difference 0.00003 deg
+  (target was 0.01). Reference implementation of the browser math: `vectors_to_altaz`.
+- `data/dsn_moon.csv`: same range (`dsn --start 2026-12-01 --days 1491`); the first year is
+  byte-identical to the previous file.
+- `data/grid_<site>.json`: `python lunar_sky.py grid --site <key>` (defaults `--grid 9
+  --grid-step 125`, precision from the profile, `--precision` overrides). About 0.45 MB per
+  site, 5.5 s each. The center point equals `horizon_<site>.json` exactly. Top-level keys:
+  `site`, `center`, `grid`, `step_m`, `mast_m`, `precision_m`, `source`, `slope_source`,
+  `horizon_coverage_complete` (false when the 250 km horizon reach leaves the map, i.e.
+  north of about 68S), `points`. Points: center first, then rows from the south-west. Per
+  point, beyond the contract: `slope_deg` is the 95th-percentile slope within `precision_m`
+  (LDSM if local, else derived), plus `slope_at_point_deg`, `slope_derived_deg`, `roughness`.
+  With a per-site Sun/Earth table the command also prints the best neighbour for `--landing`.
+- `GET /horizon` in `api/main.py` (`uvicorn api.main:app` from the repository root): the same
+  document without `site`. Parameters `lat, lon, mast=2, grid=1 (odd, max 5), step=125,
+  precision=100, snap=true`. 422 outside coverage or for a bad grid, 429 above 2 concurrent
+  computations, `Cache-Control: immutable`, CORS from `LUNARIS_CORS_ORIGINS` (default `*`),
+  in-memory cache of 256 answers. `GET /health` reports which terrain files are in use.
+  Measured on the Mac with local files: grid=1 0.3 s, grid=5 1.8 s, cached 1 ms.
+  `api/Dockerfile` and `api/start.sh` (fetches files listed in `LUNARIS_TERRAIN_URLS`) are
+  written but were never built or run.
+- Grid results, landing 2026-12-16 (slope from the 120 m LDSM within 100 m): Malapert A site
+  risk 100 -> best neighbour 500 m N, 250 m W risk 52 (usable Sun 81.0 -> 88.1 %, longest
+  dark 2.6 d -> 38 h, slope 12.9 -> 6.4 deg), no low-risk point in the square; Mons Mouton
+  site risk 0, 75 of 81 points low-risk; Chandrayaan-3 28 -> 20 at 375 m S, 375 m E;
+  connecting ridge all 100 (comm) with usable Sun 11-100 % across the square; Shackleton
+  floor all 100.
+- The ring search `nearby` is kept unchanged (another site a few km away); the grid is for
+  fine placement.
 
 **Goal.** The user clicks any point in the south polar region and gets the same assessment as
 for a built-in site, plus two kinds of suggestion: a better landing date close in time, and a
@@ -367,6 +416,7 @@ All Python, run through the single CLI `lunar_sky.py`. Setup: `pip install -r re
 | `lunar_metrics.py` | Rise/set events, visibility windows, summaries (stdlib only) |
 | `lunar_terrain.py` | LOLA windows (local or remote COG), terrain horizon, slope, PSR access |
 | `lunar_risk.py` | Per-sample power/comm state, mission-window indicators, risk score, date scan |
+| `api/main.py` | FastAPI terrain service: `/health`, `/horizon` (wraps `lunar_terrain.compute_grid`) |
 
 ```
 python lunar_sky.py sites                                   # list built-in sites
@@ -381,6 +431,8 @@ python lunar_sky.py risk     --site malapert_a --landing 2026-12-16 --duration 1
 python lunar_sky.py mast     --site malapert_a --masts 2,5,10
 python lunar_sky.py rank     --landing 2026-12-16            # all precomputed sites, same date/profile
 python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16   # --radii 1,2,5,10 --ellipse 1000
+python lunar_sky.py vectors  --start 2026-12-01 --days 1491           # site-independent Sun/Earth vectors
+python lunar_sky.py grid     --site malapert_a --landing 2026-12-16   # --grid 9 --grid-step 125 --precision 100
 # custom point: --lat -85 --lon 30 --site custom85   step: --step 60 (min)
 # risk profile overrides: --battery-hours 50 --max-outage-hours 24 --max-slope 10 --mask 0 --sphere
 ```
@@ -398,6 +450,8 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 | `risk_<site>.json` | `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date) |
 | `mast_<site>.json` | Sun/Earth visibility for several mast heights |
 | `ranking.json` | all sites for one landing date: window, score, date alternatives; sorted by risk |
+| `ephemeris_vectors.csv` | `utc, sun_x_km … earth_z_km`: Sun and Earth from the Moon's center in `MOON_ME_DE421`, hourly to 2030-12-31 |
+| `grid_<site>.json` | 9×9 points every 125 m around the site: horizon profile and slope per point (shape of the API response) |
 | `nearby_<site>.json` | 33 candidate points (site + 8 bearings × rings): position, height, slope, indicators, scores, slip tolerance, low-risk date count; `best_for_date`, `most_slip_tolerant`, `most_low_risk_dates` |
 
 ### Conventions
