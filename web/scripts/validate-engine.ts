@@ -13,6 +13,8 @@ import {
   type Profile,
   type Score,
 } from "../src/engine/risk.ts";
+import { bestPoint, scoreGrid, type TerrainGrid } from "../src/engine/grid.ts";
+import { sampleIndex, skyFromVectors, type VectorTable } from "../src/engine/sky.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const publicData = join(here, "..", "public", "data");
@@ -95,6 +97,77 @@ for (const site of manifest.sites) {
     }
   });
   console.log(`${site.key}: ${failures === before ? "OK" : `${failures - before} mismatches`} (window, ${expected.slips.length} slips, ${expected.scan.length} scan rows)`);
+}
+
+// ---- Site-independent path: vectors table -> angles -> grid of nearby points.
+// Angles must reproduce the per-site tables; the center of each precomputed grid, scored from
+// the vectors table, must reproduce the backend's mission window for that site.
+/** Largest accepted angle difference, degrees (the plan's target). */
+const ANGLE_TOLERANCE = 0.01;
+
+if (manifest.vectors) {
+  const v = manifest.vectors;
+  const bytes = readFileSync(join(publicData, "vectors.bin"));
+  const raw = new Float32Array(bytes.buffer, bytes.byteOffset, 6 * v.count);
+  const column = (c: number) => raw.subarray(c * v.count, (c + 1) * v.count);
+  const vectors: VectorTable = {
+    startMs: Date.parse(v.start),
+    stepHours: v.stepMinutes / 60,
+    count: v.count,
+    sun: [column(0), column(1), column(2)],
+    earth: [column(3), column(4), column(5)],
+  };
+  const stationBytes = readFileSync(join(publicData, "stations.bin"));
+  const stationRaw = new Int32Array(stationBytes.buffer, stationBytes.byteOffset, 3 * v.count);
+  const stationsLong = Float64Array.from({ length: v.count }, (_, i) =>
+    Math.max(stationRaw[i], stationRaw[v.count + i], stationRaw[2 * v.count + i]) / manifest.dsnScale,
+  );
+
+  for (const site of manifest.sites) {
+    const before = failures;
+    const table = int32Columns(`sky_${site.key}.bin`, 4, manifest.skyScale);
+    const first = sampleIndex(vectors, Date.parse(manifest.start));
+    const sky = skyFromVectors(vectors, site.lat, site.lon, 0, { first, count });
+    let worst = 0;
+    for (let i = 0; i < count; i++) {
+      const cosSun = Math.cos((sky.sunAlt[i] * Math.PI) / 180);
+      const cosEarth = Math.cos((sky.earthAlt[i] * Math.PI) / 180);
+      const wrap = (d: number) => Math.abs(((d + 540) % 360) - 180);
+      worst = Math.max(
+        worst,
+        wrap(sky.sunAz[i] - table[0][i]) * cosSun,
+        Math.abs(sky.sunAlt[i] - table[1][i]),
+        wrap(sky.earthAz[i] - table[2][i]) * cosEarth,
+        Math.abs(sky.earthAlt[i] - table[3][i]),
+      );
+    }
+    if (!(worst <= ANGLE_TOLERANCE)) {
+      failures++;
+      console.log(`  MISMATCH ${site.key} vectors: angles differ by up to ${worst.toFixed(5)} deg`);
+    }
+
+    let gridNote = "no grid file";
+    if (site.grid) {
+      const expected = JSON.parse(readFileSync(join(backendData, `risk_${site.key}.json`), "utf8"));
+      const grid: TerrainGrid = JSON.parse(readFileSync(join(publicData, `grid_${site.key}.json`), "utf8"));
+      const scored = scoreGrid(grid, vectors, stationsLong, expected.profile, parseUtc(expected.window.landing));
+      if (!scored) {
+        check(`${site.key} grid window`, null, "a window");
+      } else {
+        checkWindow(`${site.key} grid center`, scored[0].window, expected.window);
+        check(`${site.key} grid center score.power`, scored[0].score.power, expected.score.power);
+        check(`${site.key} grid center score.comm`, scored[0].score.comm, expected.score.comm);
+        const best = bestPoint(scored)!;
+        gridNote =
+          `grid ${scored.length} points, center risk ${scored[0].score.overall.toFixed(0)}, ` +
+          `best ${best.point.north_m} m N / ${best.point.east_m} m E risk ${best.score.overall.toFixed(0)} ` +
+          `(usable Sun ${best.window.power.sunlit_pct.toFixed(1)}%)`;
+      }
+    }
+    console.log(`${site.key}: ${failures === before ? "OK" : "MISMATCH"} (vectors within ${worst.toFixed(5)} deg; ${gridNote})`);
+  }
+} else {
+  console.log("vectors table not built; skipped the site-independent checks");
 }
 
 if (failures > 0) {

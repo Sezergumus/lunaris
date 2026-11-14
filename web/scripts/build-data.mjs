@@ -3,11 +3,15 @@
 //   sky_<site>.bin      Int32 columns [sun_az, sun_alt, earth_az, earth_alt], degrees * 1e5
 //   dsn.bin             Int32 columns [goldstone, madrid, canberra] Moon elevation, degrees * 1e3
 //   horizon_<site>.json terrain horizon and surface statistics (minified copy)
-//   manifest.json       time axis, scales and the list of sites
+//   vectors.bin         Float32 columns [sun x, y, z, earth x, y, z], km, Moon-fixed frame;
+//                       one table for every coordinate (custom points, nearby spots)
+//   stations.bin        like dsn.bin, on the time axis of vectors.bin
+//   grid_<site>.json    horizon and slope for a square of points around each site (copy)
+//   manifest.json       time axes, scales and the list of sites
 //
 // Integer scaling keeps every decimal the backend wrote, so the browser works on exactly the
 // same numbers as the Python code. Nothing here is hard-coded to a date range or site list.
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -46,13 +50,44 @@ mkdirSync(target, { recursive: true });
 // ephemeris_vectors.csv). The files written here cover the per-site range, so it is cut to
 // that length; both tables must start at the same instant.
 const dsn = readCsv(join(source, "dsn_moon.csv"));
+const stationColumns = ["goldstone_alt_deg", "madrid_alt_deg", "canberra_alt_deg"];
+
+// Site-independent table. It has its own, longer time axis; the station table must cover it.
+let vectors = null;
+const vectorPath = join(source, "ephemeris_vectors.csv");
+if (existsSync(vectorPath)) {
+  const csv = readCsv(vectorPath);
+  const count = csv.rows.length;
+  if (dsn.rows.length < count || dsn.rows[0][0] !== csv.rows[0][0] || dsn.rows[count - 1][0] !== csv.rows[count - 1][0]) {
+    throw new Error("ephemeris_vectors.csv and dsn_moon.csv do not share one time axis");
+  }
+  const names = ["sun_x_km", "sun_y_km", "sun_z_km", "earth_x_km", "earth_y_km", "earth_z_km"];
+  const out = new Float32Array(names.length * count);
+  names.forEach((name, c) => {
+    const index = csv.header.indexOf(name);
+    if (index < 0) throw new Error(`missing column ${name}`);
+    for (let i = 0; i < count; i++) out[c * count + i] = Number(csv.rows[i][index]);
+  });
+  writeFileSync(join(target, "vectors.bin"), Buffer.from(out.buffer));
+  writeFileSync(
+    join(target, "stations.bin"),
+    Buffer.from(columnsToInt32({ header: dsn.header, rows: dsn.rows.slice(0, count) }, stationColumns, DSN_SCALE).buffer),
+  );
+  vectors = {
+    start: toIso(csv.rows[0][0]),
+    stepMinutes: (Date.parse(toIso(csv.rows[1][0])) - Date.parse(toIso(csv.rows[0][0]))) / 60000,
+    count,
+    frame: "MOON_ME_DE421",
+    unit: "km",
+  };
+}
 const siteTable = readdirSync(source).find((file) => /^skyfield_.+\.csv$/.test(file));
 if (siteTable) dsn.rows.length = Math.min(dsn.rows.length, readCsv(join(source, siteTable)).rows.length);
 const utc = dsn.rows.map((r) => r[0]);
 const stepMinutes = (Date.parse(toIso(utc[1])) - Date.parse(toIso(utc[0]))) / 60000;
 writeFileSync(
   join(target, "dsn.bin"),
-  Buffer.from(columnsToInt32(dsn, ["goldstone_alt_deg", "madrid_alt_deg", "canberra_alt_deg"], DSN_SCALE).buffer),
+  Buffer.from(columnsToInt32(dsn, stationColumns, DSN_SCALE).buffer),
 );
 
 const sites = [];
@@ -70,7 +105,10 @@ for (const file of readdirSync(source).sort()) {
     Buffer.from(columnsToInt32(sky, ["sun_az_deg", "sun_alt_deg", "earth_az_deg", "earth_alt_deg"], SKY_SCALE).buffer),
   );
   writeFileSync(join(target, `horizon_${key}.json`), JSON.stringify(horizon));
-  sites.push({ ...horizon.site });
+  const gridPath = join(source, `grid_${key}.json`);
+  const hasGrid = existsSync(gridPath);
+  if (hasGrid) writeFileSync(join(target, `grid_${key}.json`), JSON.stringify(JSON.parse(readFileSync(gridPath, "utf8"))));
+  sites.push({ ...horizon.site, grid: hasGrid });
 }
 
 const manifest = {
@@ -80,7 +118,9 @@ const manifest = {
   skyScale: SKY_SCALE,
   dsnScale: DSN_SCALE,
   stations: ["goldstone", "madrid", "canberra"],
+  vectors,
   sites,
 };
 writeFileSync(join(target, "manifest.json"), JSON.stringify(manifest, null, 1));
 console.log(`data: ${sites.length} sites, ${utc.length} samples from ${utc[0]} to ${utc.at(-1)}`);
+if (vectors) console.log(`data: vectors table, ${vectors.count} samples from ${vectors.start}`);

@@ -31,6 +31,8 @@ export interface Profile {
   /** Earth center this close to the terrain counts as a degraded link. */
   low_elevation_deg: number;
   max_slope_deg: number;
+  /** Radius in which slope is judged when nearby spots are compared, meters. */
+  landing_precision_m: number;
   /** Extra elevation margin added to every horizon. */
   mask_deg: number;
 }
@@ -47,6 +49,7 @@ export const DEFAULT_PROFILE: Profile = {
   conjunction_deg: 2,
   low_elevation_deg: 2,
   max_slope_deg: 10,
+  landing_precision_m: 100,
   mask_deg: 0,
 };
 
