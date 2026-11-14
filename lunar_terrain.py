@@ -23,7 +23,9 @@ import os
 import numpy as np
 
 MOON_RADIUS_M = 1737400.0
-REMOTE_BASE = "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/"
+# Where products without a local copy are read from (range requests on cloud-optimized
+# GeoTIFFs). LUNAR_TERRAIN_URL points it at a mirror of the same files.
+REMOTE_BASE = os.environ.get("LUNAR_TERRAIN_URL", "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/").rstrip("/") + "/"
 # Directory with local copies of the products; LUNAR_TERRAIN_DIR overrides it.
 LOCAL_DIR = os.environ.get("LUNAR_TERRAIN_DIR", os.path.join("data", "lola"))
 
@@ -289,14 +291,20 @@ def surface_properties(lat, lon, radius_m=1000.0, near=None):
     return out
 
 
+def slope_map_available():
+    """True when the LOLA slope map (LDSM) is to be read: a local copy exists, or
+    LUNAR_TERRAIN_REMOTE_SLOPE says the remote source (LUNAR_TERRAIN_URL) has the file."""
+    return bool(local_product("slope_deg") or os.environ.get("LUNAR_TERRAIN_REMOTE_SLOPE"))
+
+
 def slope_grid(x, y, radius_m, near=None):
     """Slope map (deg) covering `radius_m` around a projected point.
 
-    Uses a local copy of the LOLA slope map (LDSM) when there is one;
-    otherwise slope is derived from the height grid, so a deployment needs
-    the height file only. Returns (Grid, description of the source).
+    Uses the LOLA slope map (LDSM) when `slope_map_available`; otherwise slope
+    is derived from the height grid, so a deployment needs the height file
+    only. Returns (Grid, description of the source).
     """
-    if local_product("slope_deg"):
+    if slope_map_available():
         grid = read_window("slope_deg", x, y, radius_m + 300.0)
         return grid, f"LOLA slope map (LDSM), {grid.pixel_m:.0f} m/pixel"
     if near is None:

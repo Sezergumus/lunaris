@@ -13,6 +13,10 @@ Run locally from the repository root:
 
 Settings (environment variables):
   LUNAR_TERRAIN_DIR     directory with the LOLA files (default: data/lola in the repository)
+  LUNAR_TERRAIN_URL     where files without a local copy are read from by range requests
+                        (default: the PGDA server; a faster mirror can be given)
+  LUNAR_TERRAIN_REMOTE_SLOPE  set to 1 when that source also holds the slope map
+                        (LDSM_60S_60MPP_ADJ.TIF); otherwise slope is derived from the heights
   LUNARIS_CORS_ORIGINS  comma-separated list of allowed web origins (default: *)
   LUNARIS_MAX_JOBS      horizon computations allowed at the same time (default: 2)
 """
@@ -55,7 +59,8 @@ def health():
     return {
         "status": "ok",
         "height": _source("height_m"),
-        "slope": "local slope map" if lt.local_product("slope_deg") else "derived from height",
+        "slope": ("local slope map" if lt.local_product("slope_deg") else
+                  "remote slope map" if lt.slope_map_available() else "derived from height"),
         "roughness": _source("roughness"),
         "max_grid": MAX_GRID,
         "coverage": "60S to the south pole",
