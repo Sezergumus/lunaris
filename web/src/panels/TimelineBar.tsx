@@ -12,7 +12,7 @@ import { Button, IconButton } from "../ui/Button.tsx";
 import { DatePicker } from "../ui/DatePicker.tsx";
 import { InlineNumberField } from "../ui/NumberField.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
-import { formatDays, formatPercent, formatUtcDate, formatUtcDateTime, formatUtcDay, parseDecimal } from "../ui/format.ts";
+import { formatDays, formatPercent, formatUtcDate, formatUtcDateTime, formatUtcDay, formatUtcDayTime, parseDecimal } from "../ui/format.ts";
 import "./timeline.css";
 
 const HOUR_MS = 3600000;
@@ -333,19 +333,29 @@ function Scrubber({ hours }: { hours: number }) {
   );
 }
 
-/** Date and time under the playhead; the only text that changes on every frame. */
+/**
+ * Date and time under the playhead; the only text that changes on every frame. When B starts
+ * on another day both times are tagged, without the year (the landing field shows it).
+ */
 function CursorReadout({ sets, startMs, startB }: { sets: StripSet[]; startMs: number; startB: number }) {
   const offsetMs = useScenario((s) => s.offsetMs);
   const days = offsetMs / DAY_MS;
+  const split = sets.length > 1 && startB !== startMs;
   return (
     <p className="timeline__readout">
       <span className="timeline__readout-day">Day {days.toFixed(1)}</span>
-      <span>{formatUtcDateTime(startMs + offsetMs)}</span>
-      {sets.length > 1 && startB !== startMs ? (
-        <span>
-          <span className="tag tag--b">B</span> {formatUtcDateTime(startB + offsetMs)}
-        </span>
-      ) : null}
+      {split ? (
+        <>
+          <span>
+            <span className="tag tag--a">A</span> {formatUtcDayTime(startMs + offsetMs)}
+          </span>
+          <span>
+            <span className="tag tag--b">B</span> {formatUtcDayTime(startB + offsetMs)}
+          </span>
+        </>
+      ) : (
+        <span>{formatUtcDateTime(startMs + offsetMs)}</span>
+      )}
     </p>
   );
 }
