@@ -1,8 +1,9 @@
 // Scenario <-> URL, so a view can be shared as a link:
-//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708&mast=10
+//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708&mast=10&profile=battery_rover
 // A custom point is written as `lat,lon` (for example site=-85.3,31), the reference as `apollo11`.
 import type { SiteInfo } from "../data/load.ts";
 import { MAST_RANGE_M } from "../engine/mast.ts";
+import { PROFILE_PRESETS, type ProfileKey } from "../engine/risk.ts";
 import { isoDay } from "../ui/format.ts";
 import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, type Place } from "./scenario.ts";
 
@@ -30,6 +31,7 @@ export interface UrlScenario {
   slipDays: number;
   windowHours: number | null;
   mastM: number | null;
+  profileKey: ProfileKey | null;
 }
 
 export function readUrl(sites: SiteInfo[]): UrlScenario {
@@ -39,6 +41,7 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
   const slip = Number(params.get("slip"));
   const windowHours = Number(params.get("window"));
   const mast = Number(params.get("mast"));
+  const profile = params.get("profile");
   return {
     placeA: paramToPlace(params.get("site"), sites),
     placeB: paramToPlace(params.get("compare"), sites),
@@ -46,6 +49,7 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
     slipDays: Number.isInteger(slip) && slip > 0 ? slip : 0,
     windowHours: (Object.values(WINDOW_HOURS) as number[]).includes(windowHours) ? windowHours : null,
     mastM: Number.isInteger(mast) && mast >= MAST_RANGE_M.min && mast <= MAST_RANGE_M.max ? mast : null,
+    profileKey: profile !== null && Object.hasOwn(PROFILE_PRESETS, profile) ? (profile as ProfileKey) : null,
   };
 }
 
@@ -62,6 +66,7 @@ export function syncUrl(): () => void {
     if (s.placeB && s.slipDays > 0) params.set("slip", String(s.slipDays));
     if (s.windowHours !== WINDOW_HOURS.mission) params.set("window", String(s.windowHours));
     if (s.mastM !== MAST_RANGE_M.min) params.set("mast", String(s.mastM));
+    if (s.profileKey !== "generic") params.set("profile", s.profileKey);
     const query = params.toString();
     // The store also changes on every playback frame; the URL only when the scenario does.
     if (query === last) return;

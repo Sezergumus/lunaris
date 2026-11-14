@@ -51,6 +51,7 @@ export default function App() {
       const url = readUrl(sites);
       actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, url.startMs, url.windowHours);
       if (url.mastM !== null) actions.setMast(url.mastM);
+      if (url.profileKey) actions.setProfile(url.profileKey);
       if (url.placeA) actions.selectPlace(url.placeA);
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
       if (url.placeA && url.slipDays > 0) actions.slip(url.slipDays);

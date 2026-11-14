@@ -9,9 +9,9 @@ import { TerrainError, fetchHorizon, insideTerrainCoverage, terrainConfigured } 
 import { findTransitions, limbClearance, type Transitions } from "../engine/events.ts";
 import { pointHorizon } from "../engine/grid.ts";
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
-import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, type Horizon, type Series, type SkySeries } from "../engine/risk.ts";
+import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, presetProfile, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
-import type { Place } from "./scenario.ts";
+import { useScenario, type Place } from "./scenario.ts";
 
 let tablesPromise: Promise<SkyTables> | null = null;
 
@@ -166,11 +166,12 @@ export function buildPlaceData(
   reason: string | null,
   center: { lat: number; lon: number } | null,
   mast: MastState,
+  profile: Profile,
 ): PlaceData {
   const lat = center?.lat ?? place.lat;
   const lon = center?.lon ?? place.lon;
   const sky = skyFor(tables, lat, lon);
-  const series = buildSeries(sky, horizon, tables.stationMaxAlt, DEFAULT_PROFILE);
+  const series = buildSeries(sky, horizon, tables.stationMaxAlt, profile);
   return {
     place,
     lat,
@@ -234,6 +235,7 @@ export function usePlaceSeries(tables: SkyTables | null, place: Place | null, ma
     mastM,
     terrain?.mastM ?? null,
   );
+  const profileKey = useScenario((s) => s.profileKey);
   return useMemo(() => {
     if (!tables || !place || !terrainState) return null;
     const { status, reason, center } = terrainState;
@@ -251,6 +253,6 @@ export function usePlaceSeries(tables: SkyTables | null, place: Place | null, ma
         horizon = terrain.horizon;
       }
     }
-    return buildPlaceData(tables, place, terrain, horizon, status, reason, center, mast);
-  }, [tables, place, terrainState, terrain, exact, mastM]);
+    return buildPlaceData(tables, place, terrain, horizon, status, reason, center, mast, presetProfile(profileKey));
+  }, [tables, place, terrainState, terrain, exact, mastM, profileKey]);
 }

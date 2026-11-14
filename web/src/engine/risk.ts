@@ -53,6 +53,45 @@ export const DEFAULT_PROFILE: Profile = {
   mask_deg: 0,
 };
 
+/** A named mission profile: overrides of DEFAULT_PROFILE taken from a real mission. */
+export interface ProfilePreset {
+  label: string;
+  /** Short name for the selector. */
+  short: string;
+  /** Where the numbers come from and how well they are sourced. */
+  basis: string;
+  overrides: Partial<Profile>;
+}
+
+/** Identical to PROFILE_PRESETS in the backend (lunar_risk.py); change both. */
+export const PROFILE_PRESETS = {
+  generic: {
+    label: "Generic lander",
+    short: "Generic",
+    basis: "Project defaults (placeholder assumptions).",
+    overrides: {},
+  },
+  solar_lander: {
+    label: "Solar lander, no night survival",
+    short: "Solar lander",
+    basis:
+      "IM-1 Odysseus and Chandrayaan-3 were not designed to survive the lunar night. The 24 h darkness limit is our assumption for a short shadow, not a night; the 10° slope is the landing tolerance stated by Intuitive Machines for Nova-C.",
+    overrides: { battery_survival_h: 24, max_slope_deg: 10 },
+  },
+  battery_rover: {
+    label: "Battery rover (VIPER class)",
+    short: "Battery rover",
+    basis: "NASA VIPER lunar operations: no more than 50 h of continuous darkness, drives on slopes up to 15°.",
+    overrides: { battery_survival_h: 50, max_slope_deg: 15 },
+  },
+} as const satisfies Record<string, ProfilePreset>;
+
+export type ProfileKey = keyof typeof PROFILE_PRESETS;
+
+export function presetProfile(key: ProfileKey): Profile {
+  return { ...DEFAULT_PROFILE, ...PROFILE_PRESETS[key].overrides };
+}
+
 /** Terrain horizon elevation per azimuth, starting at north, clockwise, in equal steps. */
 export interface Horizon {
   stepDeg: number;

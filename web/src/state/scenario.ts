@@ -6,6 +6,7 @@
 // with a selector), not the whole tree.
 import { useSyncExternalStore } from "react";
 import type { SiteInfo } from "../data/load.ts";
+import type { ProfileKey } from "../engine/risk.ts";
 import { siteTitle } from "../sites.ts";
 
 const HOUR_MS = 3600000;
@@ -56,6 +57,8 @@ export interface ScenarioState {
   speed: number;
   /** Observer (solar panel / antenna) height above ground, meters. */
   mastM: number;
+  /** Mission profile: the limits the risk score is judged against. */
+  profileKey: ProfileKey;
   /** First and last instant of the data; null until the tables have loaded. */
   limits: { minMs: number; maxMs: number } | null;
 }
@@ -70,6 +73,7 @@ let state: ScenarioState = {
   playing: false,
   speed: SPEEDS[1],
   mastM: 2,
+  profileKey: "generic",
   limits: null,
 };
 
@@ -161,6 +165,9 @@ export const actions = {
   },
   setMast(mastM: number) {
     set({ mastM });
+  },
+  setProfile(profileKey: ProfileKey) {
+    set({ profileKey });
   },
 };
 

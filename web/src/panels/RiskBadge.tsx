@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
-import { analyzeWindow, scoreWindow, type RiskLevel, type Score } from "../engine/risk.ts";
+import { PROFILE_PRESETS, analyzeWindow, scoreWindow, type ProfileKey, type RiskLevel, type Score } from "../engine/risk.ts";
+import { actions, useScenario } from "../state/scenario.ts";
+import { Segmented } from "../ui/Segmented.tsx";
 import type { ScenarioView } from "../state/view.ts";
 
 const LEVEL_TEXT: Record<RiskLevel, string> = { low: "Low", medium: "Medium", high: "High" };
@@ -10,6 +12,11 @@ const CATEGORIES = [
   { id: "comm", label: "Comm" },
   { id: "surface", label: "Surface" },
 ] as const;
+const PROFILE_OPTIONS = (Object.keys(PROFILE_PRESETS) as ProfileKey[]).map((key) => ({
+  value: key,
+  label: PROFILE_PRESETS[key].short,
+  ariaLabel: PROFILE_PRESETS[key].label,
+}));
 
 /** Risk of the mission that lands at the scenario's start date; null if it leaves the data. */
 function useScore(view: ScenarioView): Score | null {
@@ -59,14 +66,19 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
  * Overall risk (the worst category) and the three categories behind it, for the mission
  * that lands at the start date. A transparent heuristic with placeholder limits, as the
  * footnote says; it is always shown with its level in words, never as a color alone.
+ * The limits come from the selected mission profile, whose source is stated below it.
  */
 export function RiskBadge({ views }: { views: ScenarioView[] }) {
   const profile = views[0].data.series.profile;
+  const profileKey = useScenario((s) => s.profileKey);
   return (
     <section className="risk" aria-label="Mission risk">
       <h3 className="metric__label">
         Mission risk<span className="metric__hint"> · {profile.duration_days}-day mission · 0 best, 100 worst</span>
       </h3>
+      <div className="risk__profile">
+        <Segmented value={profileKey} onChange={actions.setProfile} options={PROFILE_OPTIONS} label="Mission profile" size="sm" />
+      </div>
       <div className="risk__columns">
         {views.map((view) => (
           <ScoreColumn key={view.tag} view={view} tagged={views.length > 1} />
@@ -74,6 +86,8 @@ export function RiskBadge({ views }: { views: ScenarioView[] }) {
       </div>
       <p className="risk__foot">
         Worst category counts. Limits: {profile.battery_survival_h} h battery, {profile.max_comm_outage_h} h without contact, {profile.max_slope_deg}° slope.
+        <br />
+        {PROFILE_PRESETS[profileKey].basis}
       </p>
     </section>
   );
