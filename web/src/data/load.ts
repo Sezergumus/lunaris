@@ -57,6 +57,11 @@ async function fetchJson<T>(file: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+/** Site list only (one small file), so the map can show pins before the tables arrive. */
+export async function loadSites(): Promise<SiteInfo[]> {
+  return (await fetchJson<Manifest>("manifest.json")).sites;
+}
+
 export async function loadDataset(): Promise<Dataset> {
   const manifest = await fetchJson<Manifest>("manifest.json");
   const { count } = manifest;
