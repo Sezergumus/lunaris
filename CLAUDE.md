@@ -37,6 +37,7 @@ requests, code or docs.
 side of the custom-coordinate plan and the non-visual frontend data layer for it (written on
 Kerem's Mac, with his approval, to unblock the frontend). The working tree is clean. Nothing
 visual was touched. Nothing is in progress.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
@@ -51,10 +52,9 @@ visual was touched. Nothing is in progress.
 **Next action (backend):** ask Kerem what he wants next. Open backend items: deploy the API
 (Hugging Face Space, or a laptop for the demo), decide the slope source and the surface-score
 radius (see open decisions), then "Next steps".
-**Next action (frontend):** wait for the design prompt, then build the UI on the functions
-listed in "Frontend status"; no data plumbing is missing for custom points or nearby spots.
-
+**Next action (frontend):** the design is decided and planned in `frontend-plan.md` recently finished phase 7, 1 phase left
 **Open decisions (user/team; do not decide silently):**
+
 - Slope source for scores. Kerem supplied local `LDSM_60S_120MPP_ADJ.tiff` and asked to use
   it; `grid`/API use it when present. It is 120 m/pixel and reads lower than the 60 m map
   stored in `horizon_<site>.json` (p95 within 1000 m: Shackleton 7.6 vs 9.4, ridge 14.3 vs
@@ -78,6 +78,7 @@ listed in "Frontend status"; no data plumbing is missing for custom points or ne
 - Official site coordinates (all approximate), date range of the tables.
 
 **How Kerem works (confirmed in practice):**
+
 - Talks Turkish; wants every code/doc artifact in jury-ready English.
 - Wants direct answers with concrete numbers and a recommendation, asks "why not X?"
   follow-ups; explain trade-offs with estimates and say clearly what was not verified.
@@ -89,6 +90,7 @@ listed in "Frontend status"; no data plumbing is missing for custom points or ne
   public, so keep personal details out of it beyond what is already here.
 
 **Pitfalls already hit (do not rediscover):**
+
 - Skyfield `Loader`: pass bare kernel file names, not paths (caused a 404 on second run).
 - PGDA server: slow, drops connections, intermittent 503. `curl --retry` with `-C -`
   discards progress; curl without `-f` treats a 503 page as success. Use the resume loop in
@@ -132,7 +134,7 @@ navigation, time remaining until sunset / Earthset, solar elevation angle, timel
 different user levels.
 
 Challenge hints and how we cover them: ephemeris (Skyfield + DE421, validated against
-Horizons, precomputed CSVs) ✔; LOLA topography for horizons ✔ (surface *visualization* not yet);
+Horizons, precomputed CSVs) ✔; LOLA topography for horizons ✔ (surface _visualization_ not yet);
 no atmosphere → horizon from terrain + limb of the sphere, no refraction ✔; solar elevation
 computed ✔ but must be shown prominently in the UI.
 
@@ -194,7 +196,7 @@ owner as proposed and built.** Differences from the table below are additions on
 - `data/dsn_moon.csv`: same range (`dsn --start 2026-12-01 --days 1491`); the first year is
   byte-identical to the previous file.
 - `data/grid_<site>.json`: `python lunar_sky.py grid --site <key>` (defaults `--grid 9
-  --grid-step 125`, precision from the profile, `--precision` overrides). About 0.45 MB per
+--grid-step 125`, precision from the profile, `--precision` overrides). About 0.45 MB per
   site, 5.5 s each. The center point equals `horizon_<site>.json` exactly. Top-level keys:
   `site`, `center`, `grid`, `step_m`, `mast_m`, `precision_m`, `source`, `slope_source`,
   `horizon_coverage_complete` (false when the 250 km horizon reach leaves the map, i.e.
@@ -204,7 +206,7 @@ owner as proposed and built.** Differences from the table below are additions on
   With a per-site Sun/Earth table the command also prints the best neighbour for `--landing`.
 - `GET /horizon` in `api/main.py` (`uvicorn api.main:app` from the repository root): the same
   document without `site`. Parameters `lat, lon, mast=2, grid=1 (odd, max 5), step=125,
-  precision=100, snap=true`. 422 outside coverage or for a bad grid, 429 above 2 concurrent
+precision=100, snap=true`. 422 outside coverage or for a bad grid, 429 above 2 concurrent
   computations, `Cache-Control: immutable`, CORS from `LUNARIS_CORS_ORIGINS` (default `*`),
   in-memory cache of 256 answers. `GET /health` reports which terrain files are in use.
   Measured on the Mac with local files: grid=1 0.3 s, grid=5 1.8 s, cached 1 ms.
@@ -251,12 +253,12 @@ precomputed file. Dates, duration, battery limits, scans and comparisons never h
 
 **Contracts**
 
-| Item | Shape |
-|---|---|
-| `data/ephemeris_vectors.csv` (new) | `utc, sun_x_km, sun_y_km, sun_z_km, earth_x_km, earth_y_km, earth_z_km`: apparent position of the Sun and Earth centers relative to the Moon's center in `MOON_ME_DE421`, hourly. The browser subtracts the site vector and projects on the local horizontal frame; the result must match `skyfield_<site>.csv` (target: within 0.01°). Replaces the per-site CSVs as UI input. |
-| `data/dsn_moon.csv` | unchanged columns, extended to the same date range |
+| Item                                            | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/ephemeris_vectors.csv` (new)              | `utc, sun_x_km, sun_y_km, sun_z_km, earth_x_km, earth_y_km, earth_z_km`: apparent position of the Sun and Earth centers relative to the Moon's center in `MOON_ME_DE421`, hourly. The browser subtracts the site vector and projects on the local horizontal frame; the result must match `skyfield_<site>.csv` (target: within 0.01°). Replaces the per-site CSVs as UI input.                                                                             |
+| `data/dsn_moon.csv`                             | unchanged columns, extended to the same date range                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `GET /horizon?lat=&lon=&mast=2&grid=1&step=125` | `{"points": [...]}`, center first. Each point: `lat`, `lon`, `east_m`, `north_m`, `ground_height_m`, `mast_m`, `azimuth_step_deg`, `horizon_deg` (same meaning as in `horizon_<site>.json`) and `slope_deg` (local slope derived from the DEM; a 1000 m ellipse would be nearly identical for neighbours 125 m apart). `grid=N` returns an N×N square with `step` meters between points. HTTP 422 outside the DEM coverage. CORS must allow the web origin. |
-| `data/grid_<site>.json` (new) | the same response, precomputed for each built-in site, so built-in sites never need the API |
+| `data/grid_<site>.json` (new)                   | the same response, precomputed for each built-in site, so built-in sites never need the API                                                                                                                                                                                                                                                                                                                                                                 |
 
 Date range of the vectors and DSN tables: 2026-12-01 → 2030-12-31 for now (about 0.9 MB as
 Float32); the kernels allow anything up to 2050. The range must stay easy to change: the
@@ -269,10 +271,10 @@ grids, API responses) are JSON.
 
 **Search area for nearby spots (agreed 2026-11-14).** A ±500 m square around the point:
 
-| Case | Grid | Step | Reason |
-|---|---|---|---|
-| Built-in sites, precomputed `grid_<site>.json` | 9×9 (81 points) | 125 m | no time limit offline |
-| Custom point, live API | 5×5 (25 points) | 250 m | about 2.4 s of computation |
+| Case                                           | Grid            | Step  | Reason                     |
+| ---------------------------------------------- | --------------- | ----- | -------------------------- |
+| Built-in sites, precomputed `grid_<site>.json` | 9×9 (81 points) | 125 m | no time limit offline      |
+| Custom point, live API                         | 5×5 (25 points) | 250 m | about 2.4 s of computation |
 
 Steps below about 100 m add nothing (60 m DEM pixels). Anything farther than 500 m is a
 different site: the user clicks there, or clicks the suggested point to search again from it.
@@ -289,11 +291,11 @@ both. Deriving from LDEM would let the API host a single file.
 **Timing** (measured on the Windows development machine with numpy 2.5.4, using synthetic
 windows of the real sizes, 833² near and 2083² far; the cost does not depend on height values)
 
-| Step | Time |
-|---|---|
-| Horizon, one point, windows already in memory | 0.09 s |
-| Horizon, 5×5 grid (25 points), same windows | 2.4 s |
-| Horizon, 9×9 grid (81 points) | 7.7 s |
+| Step                                                                                | Time   |
+| ----------------------------------------------------------------------------------- | ------ |
+| Horizon, one point, windows already in memory                                       | 0.09 s |
+| Horizon, 5×5 grid (25 points), same windows                                         | 2.4 s  |
+| Horizon, 9×9 grid (81 points)                                                       | 7.7 s  |
 | Risk for one point, one year (per-sample state + scan of 352 landing dates), Python | 0.05 s |
 
 Not measured: reading the two windows from a local DEM (expected around a second if the file
@@ -311,10 +313,11 @@ it before a demo or recording. Fallback: run the API on a laptop for the demo vi
 deployed site keeps working with built-in sites and the sphere model.
 
 **Deployment layout (agreed 2026-11-14).** One public GitHub repository: `web/` (Vite + React
-+ TypeScript, deployed by Vercel as static files, no Docker), `api/` (FastAPI + Dockerfile,
-deployed to the Space), the `lunar_*.py` core and `data/` at the root; `data/lola/`,
-`kernels/` and `.venv` are git-ignored. Frontend and API are deployed separately so the site
-stays up when the API sleeps or fails.
+
+- TypeScript, deployed by Vercel as static files, no Docker), `api/` (FastAPI + Dockerfile,
+  deployed to the Space), the `lunar_*.py` core and `data/` at the root; `data/lola/`,
+  `kernels/` and `.venv` are git-ignored. Frontend and API are deployed separately so the site
+  stays up when the API sleeps or fails.
 
 **Saved custom points.** The user can name and save a custom coordinate; it is stored in the
 browser (`localStorage`: name, lat, lon, horizon profile), shown on the map next to the
@@ -341,24 +344,23 @@ sphere-only.
 
 ## Frontend status (end of the 2026-11-14 session)
 
-**The visual design is deliberately blank.** A first UI was built and then deleted at the
-frontend developer's request because they did not like the design. They will give a new design
-prompt in a new chat. Until then do not invent a visual design or layout, and do not recreate
-the deleted one; wait for the prompt. Everything below that is not visual is kept and verified.
+**The visual design is now specified in `frontend-plan.md`** (four-zone HUD, Radix + own CSS,
+lucide icons). Follow that plan; do not invent a different layout or recreate the first,
+deleted UI. Everything below that is not visual is kept and verified.
 
 What exists in `web/` (Vite + React + TypeScript, Node 24, no UI library):
 
-| File | Role |
-|---|---|
-| `scripts/build-data.mjs` | Converts `../data` into `public/data/` (git-ignored, regenerated by `npm run data`, runs automatically before `dev` and `build`): `sky_<site>.bin` (Int32 columns sun az/alt, earth az/alt, degrees × 1e5), `dsn.bin` (Int32, degrees × 1e3), minified `horizon_<site>.json`, `manifest.json` (start, step, count, scales, site list), and for custom points `vectors.bin` (Float32 columns sun x/y/z, earth x/y/z in km, 0.86 MB), `stations.bin` (like `dsn.bin`, on the vectors time axis to 2030), `grid_<site>.json`; `manifest.vectors` holds that longer time axis. The date range and the site list come from the files, never from code. About 0.85 MB in total. |
-| `src/data/load.ts` | `loadDataset()` fetches the manifest and binaries and returns per-site `SkySeries`, `Horizon`, ground height, LOLA slope p95 and radius, plus the highest DSN Moon elevation per sample (`stationMaxAlt`). Asset URLs use `import.meta.env.BASE_URL`. |
-| `src/engine/risk.ts` | TypeScript port of `lunar_risk.py`: `buildSeries`, `analyzeWindow`, `scoreWindow`, `scanLandingDates`, `horizonAt`, `DEFAULT_PROFILE`. All risk computation runs in the browser and takes a few milliseconds per site and year. |
-| `scripts/validate-engine.ts` | Compares the engine with `data/risk_<site>.json` for every site: the mission window, the five slip windows and all 352 landing-date scan rows, within the backend's 3-decimal rounding. Run with `npm run validate`. **Result on 2026-11-14: identical for all five sites.** Re-run it after any change to `risk.ts`. |
-| `src/engine/sky.ts` | `skyFromVectors(table, lat, lon, heightM, range?)`: Sun/Earth azimuth and elevation of any coordinate from the site-independent vectors table (port of `vectors_to_altaz`); returns a `SkySeries`, so `buildSeries` takes it directly. `sampleIndex`, `tableEndMs`. |
-| `src/engine/grid.ts` | Types `TerrainGrid` / `TerrainPoint` (shape of `/horizon` and `grid_<site>.json`); `scoreGrid(grid, vectors, stationMaxAlt, profile, landingMs)` scores every point for one mission window (25 points in about 5 ms); `bestPoint` (lowest risk, then most Sun, then nearest; same order as the backend); `pointHorizon`. |
-| `src/data/terrain.ts` | Terrain-service client: `fetchHorizon({lat, lon, grid, step, mast, precision}, signal)` with an in-page cache, `fetchTerrainHealth`, `terrainConfigured`, `insideTerrainCoverage`, `TerrainError` with `kind` `unconfigured` / `outside` (422) / `busy` (429) / `unavailable`. Service address from `VITE_TERRAIN_API` (for example in `web/.env.local`: `VITE_TERRAIN_API=http://localhost:8000`). |
-| `src/data/load.ts` (additions) | `loadSkyTables()` -> vectors table, `stationMaxAlt` on its time axis, `endMs` (date-picker limits); `loadSiteGrid(key)`; `SiteInfo.grid` says whether a grid file exists. |
-| `src/App.tsx`, `src/index.css` | Empty placeholder and a minimal reset (the deleted design). |
+| File                           | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/build-data.mjs`       | Converts `../data` into `public/data/` (git-ignored, regenerated by `npm run data`, runs automatically before `dev` and `build`): `sky_<site>.bin` (Int32 columns sun az/alt, earth az/alt, degrees × 1e5), `dsn.bin` (Int32, degrees × 1e3), minified `horizon_<site>.json`, `manifest.json` (start, step, count, scales, site list), and for custom points `vectors.bin` (Float32 columns sun x/y/z, earth x/y/z in km, 0.86 MB), `stations.bin` (like `dsn.bin`, on the vectors time axis to 2030), `grid_<site>.json`; `manifest.vectors` holds that longer time axis. The date range and the site list come from the files, never from code. About 0.85 MB in total. |
+| `src/data/load.ts`             | `loadDataset()` fetches the manifest and binaries and returns per-site `SkySeries`, `Horizon`, ground height, LOLA slope p95 and radius, plus the highest DSN Moon elevation per sample (`stationMaxAlt`). Asset URLs use `import.meta.env.BASE_URL`.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `src/engine/risk.ts`           | TypeScript port of `lunar_risk.py`: `buildSeries`, `analyzeWindow`, `scoreWindow`, `scanLandingDates`, `horizonAt`, `DEFAULT_PROFILE`. All risk computation runs in the browser and takes a few milliseconds per site and year.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `scripts/validate-engine.ts`   | Compares the engine with `data/risk_<site>.json` for every site: the mission window, the five slip windows and all 352 landing-date scan rows, within the backend's 3-decimal rounding. Run with `npm run validate`. **Result on 2026-11-14: identical for all five sites.** Re-run it after any change to `risk.ts`.                                                                                                                                                                                                                                                                                                                                                     |
+| `src/engine/sky.ts`            | `skyFromVectors(table, lat, lon, heightM, range?)`: Sun/Earth azimuth and elevation of any coordinate from the site-independent vectors table (port of `vectors_to_altaz`); returns a `SkySeries`, so `buildSeries` takes it directly. `sampleIndex`, `tableEndMs`.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `src/engine/grid.ts`           | Types `TerrainGrid` / `TerrainPoint` (shape of `/horizon` and `grid_<site>.json`); `scoreGrid(grid, vectors, stationMaxAlt, profile, landingMs)` scores every point for one mission window (25 points in about 5 ms); `bestPoint` (lowest risk, then most Sun, then nearest; same order as the backend); `pointHorizon`.                                                                                                                                                                                                                                                                                                                                                  |
+| `src/data/terrain.ts`          | Terrain-service client: `fetchHorizon({lat, lon, grid, step, mast, precision}, signal)` with an in-page cache, `fetchTerrainHealth`, `terrainConfigured`, `insideTerrainCoverage`, `TerrainError` with `kind` `unconfigured` / `outside` (422) / `busy` (429) / `unavailable`. Service address from `VITE_TERRAIN_API` (for example in `web/.env.local`: `VITE_TERRAIN_API=http://localhost:8000`).                                                                                                                                                                                                                                                                       |
+| `src/data/load.ts` (additions) | `loadSkyTables()` -> vectors table, `stationMaxAlt` on its time axis, `endMs` (date-picker limits); `loadSiteGrid(key)`; `SiteInfo.grid` says whether a grid file exists.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `src/App.tsx`, `src/index.css` | Map, site list and a five-row fact card for the selected site or clicked point; glass theme tokens. The starting point of `frontend-plan.md`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 Commands: `cd web`, `npm run dev`, `npm run build`, `npm run validate`.
 
@@ -414,13 +416,13 @@ a decorative overview).
 All Python, run through the single CLI `lunar_sky.py`. Setup: `pip install -r requirements.txt`
 (skyfield 1.55, requests, rasterio 1.4.4, numpy 2.4.6).
 
-| File | Role |
-|---|---|
-| `lunar_sky.py` | CLI + Skyfield geometry + Horizons client + DSN station table |
-| `lunar_metrics.py` | Rise/set events, visibility windows, summaries (stdlib only) |
-| `lunar_terrain.py` | LOLA windows (local or remote COG), terrain horizon, slope, PSR access |
-| `lunar_risk.py` | Per-sample power/comm state, mission-window indicators, risk score, date scan |
-| `api/main.py` | FastAPI terrain service: `/health`, `/horizon` (wraps `lunar_terrain.compute_grid`) |
+| File               | Role                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `lunar_sky.py`     | CLI + Skyfield geometry + Horizons client + DSN station table                       |
+| `lunar_metrics.py` | Rise/set events, visibility windows, summaries (stdlib only)                        |
+| `lunar_terrain.py` | LOLA windows (local or remote COG), terrain horizon, slope, PSR access              |
+| `lunar_risk.py`    | Per-sample power/comm state, mission-window indicators, risk score, date scan       |
+| `api/main.py`      | FastAPI terrain service: `/health`, `/horizon` (wraps `lunar_terrain.compute_grid`) |
 
 ```
 python lunar_sky.py sites                                   # list built-in sites
@@ -444,19 +446,19 @@ python lunar_sky.py grid     --site malapert_a --landing 2026-12-16   # --grid 9
 Outputs in `data/` (the UI reads these; the only live call is `/horizon` for custom
 coordinates, see "Custom coordinates and nearby alternatives"):
 
-| File | Content |
-|---|---|
-| `skyfield_<site>.csv` | `utc, sun_az_deg, sun_alt_deg, earth_az_deg, earth_alt_deg` (hourly, 1 year) |
-| `horizons_<site>.csv` | same columns from JPL Horizons (validation, December 2026 only) |
-| `metrics_<site>.json`, `metrics_<site>_terrain.json` | per track `sun`/`earth`/`both`: `summary`, `events`, `windows` (+ `status` with `--at`) |
-| `horizon_<site>.json` | `horizon_deg` and `horizon_range_km` per azimuth (0.5° step), `ground_height_m`, `surface` (slope stats from LOLA LDSM and derived from DEM, `height_error_m`, `effective_resolution_m`, `psr`) |
-| `dsn_moon.csv` | `utc, goldstone_alt_deg, madrid_alt_deg, canberra_alt_deg` (site independent) |
-| `risk_<site>.json` | `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date) |
-| `mast_<site>.json` | Sun/Earth visibility for several mast heights |
-| `ranking.json` | all sites for one landing date: window, score, date alternatives; sorted by risk |
-| `ephemeris_vectors.csv` | `utc, sun_x_km … earth_z_km`: Sun and Earth from the Moon's center in `MOON_ME_DE421`, hourly to 2030-12-31 |
-| `grid_<site>.json` | 9×9 points every 125 m around the site: horizon profile and slope per point (shape of the API response) |
-| `nearby_<site>.json` | 33 candidate points (site + 8 bearings × rings): position, height, slope, indicators, scores, slip tolerance, low-risk date count; `best_for_date`, `most_slip_tolerant`, `most_low_risk_dates` |
+| File                                                 | Content                                                                                                                                                                                         |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skyfield_<site>.csv`                                | `utc, sun_az_deg, sun_alt_deg, earth_az_deg, earth_alt_deg` (hourly, 1 year)                                                                                                                    |
+| `horizons_<site>.csv`                                | same columns from JPL Horizons (validation, December 2026 only)                                                                                                                                 |
+| `metrics_<site>.json`, `metrics_<site>_terrain.json` | per track `sun`/`earth`/`both`: `summary`, `events`, `windows` (+ `status` with `--at`)                                                                                                         |
+| `horizon_<site>.json`                                | `horizon_deg` and `horizon_range_km` per azimuth (0.5° step), `ground_height_m`, `surface` (slope stats from LOLA LDSM and derived from DEM, `height_error_m`, `effective_resolution_m`, `psr`) |
+| `dsn_moon.csv`                                       | `utc, goldstone_alt_deg, madrid_alt_deg, canberra_alt_deg` (site independent)                                                                                                                   |
+| `risk_<site>.json`                                   | `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date)           |
+| `mast_<site>.json`                                   | Sun/Earth visibility for several mast heights                                                                                                                                                   |
+| `ranking.json`                                       | all sites for one landing date: window, score, date alternatives; sorted by risk                                                                                                                |
+| `ephemeris_vectors.csv`                              | `utc, sun_x_km … earth_z_km`: Sun and Earth from the Moon's center in `MOON_ME_DE421`, hourly to 2030-12-31                                                                                     |
+| `grid_<site>.json`                                   | 9×9 points every 125 m around the site: horizon profile and slope per point (shape of the API response)                                                                                         |
+| `nearby_<site>.json`                                 | 33 candidate points (site + 8 bearings × rings): position, height, slope, indicators, scores, slip tolerance, low-risk date count; `best_for_date`, `most_slip_tolerant`, `most_low_risk_dates` |
 
 ### Conventions
 
@@ -519,14 +521,14 @@ events.
 
 ## Built-in sites (coordinates are APPROXIMATE, confirm before use)
 
-| key | Name | Latitude | Longitude |
-|---|---|---|---|
-| shackleton | Shackleton crater center (floor) | -89.67 | 129.78 |
-| connecting_ridge | Shackleton–de Gerlache ridge (high-illumination point, Mazarico 2011) | -89.45 | 222.69 |
-| malapert_a | Malapert A / IM-1 Odysseus | -80.13 | 1.44 |
-| mons_mouton | Mons Mouton / IM-2 region | -84.79 | 29.20 |
-| chandrayaan3 | Chandrayaan-3 (Shiv Shakti) | -69.37 | 32.32 |
-| apollo11 | Apollo 11 (for contrast; outside the DEM, sphere only, no data files yet) | 0.674 | 23.473 |
+| key              | Name                                                                      | Latitude | Longitude |
+| ---------------- | ------------------------------------------------------------------------- | -------- | --------- |
+| shackleton       | Shackleton crater center (floor)                                          | -89.67   | 129.78    |
+| connecting_ridge | Shackleton–de Gerlache ridge (high-illumination point, Mazarico 2011)     | -89.45   | 222.69    |
+| malapert_a       | Malapert A / IM-1 Odysseus                                                | -80.13   | 1.44      |
+| mons_mouton      | Mons Mouton / IM-2 region                                                 | -84.79   | 29.20     |
+| chandrayaan3     | Chandrayaan-3 (Shiv Shakti)                                               | -69.37   | 32.32     |
+| apollo11         | Apollo 11 (for contrast; outside the DEM, sphere only, no data files yet) | 0.674    | 23.473    |
 
 Coordinate check, 2026-11-14 (web sources): Shackleton matches the IAU Gazetteer (−89.67,
 129.78); Malapert A matches the NASA/LROC IM-1 release (80.13°S, 1.44°E, 2579 m); Mons Mouton
@@ -552,28 +554,28 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
 
 ### One year from 2026-12-01, terrain vs ideal sphere (observer 2 m above ground)
 
-| Site | Model | Sun visible | Longest dark | Earth visible | Longest Earth outage |
-|---|---|---|---|---|---|
-| Shackleton (floor) | sphere | 56.0% | 160 d | 49.8% | 13.7 d |
-| | terrain | 0% | permanent | 0% | permanent |
-| Connecting ridge | sphere | 57.3% | 137 d | 48.9% | 14.0 d |
-| | terrain | 82.7% | 9.7 d | 50.0% | 13.6 d |
-| Mons Mouton | sphere | 50.3% | 17.0 d | 78.8% | 6.0 d |
-| | terrain | 45.6% | 17.1 d | 92.8% | 3.2 d |
-| Malapert A | sphere | 49.9% | 15.9 d | 100% | none |
-| | terrain | 39.0% | 18.8 d | 100% | none |
-| Chandrayaan-3 | sphere | 49.0% | 15.3 d | 100% | none |
-| | terrain | 46.9% | 15.9 d | 100% | none |
+| Site               | Model   | Sun visible | Longest dark | Earth visible | Longest Earth outage |
+| ------------------ | ------- | ----------- | ------------ | ------------- | -------------------- |
+| Shackleton (floor) | sphere  | 56.0%       | 160 d        | 49.8%         | 13.7 d               |
+|                    | terrain | 0%          | permanent    | 0%            | permanent            |
+| Connecting ridge   | sphere  | 57.3%       | 137 d        | 48.9%         | 14.0 d               |
+|                    | terrain | 82.7%       | 9.7 d        | 50.0%         | 13.6 d               |
+| Mons Mouton        | sphere  | 50.3%       | 17.0 d       | 78.8%         | 6.0 d                |
+|                    | terrain | 45.6%       | 17.1 d       | 92.8%         | 3.2 d                |
+| Malapert A         | sphere  | 49.9%       | 15.9 d       | 100%          | none                 |
+|                    | terrain | 39.0%       | 18.8 d       | 100%          | none                 |
+| Chandrayaan-3      | sphere  | 49.0%       | 15.3 d       | 100%          | none                 |
+|                    | terrain | 46.9%       | 15.9 d       | 100%          | none                 |
 
 ### 14-day mission landing 2026-12-16 (default profile, terrain, DSN)
 
-| Site | Usable Sun | Longest dark | Link | Longest outage | Slope p95 | Risk (power/comm/surface) | Low-risk landing dates per year |
-|---|---|---|---|---|---|---|---|
-| Connecting ridge | 100% | 0 h | 83.3% | 2.3 d | 15.1° | 0 / 100 / 100 | 0 of 352 |
-| Mons Mouton | 100% | 0 h | 99.7% | 1 h | 5.9° | 0 / 0 / 18 → low | 22 |
-| Malapert A | 81.0% | 2.6 d | 99.7% | 1 h | 15.9° | 100 / 0 / 100 | 0 |
-| Chandrayaan-3 | 89.9% | 32 h | 99.7% | 1 h | 3.2° | 28 / 0 / 0 → low | 37 |
-| Shackleton floor | 0% | 14 d | 0% | 14 d | 9.4° | 100 / 100 / 87 | 0 |
+| Site             | Usable Sun | Longest dark | Link  | Longest outage | Slope p95 | Risk (power/comm/surface) | Low-risk landing dates per year |
+| ---------------- | ---------- | ------------ | ----- | -------------- | --------- | ------------------------- | ------------------------------- |
+| Connecting ridge | 100%       | 0 h          | 83.3% | 2.3 d          | 15.1°     | 0 / 100 / 100             | 0 of 352                        |
+| Mons Mouton      | 100%       | 0 h          | 99.7% | 1 h            | 5.9°      | 0 / 0 / 18 → low          | 22                              |
+| Malapert A       | 81.0%      | 2.6 d        | 99.7% | 1 h            | 15.9°     | 100 / 0 / 100             | 0                               |
+| Chandrayaan-3    | 89.9%      | 32 h         | 99.7% | 1 h            | 3.2°      | 28 / 0 / 0 → low          | 37                              |
+| Shackleton floor | 0%         | 14 d         | 0%    | 14 d           | 9.4°      | 100 / 100 / 87            | 0                               |
 
 Slip example (Mons Mouton): +0 d risk 18; +7 d Sun 51 %, 6.6 d dark → 100; +14 d Sun 1 % →
 100; +28 d back to 18. This is the natural demo story.
@@ -583,6 +585,7 @@ the other three 100. Mons Mouton low-risk landing windows: 14–17 Dec 2026, 13�
 then short windows in May, Aug, Sep, Oct, Nov 2027 (22 dates in total).
 
 Nearby search (rings to 10 km), landing 2026-12-16:
+
 - Malapert A, 1 km ellipse: every point within 10 km is limited by slope; best is 5 km N,
   risk 58 (medium). With `--ellipse 300`: 2 km E → risk 3 (low), 100 % Sun, 43 low-risk dates
   in the year (the site itself: risk 100, none).

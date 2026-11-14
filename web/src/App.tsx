@@ -3,6 +3,7 @@ import { loadSites, type SiteInfo } from "./data/load.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
 import { MoonMap, type Insets, type MapPick, type MapPoint } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
+import { Explainer } from "./panels/Explainer.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
 import { MastControl } from "./panels/MastControl.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
@@ -154,6 +155,7 @@ export default function App() {
           <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
             <RiskBadge views={views} />
             <MastControl views={views} />
+            <Explainer views={views} />
           </InspectorPanel>
         ) : null}
 
