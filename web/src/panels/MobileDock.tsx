@@ -1,5 +1,5 @@
 import type { Ref } from "react";
-import { ChevronUp, Info, List } from "lucide-react";
+import { ChevronUp, Info, MapPin } from "lucide-react";
 import { placeTitle, type Place } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
 import { MissionParameters } from "./MissionParameters.tsx";
@@ -22,7 +22,7 @@ export function MobileDock({ ref, placeA, views, onOpen }: MobileDockProps) {
   return (
     <nav ref={ref} className="dock glass glass--thick" aria-label="Panels">
       <button type="button" className="dock__button dock__button--icon" onClick={() => onOpen("sites")} aria-label="Sites">
-        <List aria-hidden="true" />
+        <MapPin aria-hidden="true" />
       </button>
       <MissionParameters views={views} side="top" />
       {placeA ? (
