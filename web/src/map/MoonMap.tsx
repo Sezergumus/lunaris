@@ -28,6 +28,8 @@ interface MoonMapProps {
   selectedKey: string | null;
   hoveredKey: string | null;
   picked: MapPoint | null;
+  /** View request: the map flies there when the object changes. Null leaves the view alone. */
+  flyTarget: MapPoint | null;
   onSelectSite: (key: string) => void;
   onHoverSite: (key: string | null) => void;
   onPick: (point: MapPoint) => void;
@@ -79,7 +81,7 @@ function zoomToFit(map: L.Map, halfWidthM: number, insets: Insets): number {
   return Math.floor(Math.log2((ZOOM0_M_PER_PX * free) / (2 * halfWidthM)) * 4) / 4;
 }
 
-export function MoonMap({ sites, selectedKey, hoveredKey, picked, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
+export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
@@ -222,11 +224,10 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, onSelectSite, 
     [map],
   );
 
-  // Fly to the selected site.
+  // Fly where the app asks: a site or point the user picked, never the selection made on load.
   useEffect(() => {
-    const site = sites.find((s) => s.key === selectedKey);
-    if (site) flyToPoint(site.lat, site.lon, SITE_VIEW_WIDTH_M);
-  }, [selectedKey, sites, flyToPoint]);
+    if (flyTarget) flyToPoint(flyTarget.lat, flyTarget.lon, SITE_VIEW_WIDTH_M);
+  }, [flyTarget, flyToPoint]);
 
   // Marker for a clicked point.
   useEffect(() => {

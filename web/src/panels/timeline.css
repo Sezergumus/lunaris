@@ -1,0 +1,436 @@
+/*
+ * Bottom bar. Macro row: landing date, window length, slips, landing-date risk strip.
+ * Micro row: transport and the visibility strips with the playhead on top.
+ *
+ * Strip colors are darker steps of --sun / --earth chosen with the dataviz validator for
+ * the dark surface (lightness band, colorblind separation, 3:1 contrast). Each strip also
+ * has a text label, so identity never rests on color alone.
+ */
+
+.timeline {
+  --strip-sun: #c2841a;
+  --strip-link: #3498d8;
+  --strip-both: #d264b4;
+  --label-w: 104px;
+
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-radius: var(--radius-panel);
+  min-width: 0;
+}
+
+.timeline__macro,
+.timeline__micro {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.timeline__micro {
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.timeline__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.timeline__caption {
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--text-2);
+  padding-right: 2px;
+}
+
+.timeline__transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding-top: 4px;
+}
+
+.timeline__empty {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.track__foot {
+  grid-column: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 18px;
+}
+
+.timeline__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.timeline__readout-day {
+  min-width: 58px;
+  font-weight: 620;
+  color: var(--text);
+}
+
+/* ---------- A / B tags ---------- */
+
+.tag {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--accent);
+  vertical-align: -2px;
+}
+
+.tag--b {
+  background: #8e8e93;
+}
+
+.compare-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 3px 0 9px;
+  border-radius: 9px;
+  background: var(--fill-hover);
+  font-size: 12.5px;
+  font-weight: 560;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.compare-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Track ---------- */
+
+.track {
+  --strip-h: 10px;
+  --row-gap: 6px;
+
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: var(--label-w) minmax(0, 1fr);
+}
+
+.track[data-compare] {
+  --strip-h: 7px;
+}
+
+.track__labels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.track__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--strip-h);
+  font-size: 11.5px;
+  font-weight: 560;
+  line-height: 1;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.track[data-compare] .track__label {
+  height: calc(var(--strip-h) * 2 + 2px);
+}
+
+.track__tags {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  margin-left: auto;
+  padding-right: 6px;
+  font-size: 8.5px;
+  color: var(--text-3);
+}
+
+.track__tags b {
+  line-height: var(--strip-h);
+  font-weight: 700;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.swatch--sun {
+  background: var(--strip-sun);
+}
+
+.swatch--link {
+  background: var(--strip-link);
+}
+
+.swatch--both {
+  background: var(--strip-both);
+}
+
+.track__plot {
+  position: relative;
+  min-width: 0;
+  cursor: ew-resize;
+}
+
+.strips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.strips__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strip {
+  width: 100%;
+  height: var(--strip-h);
+  border-radius: 2.5px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.strip--sun rect {
+  fill: var(--strip-sun);
+}
+
+.strip--sun .strip__partial {
+  opacity: 0.38;
+}
+
+.strip--link rect {
+  fill: var(--strip-link);
+}
+
+.strip--both rect {
+  fill: var(--strip-both);
+}
+
+/* ---------- Day axis ---------- */
+
+.axis {
+  position: relative;
+  height: 20px;
+  margin-top: 4px;
+}
+
+.axis__tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.axis__tick[data-major] {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.axis__label {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  font-size: 10.5px;
+  line-height: 1;
+  color: var(--text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Playhead ---------- */
+
+.scrub {
+  position: absolute;
+  inset: -4px 0 0;
+  display: block;
+  touch-action: none;
+  user-select: none;
+}
+
+.scrub__track {
+  position: absolute;
+  inset: 0;
+}
+
+/* Radix wraps the thumb in a positioned span; stretch it over the plot. */
+.scrub > span {
+  top: 0;
+  height: 100%;
+}
+
+.scrub__thumb {
+  position: relative;
+  display: block;
+  width: 2px;
+  height: 100%;
+  border-radius: 1px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+  outline: none;
+}
+
+/* Handle at the top of the line. */
+.scrub__thumb::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  transition: transform 120ms var(--ease-out);
+}
+
+/* A hit area wider than the line. */
+.scrub__thumb::after {
+  content: "";
+  position: absolute;
+  inset: -6px -12px;
+}
+
+.scrub__thumb:active {
+  cursor: grabbing;
+}
+
+.scrub__thumb:active::before {
+  transform: scale(1.25);
+}
+
+.scrub__thumb:focus-visible::before {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+}
+
+/* ---------- Hover readout ---------- */
+
+.track__hover {
+  position: absolute;
+  top: -4px;
+  bottom: 20px;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.track__hover-card {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 8px;
+  display: flex;
+  gap: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(44, 44, 50, 0.97);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.track__hover-card[data-side="left"] {
+  left: auto;
+  right: 8px;
+}
+
+.track__hover-card p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.track__hover-card b {
+  font-weight: 590;
+}
+
+.track__hover-time {
+  color: var(--text-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compare-chip {
+    @starting-style {
+      transform: none;
+    }
+  }
+
+  .scrub__thumb:active::before {
+    transform: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .timeline__macro {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 759px) {
+  .timeline {
+    --label-w: 78px;
+    padding: 10px;
+  }
+
+  .timeline__micro {
+    flex-wrap: wrap;
+  }
+
+  .track {
+    flex-basis: 100%;
+  }
+}

@@ -196,8 +196,8 @@
 .map-controls {
   position: absolute;
   z-index: 1000;
-  right: 16px;
-  bottom: 44px;
+  left: 360px;
+  bottom: calc(var(--hud-bottom, 0px) + 58px);
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -247,7 +247,7 @@
   position: absolute;
   z-index: 1000;
   left: 360px;
-  bottom: 16px;
+  bottom: calc(var(--hud-bottom, 0px) + 16px);
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -300,8 +300,8 @@
 .map-attribution {
   position: absolute;
   z-index: 1000;
-  right: 16px;
-  bottom: 14px;
+  right: 392px;
+  bottom: calc(var(--hud-bottom, 0px) + 22px);
   display: flex;
   gap: 12px;
   font-size: 11px;
@@ -342,6 +342,7 @@
   }
 
   .map-controls {
+    left: auto;
     right: 8px;
     bottom: auto;
     top: 50%;
