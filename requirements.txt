@@ -1,0 +1,4 @@
+numpy==2.4.6
+rasterio==1.4.4
+requests==2.34.2
+skyfield==1.55
