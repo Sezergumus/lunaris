@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import L from "leaflet";
+import { Minus, Plus, Scan } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import type { SiteInfo } from "../data/load.ts";
 import { formatLat, formatLon, latLonToXY } from "../geo/polar.ts";
@@ -7,6 +8,7 @@ import { siteTitle } from "../sites.ts";
 import { createCapMask, createGraticule } from "./graticule.ts";
 import { MAX_ZOOM, MoonSouthPolarCRS, TREK_LAYERS, ZOOM0_M_PER_PX, createTrekLayer, nativeZoomAt } from "./trek.ts";
 import { ScaleBar } from "./ScaleBar.tsx";
+import { Tip } from "../ui/Tooltip.tsx";
 import "./map.css";
 
 export interface MapPoint {
@@ -250,20 +252,23 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, onSelectSite, 
       <div className="moon-map__vignette" aria-hidden="true" />
 
       <div className="map-controls glass" role="group" aria-label="Map controls">
-        <button type="button" className="map-controls__button" onClick={() => map?.zoomIn()} aria-label="Zoom in">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
-        </button>
+        <Tip label="Zoom in" side="right">
+          <button type="button" className="map-controls__button" onClick={() => map?.zoomIn()} aria-label="Zoom in">
+            <Plus aria-hidden="true" />
+          </button>
+        </Tip>
         <span className="map-controls__divider" />
-        <button type="button" className="map-controls__button" onClick={() => map?.zoomOut()} aria-label="Zoom out">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg>
-        </button>
+        <Tip label="Zoom out" side="right">
+          <button type="button" className="map-controls__button" onClick={() => map?.zoomOut()} aria-label="Zoom out">
+            <Minus aria-hidden="true" />
+          </button>
+        </Tip>
         <span className="map-controls__divider" />
-        <button type="button" className="map-controls__button" onClick={resetView} aria-label="Show the whole south polar region">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="8" cy="8" r="5" />
-            <path d="M8 1v3M8 12v3M1 8h3M12 8h3" />
-          </svg>
-        </button>
+        <Tip label="Show the whole south polar region" side="right">
+          <button type="button" className="map-controls__button" onClick={resetView} aria-label="Show the whole south polar region">
+            <Scan aria-hidden="true" />
+          </button>
+        </Tip>
       </div>
 
       <div className="map-footer">

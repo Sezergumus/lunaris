@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MousePointerClick, X } from "lucide-react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { DEM_LIMIT_DEG } from "./map/graticule.ts";
 import { MoonMap, type Insets, type MapPoint } from "./map/MoonMap.tsx";
 import { finestLayerAt } from "./map/trek.ts";
 import { formatDistance, formatLat, formatLon, latLonToXY, surfaceDistanceM } from "./geo/polar.ts";
 import { siteSubtitle, siteTitle } from "./sites.ts";
+import { IconButton } from "./ui/Button.tsx";
 
 type Focus = { kind: "site"; key: string } | { kind: "point"; point: MapPoint } | null;
 
@@ -150,9 +152,7 @@ export default function App() {
         </section>
 
         <p className="sidebar__hint">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M4 2.5 12.5 8 8.4 8.9 6.6 12.8z" />
-          </svg>
+          <MousePointerClick aria-hidden="true" />
           Click anywhere on the map to inspect a location.
         </p>
       </aside>
@@ -165,11 +165,9 @@ export default function App() {
               <h2 className="inspector__title">{inspected.title}</h2>
               {inspected.subtitle ? <p className="inspector__subtitle">{inspected.subtitle}</p> : null}
             </div>
-            <button type="button" className="icon-button" onClick={() => setFocus(null)} aria-label="Close">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-            </button>
+            <IconButton label="Close" size="sm" tipSide="left" onClick={() => setFocus(null)}>
+              <X aria-hidden="true" />
+            </IconButton>
           </header>
           <dl className="facts">
             <div>

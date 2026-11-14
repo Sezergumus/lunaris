@@ -23,6 +23,8 @@
   --warning: #ffd60a;
   --sun: #ffb340;
   --earth: #64d2ff;
+  --danger: #ff453a;
+  --success: #30d158;
 
   --radius-panel: 18px;
   --radius-row: 11px;
@@ -293,7 +295,6 @@ svg {
   width: 14px;
   height: 14px;
   flex: none;
-  fill: var(--text-3);
 }
 
 /* ---------- Inspector ---------- */
@@ -347,33 +348,6 @@ svg {
   color: var(--text-2);
 }
 
-.icon-button {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--fill-hover);
-  transition:
-    background-color 160ms ease,
-    transform 120ms var(--ease-out);
-}
-
-.icon-button svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: var(--text-2);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-
-.icon-button:active {
-  transform: scale(0.94);
-  background: var(--fill-press);
-}
-
 .facts > div {
   display: flex;
   justify-content: space-between;
@@ -399,12 +373,6 @@ svg {
   color: var(--warning);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .icon-button:hover {
-    background: var(--fill-press);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .inspector {
     @starting-style {
@@ -412,8 +380,7 @@ svg {
     }
   }
 
-  .site-row:active,
-  .icon-button:active {
+  .site-row:active {
     transform: none;
   }
 }

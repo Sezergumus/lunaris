@@ -1,0 +1,468 @@
+/*
+ * Shared controls. Everything here sits on the tokens of index.css; no control shows the
+ * browser's default look. Motion: press feedback 120 ms, popovers 180 ms in / 120 ms out,
+ * transform and opacity (and clip-path for the segmented highlight) only.
+ */
+
+/* ---------- Button ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  border-radius: 9px;
+  font-weight: 560;
+  white-space: nowrap;
+  color: var(--text);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.btn--md {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.btn--sm {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.btn svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  stroke-width: 1.9;
+}
+
+.btn--sm svg {
+  width: 13px;
+  height: 13px;
+}
+
+.btn--icon {
+  padding: 0;
+  width: 32px;
+}
+
+.btn--icon.btn--sm {
+  width: 26px;
+}
+
+.btn--filled {
+  background: var(--fill-hover);
+}
+
+.btn--accent {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--plain {
+  color: var(--text-2);
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn--filled:active:not(:disabled),
+.btn--plain:active:not(:disabled) {
+  background: var(--fill-press);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn[data-active="true"] {
+  background: var(--accent-soft);
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn--filled:hover:not(:disabled) {
+    background: var(--fill-press);
+  }
+
+  .btn--plain:hover:not(:disabled) {
+    background: var(--fill-hover);
+    color: var(--text);
+  }
+
+  .btn--accent:hover:not(:disabled) {
+    background: #2b95ff;
+  }
+}
+
+/* ---------- Segmented control ---------- */
+
+.seg {
+  position: relative;
+  flex: none;
+  border-radius: 9px;
+  background: var(--fill-hover);
+}
+
+.seg__list {
+  display: flex;
+}
+
+.seg__item {
+  flex: 1 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 560;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.seg--sm .seg__item {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+/* The highlighted copy: same layout, clipped to the active segment by Segmented.tsx. */
+.seg__list--active {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.16);
+  clip-path: inset(0 100% 0 0);
+}
+
+.seg__list--active[data-ready="true"] {
+  transition: clip-path 220ms var(--ease-out);
+}
+
+.seg__list--active .seg__item {
+  color: #fff;
+}
+
+.seg__item:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .seg__list:not(.seg__list--active) .seg__item:hover {
+    color: var(--text);
+  }
+}
+
+/* ---------- Slider ---------- */
+
+.slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  touch-action: none;
+  user-select: none;
+}
+
+.slider__track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.slider__range {
+  position: absolute;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.slider__thumb {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+  transition: transform 120ms var(--ease-out);
+}
+
+.slider__thumb:active {
+  cursor: grabbing;
+  transform: scale(1.12);
+}
+
+.slider__thumb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.slider[data-disabled] {
+  opacity: 0.4;
+}
+
+.slider[data-disabled] .slider__thumb {
+  cursor: default;
+}
+
+/* ---------- Number field ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+
+.field__label {
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--text-2);
+}
+
+.field__box {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+  transition: box-shadow 160ms ease;
+}
+
+.field__box:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.field[data-invalid] .field__box {
+  box-shadow: inset 0 0 0 1.5px var(--danger);
+}
+
+.field__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font: 13px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.field__input::placeholder {
+  color: var(--text-3);
+}
+
+.field__suffix {
+  flex: none;
+  padding-left: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ---------- Tooltip ---------- */
+
+.tip {
+  z-index: 3000;
+  max-width: 260px;
+  padding: 5px 9px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 510;
+  line-height: 1.35;
+  color: var(--text);
+  background: rgba(44, 44, 50, 0.96);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only the first tooltip animates; neighbours opened right after it appear at once. */
+.tip[data-state="delayed-open"] {
+  animation: pop-in 140ms var(--ease-out);
+}
+
+/* ---------- Popover and calendar ---------- */
+
+.popover {
+  z-index: 2500;
+  padding: 12px;
+  border-radius: 16px;
+  transform-origin: var(--radix-popover-content-transform-origin);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popover[data-state="open"] {
+  animation: pop-in 180ms var(--ease-out);
+}
+
+.popover[data-state="closed"] {
+  animation: pop-out 120ms var(--ease-out);
+}
+
+.popover:focus-visible {
+  outline: none;
+}
+
+.popover__note {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.date-trigger {
+  font-variant-numeric: tabular-nums;
+}
+
+.rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--accent-soft);
+  --rdp-day-height: 34px;
+  --rdp-day-width: 34px;
+  --rdp-day_button-height: 32px;
+  --rdp-day_button-width: 32px;
+  --rdp-day_button-border-radius: 9px;
+  --rdp-day_button-border: 0;
+  --rdp-selected-border: 0;
+  --rdp-nav_button-height: 30px;
+  --rdp-nav_button-width: 30px;
+  --rdp-nav-height: 34px;
+  --rdp-outside-opacity: 0.35;
+  --rdp-disabled-opacity: 0.22;
+  --rdp-today-color: var(--text);
+  --rdp-weekday-opacity: 0.5;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rdp-month_caption {
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.rdp-weekday {
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.rdp-button_previous,
+.rdp-button_next {
+  border-radius: 8px;
+  transition:
+    background-color 160ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.rdp-button_previous:active,
+.rdp-button_next:active {
+  transform: scale(0.94);
+}
+
+.rdp-chevron {
+  width: 16px;
+  height: 16px;
+  fill: var(--text-2);
+}
+
+.rdp-day_button {
+  transition:
+    background-color 140ms ease,
+    transform 120ms var(--ease-out);
+}
+
+.rdp-day_button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.rdp-selected .rdp-day_button {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 620;
+}
+
+.rdp-selected {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rdp-day:not(.rdp-selected) .rdp-day_button:hover:not(:disabled),
+  .rdp-button_previous:hover:not(:disabled),
+  .rdp-button_next:hover:not(:disabled) {
+    background: var(--fill-press);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled),
+  .slider__thumb:active,
+  .rdp-day_button:active:not(:disabled),
+  .rdp-button_previous:active,
+  .rdp-button_next:active {
+    transform: none;
+  }
+
+  .seg__list--active[data-ready="true"] {
+    transition: none;
+  }
+
+  /* Keep the fade, drop the scale. */
+  .tip[data-state="delayed-open"],
+  .popover[data-state="open"] {
+    animation-name: fade-in;
+  }
+
+  .popover[data-state="closed"] {
+    animation-name: fade-out;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
