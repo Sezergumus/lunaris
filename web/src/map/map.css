@@ -407,7 +407,11 @@
 
 /* ---------- Footer: cursor readout and scale ---------- */
 
-/* Kept clear of the zoom buttons (40px + a gap); wraps upward when the space is narrow. */
+/*
+ * Kept clear of the zoom buttons (40px + a gap). The first item (the legend) sits in the
+ * bottom-left corner at every width; the rest follow to its right and wrap upward, left-aligned,
+ * when the space is narrow.
+ */
 .map-footer {
   position: absolute;
   z-index: 1000;
@@ -512,7 +516,8 @@
     left: 16px;
     right: auto;
     bottom: 16px;
-    flex-direction: column;
+    flex-direction: column-reverse;
+    flex-wrap: nowrap;
     align-items: flex-start;
   }
 

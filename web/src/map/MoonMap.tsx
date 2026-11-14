@@ -481,12 +481,8 @@ export function MoonMap({
         </Tip>
       </div>
 
+      {/* Order matters: the legend anchors the corner, the scale follows, the hover readout comes last. */}
       <div className="map-footer">
-        <div ref={readoutRef} className="readout glass" data-visible="false" aria-hidden="true">
-          <span className="readout__lat" />
-          <span className="readout__lon" />
-        </div>
-        {map && <ScaleBar map={map} />}
         {views.some((view) => view.data.place.kind !== "reference") ? (
           <div className="arrow-legend glass">
             <span className="arrow-legend__item">
@@ -504,6 +500,11 @@ export function MoonMap({
             <span className="arrow-legend__note">faded = below the horizon</span>
           </div>
         ) : null}
+        {map && <ScaleBar map={map} />}
+        <div ref={readoutRef} className="readout glass" data-visible="false" aria-hidden="true">
+          <span className="readout__lat" />
+          <span className="readout__lon" />
+        </div>
       </div>
 
       <div className="map-attribution">
