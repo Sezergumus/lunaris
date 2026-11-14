@@ -65,12 +65,19 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
         })}
       </dl>
       {worse && mapError ? (
-        <Tip label={`With map height error (${mapError.heightErrorM.toFixed(1)} m, horizon up to ${mapError.maxDeg.toFixed(2)}° higher)`} side="bottom">
+        <Tip label={`Scored again with the horizon raised by the map's height error (${mapError.heightErrorM.toFixed(1)} m, up to ${mapError.maxDeg.toFixed(2)}° higher)`} side="bottom">
+          {/* Short either way, so A and B stay on one line each: the full story is in the tooltip. */}
           <p className="risk__error" data-changed={worse.level !== score.level || undefined}>
-            Height error (+{mapError.heightErrorM.toFixed(1)} m):{" "}
-            <strong>
-              {worse.overall.toFixed(0)} · {LEVEL_TEXT[worse.level]}
-            </strong>
+            {Math.round(worse.overall) === Math.round(score.overall) ? (
+              <>Holds with +{mapError.heightErrorM.toFixed(1)} m map error</>
+            ) : (
+              <>
+                +{mapError.heightErrorM.toFixed(1)} m map error:{" "}
+                <strong>
+                  {worse.overall.toFixed(0)} · {LEVEL_TEXT[worse.level]}
+                </strong>
+              </>
+            )}
           </p>
         </Tip>
       ) : null}

@@ -463,9 +463,11 @@
   margin-top: 6px;
 }
 
+/* Top-aligned: a column whose last line wraps must not push its neighbour's bars down. */
 .risk__column {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
   align-items: center;
   gap: 14px;
   min-width: 0;
