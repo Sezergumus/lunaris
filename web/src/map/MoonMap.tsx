@@ -414,19 +414,19 @@ export function MoonMap({
       <div className="moon-map__vignette" aria-hidden="true" />
 
       <div className="map-controls glass" role="group" aria-label="Map controls">
-        <Tip label="Zoom in" side="right">
+        <Tip label="Zoom in" side="left">
           <button type="button" className="map-controls__button" onClick={() => map?.zoomIn()} aria-label="Zoom in">
             <Plus aria-hidden="true" />
           </button>
         </Tip>
         <span className="map-controls__divider" />
-        <Tip label="Zoom out" side="right">
+        <Tip label="Zoom out" side="left">
           <button type="button" className="map-controls__button" onClick={() => map?.zoomOut()} aria-label="Zoom out">
             <Minus aria-hidden="true" />
           </button>
         </Tip>
         <span className="map-controls__divider" />
-        <Tip label="Show the whole south polar region" side="right">
+        <Tip label="Show the whole south polar region" side="left">
           <button type="button" className="map-controls__button" onClick={resetView} aria-label="Show the whole south polar region">
             <Scan aria-hidden="true" />
           </button>

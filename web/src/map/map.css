@@ -320,11 +320,15 @@
 
 /* ---------- Controls ---------- */
 
+/*
+ * Chrome sits in the bottom corners of the map: legends bottom left, zoom buttons bottom right.
+ * Right of the map is the landing-site panel (360px + its 16px margin + a 12px gap).
+ */
 .map-controls {
   position: absolute;
   z-index: 1000;
-  left: 360px;
-  bottom: calc(var(--hud-bottom, 0px) + 58px);
+  right: 388px;
+  bottom: calc(var(--hud-bottom, 0px) + 16px);
   display: flex;
   flex-direction: column;
   border-radius: 14px;
@@ -455,6 +459,24 @@
   .scale-bar__rule,
   .sky-arrow {
     transition: none;
+  }
+}
+
+/*
+ * Wide screens: the timeline is capped at 1100px and centered, so the corners beside it are
+ * free. Legends and buttons drop into them, level with the timeline.
+ */
+@media (min-width: 1760px) {
+  .map-footer {
+    left: 16px;
+    bottom: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .map-controls {
+    right: 16px;
+    bottom: 16px;
   }
 }
 

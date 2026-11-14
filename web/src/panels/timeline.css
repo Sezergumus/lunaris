@@ -15,6 +15,10 @@
 
   grid-column: 1 / -1;
   grid-row: 2;
+  /* On wide screens the bar stops growing and stays centered; the corners stay free. */
+  justify-self: center;
+  width: 100%;
+  max-width: var(--timeline-max-w, 1100px);
   display: flex;
   flex-direction: column;
   gap: 10px;
