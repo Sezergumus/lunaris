@@ -14,6 +14,9 @@ Subcommands:
   risk      Mission-window indicators, risk score and
             landing-date scan                           -> data/risk_<site>.json
   mast      Sensitivity to observer (mast) height       -> data/mast_<site>.json
+  rank      Compare all sites for one landing date      -> data/ranking.json
+  nearby    Search alternative landing points around a
+            site (rings out to 10 km; needs the LOLA DEM) -> data/nearby_<site>.json
 
 Example:
   python lunar_sky.py compute  --site malapert_a --start 2026-12-01 --days 30
@@ -25,6 +28,8 @@ Example:
   python lunar_sky.py dsn      --start 2026-12-01 --days 365
   python lunar_sky.py risk     --site malapert_a --landing 2026-12-16 --duration 14
   python lunar_sky.py mast     --site malapert_a --masts 2,5,10
+  python lunar_sky.py rank     --landing 2026-12-16
+  python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16
 
 Notes:
 - compute/horizons angles are relative to the local horizontal plane of an
@@ -104,18 +109,30 @@ def load_skyfield(kernel_dir):
     return ts, eph, pc, frame
 
 
+def compute_points(points, times, kernel_dir, height_m=0.0):
+    """Sun/Earth angles for several (lat, lon) points; kernels are loaded once.
+
+    Returns one dict per point with arrays sun_az, sun_alt, earth_az, earth_alt (deg).
+    """
+    ts, eph, pc, frame = load_skyfield(kernel_dir)
+    t = ts.from_datetimes(times)
+    results = []
+    for lat, lon in points:
+        place = pc.build_latlon_degrees(frame, lat, lon, elevation_m=height_m)
+        observer = (eph["moon"] + place).at(t)
+        out = {}
+        for body in ("sun", "earth"):
+            alt, az, _ = observer.observe(eph[body]).apparent().altaz()
+            out[body + "_az"], out[body + "_alt"] = az.degrees, alt.degrees
+        results.append(out)
+    return results
+
+
 def compute(lat, lon, height_m, times, kernel_dir):
     """Return [(utc, sun_az, sun_alt, earth_az, earth_alt), ...]."""
-    ts, eph, pc, frame = load_skyfield(kernel_dir)
-    place = pc.build_latlon_degrees(frame, lat, lon, elevation_m=height_m)
-    observer = eph["moon"] + place
-    t = ts.from_datetimes(times)
-    out = {}
-    for body in ("sun", "earth"):
-        alt, az, _ = observer.at(t).observe(eph[body]).apparent().altaz()
-        out[body] = (az.degrees, alt.degrees)
+    out = compute_points([(lat, lon)], times, kernel_dir, height_m)[0]
     return [
-        (times[i], out["sun"][0][i], out["sun"][1][i], out["earth"][0][i], out["earth"][1][i])
+        (times[i], out["sun_az"][i], out["sun_alt"][i], out["earth_az"][i], out["earth_alt"][i])
         for i in range(len(times))
     ]
 
@@ -189,7 +206,7 @@ HEADER = ["utc", "sun_az_deg", "sun_alt_deg", "earth_az_deg", "earth_alt_deg"]
 def write_csv(path, rows):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(HEADER)
         for t, saz, salt, eaz, ealt in rows:
             w.writerow([t.strftime("%Y-%m-%dT%H:%MZ")] + [f"{v:.5f}" for v in (saz, salt, eaz, ealt)])
@@ -224,7 +241,8 @@ def compare(sky, hor):
 # ---------------------------------------------------------------------- CLI
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("cmd", choices=["compute", "horizons", "compare", "metrics", "horizon", "dsn", "risk", "mast", "sites"])
+    p.add_argument("cmd", choices=["compute", "horizons", "compare", "metrics", "horizon", "dsn", "risk", "mast",
+                                  "rank", "nearby", "sites"])
     p.add_argument("--site", default="malapert_a", help="built-in site key, or a name for custom coordinates")
     p.add_argument("--lat", type=float, help="custom latitude (degrees, north positive)")
     p.add_argument("--lon", type=float, help="custom longitude (degrees, east positive)")
@@ -249,6 +267,8 @@ def main():
     p.add_argument("--max-slope", type=float, help="risk: slope limit (deg)")
     p.add_argument("--sphere", action="store_true",
                    help="risk: ignore the terrain horizon even if one is available")
+    p.add_argument("--radii", default="1,2,5,10",
+                   help="nearby: ring radii around the site (km, comma-separated)")
     p.add_argument("--masts", default="2,5,10", help="mast: heights to compare (m, comma-separated)")
     p.add_argument("--at", help="metrics: report the status at this UTC instant, YYYY-MM-DDTHH:MM")
     a = p.parse_args()
@@ -265,11 +285,15 @@ def main():
         path = os.path.join(a.out, "dsn_moon.csv")
         os.makedirs(a.out, exist_ok=True)
         with open(path, "w", newline="") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(["utc"] + [f"{name}_alt_deg" for name in DSN_STATIONS])
             for i, t in enumerate(times):
                 w.writerow([t.strftime("%Y-%m-%dT%H:%MZ")] + [f"{alt[n][i]:.3f}" for n in DSN_STATIONS])
         print("wrote:", path, f"({len(times)} rows)")
+        return
+
+    if a.cmd == "rank":
+        run_rank(a)
         return
 
     key, label, lat, lon = resolve_site(a)
@@ -313,17 +337,17 @@ def main():
     elif a.cmd == "mast":
         run_mast(a, key, label, lat, lon, sky_path)
 
+    elif a.cmd == "nearby":
+        run_nearby(a, key, label, lat, lon, sky_path)
+
 
 def parse_instant(text):
     fmt = "%Y-%m-%dT%H:%M" if "T" in text else "%Y-%m-%d"
     return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
 
 
-def run_risk(a, key, label, lat, lon, sky_path):
-    """Mission-window indicators, risk score, slip table and landing-date scan."""
-    import json
-
-    import lunar_metrics as lm
+def build_profile(a):
+    """Risk profile: defaults overridden by command-line options."""
     import lunar_risk as lr
 
     profile = dict(lr.DEFAULT_PROFILE)
@@ -332,8 +356,25 @@ def run_risk(a, key, label, lat, lon, sky_path):
                         ("mask_deg", a.mask or None)):
         if value is not None:
             profile[name] = value
+    return profile
 
-    times, sun_alt, earth_alt, sun_az, earth_az = lm.load_series(sky_path)
+
+def load_stations(a):
+    import lunar_risk as lr
+
+    path = os.path.join(a.out, "dsn_moon.csv")
+    return lr.load_station_table(path) if os.path.exists(path) else None
+
+
+def load_site_series(a, key, profile, stations):
+    """Risk time series for a precomputed site. Returns (series, surface)."""
+    import json
+
+    import lunar_metrics as lm
+    import lunar_risk as lr
+
+    times, sun_alt, earth_alt, sun_az, earth_az = lm.load_series(
+        os.path.join(a.out, f"skyfield_{key}.csv"))
     horizon, surface = None, None
     hor_path = os.path.join(a.out, f"horizon_{key}.json")
     if os.path.exists(hor_path) and not a.sphere:
@@ -342,11 +383,165 @@ def run_risk(a, key, label, lat, lon, sky_path):
         horizon = lt.load_horizon(hor_path)
         with open(hor_path) as f:
             surface = json.load(f).get("surface")
-    dsn_path = os.path.join(a.out, "dsn_moon.csv")
-    stations = lr.load_station_table(dsn_path) if os.path.exists(dsn_path) else None
-
     series = lr.build_series(times, sun_alt, earth_alt, sun_az, earth_az,
                              horizon=horizon, stations=stations, profile=profile)
+    return series, surface
+
+
+def describe_dates(dates):
+    """Lines describing the date alternatives block of `lunar_risk.date_alternatives`."""
+    import lunar_metrics as lm
+
+    def day(t):
+        return "none" if t is None else lm.format_time(t)[:10]
+
+    if dates["low_risk_now"]:
+        first = f"low risk; the landing can slip {dates['slip_tolerance_days']} more day(s) and stay low"
+    else:
+        first = "NOT low risk on the requested date"
+    return [
+        f"Requested date: {first}",
+        f"Nearest low-risk landing dates: earlier {day(dates['nearest_earlier'])}, "
+        f"later {day(dates['nearest_later'])}",
+        f"Low-risk landing windows ({dates['low_risk_dates']} dates): " + (", ".join(
+            f"{day(w['start'])}..{day(w['end'])}" for w in dates["windows"][:8])
+            + (" ..." if len(dates["windows"]) > 8 else "") if dates["windows"] else "none"),
+    ]
+
+
+def run_rank(a):
+    """Compare every precomputed site for the same landing date and profile."""
+    import lunar_metrics as lm
+    import lunar_risk as lr
+
+    profile, stations = build_profile(a), load_stations(a)
+    rows, landing = [], None
+    for key, (label, lat, lon) in SITES.items():
+        if not os.path.exists(os.path.join(a.out, f"skyfield_{key}.csv")):
+            continue
+        series, surface = load_site_series(a, key, profile, stations)
+        landing = parse_instant(a.landing) if a.landing else series["times"][0]
+        ev = lr.evaluate(series, surface, landing)
+        rows.append({"key": key, "name": label, "lat": lat, "lon": lon,
+                     "horizon_model": "terrain" if series["terrain"] else "sphere",
+                     "window": ev["window"], "score": ev["score"], "dates": ev["dates"]})
+    rows.sort(key=lambda r: (r["score"]["overall"], -r["dates"]["slip_tolerance_days"]))
+    path = os.path.join(a.out, "ranking.json")
+    with open(path, "w") as f:
+        f.write(lr.to_json({"landing": landing, "profile": profile, "sites": rows}) + "\n")
+    print("wrote:", path)
+    print(f"Landing {lm.format_time(landing)}, {profile['duration_days']:g}-day mission")
+    print(f"  {'site':17s} {'risk':>5s} {'level':>7s} {'driver':>8s} {'sunlit':>7s} {'dark max':>9s} "
+          f"{'comm':>6s} {'outage':>8s} {'slip tol.':>10s} {'next low-risk date':>19s}")
+    for r in rows:
+        w, sc, d = r["window"], r["score"], r["dates"]
+        nxt = "now" if d["low_risk_now"] else (
+            lm.format_time(d["nearest_later"])[:10] if d["nearest_later"] else "none")
+        print(f"  {r['key']:17s} {sc['overall']:5.0f} {sc['level']:>7s} {sc['driver']:>8s} "
+              f"{w['power']['sunlit_pct']:6.1f}% {lm.format_duration(w['power']['longest_darkness_h']):>9s} "
+              f"{w['comm']['available_pct']:5.1f}% {lm.format_duration(w['comm']['longest_outage_h']):>8s} "
+              f"{d['slip_tolerance_days']:8d} d {nxt:>19s}")
+
+
+def run_nearby(a, key, label, lat, lon, sky_path):
+    """Evaluate alternative landing points on rings around a site (needs the LOLA DEM)."""
+    import lunar_metrics as lm
+    import lunar_risk as lr
+    import lunar_terrain as lt
+
+    profile, stations = build_profile(a), load_stations(a)
+    times = lm.load_series(sky_path)[0]
+    landing = parse_instant(a.landing) if a.landing else times[0]
+    radii_km = [float(v) for v in a.radii.split(",")]
+
+    candidates = [{"distance_km": 0.0, "bearing_deg": 0.0, "lat": lat, "lon": lon}]
+    for radius in radii_km:
+        for bearing in range(0, 360, 45):
+            lat2, lon2 = lt.destination(lat, lon, float(bearing), radius * 1000.0)
+            candidates.append({"distance_km": radius, "bearing_deg": float(bearing),
+                               "lat": float(lat2), "lon": float((lon2 + 180.0) % 360.0 - 180.0)})
+
+    reach = max(radii_km) * 1000.0
+    x, y = lt.latlon_to_xy(lat, lon)
+    near = lt.read_window("height_m", x, y, lt.NEAR_RADIUS_M + reach)
+    far = lt.read_window("height_m", x, y, lt.FAR_RADIUS_M + reach, lt.FAR_DECIMATION)
+    angles = compute_points([(c["lat"], c["lon"]) for c in candidates], times, a.kernels)
+
+    for c, ang in zip(candidates, angles):
+        horizon = lt.compute_horizon(c["lat"], c["lon"], mast_m=a.mast, near=near, far=far)
+        cx, cy = lt.latlon_to_xy(c["lat"], c["lon"])
+        slope = lt._slope_stats(lt._disk_values(near, lt.slope_from_heights(near),
+                                                float(cx), float(cy), a.ellipse))
+        surface = {"slope_derived_deg": slope}
+        series = lr.build_series(times, ang["sun_alt"], ang["earth_alt"], ang["sun_az"],
+                                 ang["earth_az"], horizon=horizon, stations=stations, profile=profile)
+        ev = lr.evaluate(series, surface, landing)
+        w, sc, d = ev["window"], ev["score"], ev["dates"]
+        c.update({
+            "ground_height_m": horizon["ground_height_m"],
+            "slope_p95_deg": slope["p95"],
+            "sunlit_pct": w["power"]["sunlit_pct"],
+            "longest_darkness_h": w["power"]["longest_darkness_h"],
+            "comm_pct": w["comm"]["available_pct"],
+            "longest_comm_outage_h": w["comm"]["longest_outage_h"],
+            "risk_power": sc["power"], "risk_comm": sc["comm"], "risk_surface": sc["surface"],
+            "risk_overall": sc["overall"], "level": sc["level"], "driver": sc["driver"],
+            "slip_tolerance_days": d["slip_tolerance_days"],
+            "low_risk_dates": d["low_risk_dates"],
+            "nearest_later_low_risk": d["nearest_later"],
+        })
+
+    base = candidates[0]
+    best = min(candidates, key=lambda c: (c["risk_overall"], -c["slip_tolerance_days"], c["distance_km"]))
+    robust = max(candidates, key=lambda c: (c["slip_tolerance_days"], c["low_risk_dates"], -c["distance_km"]))
+    flexible = max(candidates, key=lambda c: (c["low_risk_dates"], -c["distance_km"]))
+    path = os.path.join(a.out, f"nearby_{key}.json")
+    with open(path, "w") as f:
+        f.write(lr.to_json({
+            "site": {"key": key, "name": label, "lat": lat, "lon": lon},
+            "landing": landing, "profile": profile, "mast_m": a.mast, "ellipse_m": a.ellipse,
+            "slope_source": "derived from the 60 m LOLA DEM",
+            "best_for_date": best, "most_slip_tolerant": robust, "most_low_risk_dates": flexible,
+            "candidates": candidates,
+        }) + "\n")
+    print("wrote:", path)
+
+    compass = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+
+    def where(c):
+        if c["distance_km"] == 0:
+            return "site itself"
+        return f"{c['distance_km']:g} km {compass[int(c['bearing_deg'] // 45)]}"
+
+    print(f"{label}  ({lat}, {lon}); landing {lm.format_time(landing)}, "
+          f"{profile['duration_days']:g}-day mission, slope within {a.ellipse:.0f} m")
+    print(f"  {'point':>12s} {'lat':>8s} {'lon':>8s} {'height':>7s} {'slope95':>8s} {'sunlit':>7s} "
+          f"{'dark max':>9s} {'comm':>6s} {'risk':>5s} {'driver':>8s} {'slip tol.':>10s} {'low-risk dates':>15s}")
+    for c in sorted(candidates, key=lambda c: (c["risk_overall"], -c["slip_tolerance_days"],
+                                               -c["low_risk_dates"], c["distance_km"])):
+        print(f"  {where(c):>12s} {c['lat']:8.3f} {c['lon']:8.2f} {c['ground_height_m']:+7.0f} "
+              f"{c['slope_p95_deg']:7.1f}d {c['sunlit_pct']:6.1f}% "
+              f"{lm.format_duration(c['longest_darkness_h']):>9s} {c['comm_pct']:5.1f}% "
+              f"{c['risk_overall']:5.0f} {c['driver']:>8s} {c['slip_tolerance_days']:8d} d "
+              f"{c['low_risk_dates']:15d}")
+    print(f"  Requested site      : risk {base['risk_overall']:.0f} ({base['level']}), "
+          f"{base['low_risk_dates']} low-risk landing dates in the year")
+    print(f"  Best for this date  : {where(best)} -> risk {best['risk_overall']:.0f} ({best['level']}), "
+          f"slip tolerance {best['slip_tolerance_days']} d")
+    print(f"  Most slip-tolerant  : {where(robust)} -> {robust['slip_tolerance_days']} d "
+          f"(risk {robust['risk_overall']:.0f})")
+    print(f"  Most low-risk dates : {where(flexible)} -> {flexible['low_risk_dates']} dates in the year")
+
+
+def run_risk(a, key, label, lat, lon, sky_path):
+    """Mission-window indicators, risk score, slip table and landing-date scan."""
+    import lunar_metrics as lm
+    import lunar_risk as lr
+
+    profile, stations = build_profile(a), load_stations(a)
+    series, surface = load_site_series(a, key, profile, stations)
+    horizon = series["terrain"] or None
+    times = series["times"]
     landing = parse_instant(a.landing) if a.landing else times[0]
     window = lr.analyze_window(series, landing)
     score = lr.score_window(window, profile, surface)
@@ -359,6 +554,7 @@ def run_risk(a, key, label, lat, lon, sky_path):
             continue
         slips.append({"slip_days": days, "window": w, "score": lr.score_window(w, profile, surface)})
     scan = lr.scan_landing_dates(series, surface)
+    dates = lr.date_alternatives(scan, landing)
 
     result = {
         "site": {"key": key, "name": label, "lat": lat, "lon": lon},
@@ -368,6 +564,7 @@ def run_risk(a, key, label, lat, lon, sky_path):
         "window": window,
         "score": score,
         "slips": slips,
+        "dates": dates,
         "scan": scan,
     }
     path = os.path.join(a.out, f"risk_{key}.json")
@@ -424,6 +621,8 @@ def run_risk(a, key, label, lat, lon, sky_path):
         print(f"  Landing-date scan ({len(scan)} dates): {low} low-risk; "
               f"best {lm.format_time(best['landing'])} (risk {best['risk_overall']:.0f}), "
               f"worst {lm.format_time(worst['landing'])} (risk {worst['risk_overall']:.0f})")
+    for line in describe_dates(dates):
+        print("  " + line)
 
 
 def run_mast(a, key, label, lat, lon, sky_path):

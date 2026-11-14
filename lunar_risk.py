@@ -251,7 +251,8 @@ def score_window(window, profile, surface=None):
                _shortfall_risk(cm["available_pct"], profile["min_comm_pct"]))
     slope = None
     if surface is not None:
-        slope = _limit_risk(surface["slope_lola_deg"]["p95"], profile["max_slope_deg"])
+        stats = surface.get("slope_lola_deg") or surface["slope_derived_deg"]
+        slope = _limit_risk(stats["p95"], profile["max_slope_deg"])
     present = [v for v in (power, comm, slope) if v is not None]
     overall = max(present)
     driver = ("power", "comm", "surface")[[power, comm, slope].index(overall)]
@@ -281,6 +282,62 @@ def scan_landing_dates(series, surface=None, step_days=1.0, duration_days=None):
         })
         landing += timedelta(days=step_days)
     return rows
+
+
+def landing_windows(scan):
+    """Runs of consecutive low-risk landing dates: [{start, end, days}, ...]."""
+    windows, start, prev = [], None, None
+    for row in scan:
+        if row["level"] == "low":
+            start = row["landing"] if start is None else start
+            prev = row["landing"]
+        elif start is not None:
+            windows.append({"start": start, "end": prev, "days": (prev - start).days + 1})
+            start = None
+    if start is not None:
+        windows.append({"start": start, "end": prev, "days": (prev - start).days + 1})
+    return windows
+
+
+def date_alternatives(scan, landing):
+    """Date options around a requested landing date, from a landing-date scan.
+
+    Returns the nearest low-risk landing dates before and after, the slip
+    tolerance (days the landing can slip before it stops being low-risk;
+    0 if the requested date is not low-risk) and all low-risk windows.
+    """
+    low = [row["landing"] for row in scan if row["level"] == "low"]
+    earlier = [d for d in low if d < landing]
+    later = [d for d in low if d > landing]
+    tolerance = 0
+    for row in scan:
+        if row["landing"] < landing:
+            continue
+        if row["level"] != "low":
+            break
+        tolerance = (row["landing"] - landing).days + 1
+    return {
+        "requested": landing,
+        "nearest_earlier": earlier[-1] if earlier else None,
+        "nearest_later": later[0] if later else None,
+        "slip_tolerance_days": max(0, tolerance - 1) if tolerance else 0,
+        "low_risk_now": tolerance > 0,
+        "low_risk_dates": len(low),
+        "windows": landing_windows(scan),
+    }
+
+
+def evaluate(series, surface, landing):
+    """Window indicators, score, scan and date alternatives for one point."""
+    profile = series["profile"]
+    window = analyze_window(series, landing)
+    scan = scan_landing_dates(series, surface)
+    return {
+        "window": window,
+        "score": score_window(window, profile, surface),
+        "scan": scan,
+        "dates": date_alternatives(scan, landing),
+    }
 
 
 def to_json(obj):
