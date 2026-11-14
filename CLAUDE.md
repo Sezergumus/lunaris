@@ -113,8 +113,8 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   has `roles/run.builder` (Kerem granted it). The slim Python image lacks `libexpat1`, which
   rasterio's GDAL needs (installed in `api/Dockerfile`).
 
-**Next action (backend):** ask Kerem what he wants next. Open backend items: decide the slope source and the surface-score
-radius (see open decisions), then "Next steps".
+**Next action (backend):** ask Kerem what he wants next; the current list is in "Next steps"
+at the end of this file (item 1 is connecting the deployed site to the live API).
 **Next action (frontend):** the design is decided and planned in `frontend-plan.md`. Phase 8
 has its explainer lines (`Explainer.tsx`) and URL state (`state/url.ts`); whether phase 8 is
 complete was not checked in the running app by the backend side. Ask Sezer.
@@ -782,28 +782,36 @@ Terrain sensitivity (hypothetical uniform horizon, one year): each 1° of horizo
 - Custom coordinates get terrain only inside the DEM (60°S–pole) and only while the horizon
   API answers; otherwise they are sphere-only.
 
-## Next steps (in priority order)
+## Next steps (in priority order, rewritten 2026-11-15 ~01:30)
 
-Backend and frontend run in parallel; the frontend needs nothing new for built-in sites.
+Done and no longer listed: vectors and DSN tables to 2030, the grid function, `/horizon`,
+`grid_<site>.json`, the TypeScript risk engine, the HUD of `frontend-plan.md` up to phase 8
+(explainer lines and URL state exist; completeness not checked), profile presets, the
+backtest, horizon uncertainty, the daily contact rule, mission-limit sliders, the live API.
 
-1. Backend: `data/ephemeris_vectors.csv` and `dsn_moon.csv` over the agreed date range. This
-   unblocks custom coordinates and longer date ranges in the UI.
-2. Backend: grid horizon function (windows read once, reused for all points; `run_nearby`
-   in `lunar_sky.py` already does this for rings) and the `/horizon` API around it. Done
-   already: local horizon verified against the remote-derived one; window read + horizon
-   measured at 0.2–0.8 s per point on the local DEM.
-3. Backend: `data/grid_<site>.json` for the built-in sites (run the function from step 2).
-   The grid no longer has to wait for the local DEM: one remote window read per site is enough.
-4. Frontend: UI reading `data/`: TypeScript port of the risk model validated against
-   `risk_<site>.json`, horizon panorama with Sun and Earth, status cards (elevation, time to
-   sunset / Earthset), risk card per category, slip table, landing-date scan as a calendar
-   strip for all sites, side-by-side comparison, then custom coordinates and the
-   nearby-date / nearby-spot suggestions.
-5. Team: default mission profile (now adjustable in the UI, so only defaults are needed), the
-   demo story, the date range, and the connecting ridge longitude.
-6. Validate event times against Horizons; optionally 10-minute step; uncertainty from `_ERR`.
-7. Last 5–6 hours: no new features; bug fixing, demo story, presentation, submission, and
-   the jury-facing English `README.md`.
+1. **Connect the deployed site to the API** (Sezer, minutes): set `VITE_TERRAIN_API` to
+   `https://lunaris-terrain-601609650151.europe-west1.run.app` in the Vercel project and
+   redeploy. Then backend: restrict `LUNARIS_CORS_ORIGINS` to the site's origin and try a
+   custom point on the deployed site.
+2. **Tell Sezer what changed in his area** on 2026-11-14 evening: profile selector, the
+   "With map height error" line and the daily-contact footnote in the risk card, the
+   "Mission limits" card. Ask him whether phase 8 is complete.
+3. **Team decisions** (see "Open decisions"): slope source and whether to regenerate
+   `grid_<site>.json` / `horizon_<site>.json` with the 60 m slope map; surface-score radius;
+   default mission profile and the unsourced numbers in it (24 h for `solar_lander`, 8 h of
+   daily contact); the demo story; the connecting ridge longitude.
+4. **Frontend, if time allows:** terrain-service status from `/health`; the nearby-spot
+   search (`grid=5` takes 8 s on the service, `grid_<site>.json` is instant for built-in
+   sites) with its heat map; saved custom points; a phone-sized check of the new cards.
+5. **Backend, if time allows:** horizon uncertainty for custom points (the API would have to
+   return `horizon_range_km` and a height error); the `date_alternatives` midnight quirk;
+   a `validate` check that the Python and TypeScript presets are equal; a battery
+   state-of-charge indicator (no sourced Wh / W numbers); rise/set times against Horizons.
+6. **Before the demo:** call `/health` once to wake the service (first request about 4 s);
+   check the Google Cloud trial credit.
+7. **Last 5–6 hours:** no new features; bug fixing, demo story, presentation, submission,
+   and the jury-facing English `README.md` (state the out-of-scope risks and that the limits
+   are assumptions).
 
 ## References
 
