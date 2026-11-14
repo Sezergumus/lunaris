@@ -222,6 +222,38 @@ any of them. Nothing has been committed or pushed. The Windows machine has no `.
 the system Python 3.13 has numpy but not rasterio, so the Python tools that read the DEM do not
 run there until the requirements are installed.
 
+## Moon map (decided 2026-11-14: try A first, fall back to B)
+
+The UI needs a zoomable map of the south polar region with site pins, saved custom points,
+click-to-select and the nearby-spot heat map. Library in both paths: Leaflet. Overlays are
+ordinary Leaflet layers and do not depend on where the tiles come from.
+
+**Path A, try first: NASA Moon Trek tiles.** Moon Trek is a challenge resource and offers a
+WMTS tile API with a "South Pole" service column:
+https://trek.nasa.gov/tiles/apidoc/trekAPI.html?body=moon . General tile URL pattern:
+`https://{WMTS endpoint}/1.0.0/{Style}/{TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png`
+(some layers are `.jpg`; the `ResourceURL` in each layer's `WMTSCapabilities.xml` says which).
+Not verified yet: which south pole layers exist, their projection, tile matrix set and maximum
+zoom. The layer list on that page loads dynamically, so open it in a browser and read a
+layer's capabilities document first. Expected extra work: registering the polar projection in
+Leaflet (`proj4leaflet`) and converting between map coordinates and the LOLA grid used by the
+terrain code. Risks: dependency on a NASA server during the demo; projection mismatch.
+Give this about half an hour; if tiles do not load or the projection fights back, switch to B.
+
+**Path B, fallback: our own tiles.** The backend owner renders a hillshade of 60°S–pole from
+the LOLA products (the ready-made `_HILL` file on the PGDA page, or derived from the DEM) and
+cuts it into a 256 px tile pyramid with `gdal2tiles` (raster profile). The tiles are served as
+static files with the site; Leaflet uses `CRS.Simple`. A clicked pixel then maps directly to
+the DEM's polar stereographic x/y (port `latlon_to_xy` / `xy_to_latlon` from
+`lunar_terrain.py`), and nothing depends on an external server. Cost: an hour or two of
+backend time and hosting the tiles (size not measured; keep them out of git as a build
+artifact). A single image is not enough: 60°S–pole is about 1900 km wide, so the 1 km search
+area around a site would be a few pixels.
+
+Not suitable as the working map: QuickMap (no embeddable tile service known to us; fine for
+manual checks) and a 3D globe (poor polar texture, hard click-to-coordinate mapping; at most
+a decorative overview).
+
 ## Code map
 
 All Python, run through the single CLI `lunar_sky.py`. Setup: `pip install -r requirements.txt`
