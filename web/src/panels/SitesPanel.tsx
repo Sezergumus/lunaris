@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type Ref } from "react";
 import { DropdownMenu } from "radix-ui";
-import { CalendarCheck, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, Pencil, Plus, ShieldAlert, ShieldCheck, ShieldX, Trash2, X } from "lucide-react";
+import { CalendarCheck, ChevronDown, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, Pencil, Plus, ShieldAlert, ShieldCheck, ShieldX, Trash2, X } from "lucide-react";
 import type { SiteInfo } from "../data/load.ts";
 import { insideTerrainCoverage } from "../data/terrain.ts";
-import { formatLat, formatLon } from "../geo/polar.ts";
 import { siteSubtitle, siteTitle } from "../sites.ts";
 import { MAX_SAVED_POINTS, getSavedPoint, savedPlace, savedPointActions, useSavedPoints, type SavedPoint } from "../state/savedPoints.ts";
 import type { SiteScores } from "../state/siteScores.ts";
@@ -147,10 +146,6 @@ function SiteRow({ place, subtitle, hoverKey, placeA, placeB, hovered, onHover, 
             </span>
           ) : null}
         </span>
-        <span className="site-row__coords">
-          <span>{formatLat(place.lat)}</span>
-          <span>{formatLon(place.lon)}</span>
-        </span>
       </button>
       {isB ? (
         <IconButton label="Remove from comparison" variant="plain" size="sm" tipSide="right" onClick={actions.clearComparison}>
@@ -251,10 +246,6 @@ function SavedRow({ point, placeA, placeB, onChoose }: SavedRowProps) {
               {formatUtcDate(point.savedStartMs)} · {formatDays(point.savedWindowHours / 24)} d
             </span>
           </span>
-          <span className="site-row__coords">
-            <span>{formatLat(point.lat)}</span>
-            <span>{formatLon(point.lon)}</span>
-          </span>
         </button>
       )}
       <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
@@ -354,6 +345,8 @@ function CustomEntry({ initial, comparing, onChoose }: CustomEntryProps) {
   const [latText, setLatText] = useState(initial ? Math.abs(initial.lat).toFixed(3) : "");
   const [lonText, setLonText] = useState(initial ? initial.lon.toFixed(3) : "");
   const [touched, setTouched] = useState(false);
+  // Open while a custom point is active; a point picked on the map remounts this with it.
+  const [open, setOpen] = useState(initial !== null);
 
   const latS = parseDecimal(latText);
   const lon = parseDecimal(lonText);
@@ -373,31 +366,38 @@ function CustomEntry({ initial, comparing, onChoose }: CustomEntryProps) {
   return (
     <section className="custom" aria-labelledby="custom-heading">
       <h2 id="custom-heading" className="section-label">
-        Custom coordinates
+        <button type="button" className="custom__toggle" aria-expanded={open} aria-controls="custom-body" onClick={() => setOpen(!open)}>
+          {open ? <ChevronDown aria-hidden="true" /> : <Plus aria-hidden="true" />}
+          Custom coordinates
+        </button>
       </h2>
-      <div className="custom__fields">
-        <NumberField label="Lat °S" suffix="° S" placeholder="85.30" value={latText} onChange={setLatText} onEnter={() => submit("a")} invalid={touched && !latOk} />
-        <NumberField label="Lon °E" suffix="° E" placeholder="31.00" value={lonText} onChange={setLonText} onEnter={() => submit("a")} invalid={touched && !lonOk} />
-      </div>
-      {touched && !valid ? (
-        <p className="custom__note" data-tone="error" role="alert">
-          Enter a south latitude from 0 to 90 and an east longitude from 0 to 360.
-        </p>
-      ) : outside ? (
-        <p className="custom__note" data-tone="warning">
-          Outside the terrain data (60° S to the pole): assessed on the sphere model.
-        </p>
+      {open ? (
+        <div id="custom-body" className="custom__body">
+          <div className="custom__fields">
+            <NumberField label="Lat °S" suffix="° S" placeholder="85.30" value={latText} onChange={setLatText} onEnter={() => submit("a")} invalid={touched && !latOk} />
+            <NumberField label="Lon °E" suffix="° E" placeholder="31.00" value={lonText} onChange={setLonText} onEnter={() => submit("a")} invalid={touched && !lonOk} />
+          </div>
+          {touched && !valid ? (
+            <p className="custom__note" data-tone="error" role="alert">
+              Enter a south latitude from 0 to 90 and an east longitude from 0 to 360.
+            </p>
+          ) : outside ? (
+            <p className="custom__note" data-tone="warning">
+              Outside the terrain data (60° S to the pole): assessed on the sphere model.
+            </p>
+          ) : null}
+          <div className="custom__actions">
+            <Button variant="accent" onClick={() => submit("a")}>
+              <Crosshair aria-hidden="true" />
+              Assess
+            </Button>
+            <Button onClick={() => submit("b")} disabled={!comparing}>
+              <GitCompareArrows aria-hidden="true" />
+              Compare
+            </Button>
+          </div>
+        </div>
       ) : null}
-      <div className="custom__actions">
-        <Button variant="accent" onClick={() => submit("a")}>
-          <Crosshair aria-hidden="true" />
-          Assess
-        </Button>
-        <Button onClick={() => submit("b")} disabled={!comparing}>
-          <GitCompareArrows aria-hidden="true" />
-          Compare
-        </Button>
-      </div>
     </section>
   );
 }
