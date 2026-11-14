@@ -113,6 +113,39 @@ export async function loadSkyTables(): Promise<SkyTables> {
   };
 }
 
+/** Terrain of a built-in site: what horizon_<site>.json holds, without the sky binaries. */
+export interface SiteTerrain {
+  horizon: Horizon;
+  /** Distance of the obstruction that sets the horizon at each azimuth, kilometers. */
+  horizonRangeKm: number[];
+  /** Observer height above ground the horizon was computed for, meters. */
+  mastM: number;
+  groundHeightM: number;
+  /** 95th-percentile slope inside the landing ellipse, from the LOLA slope map. */
+  slopeP95Deg: number | null;
+  slopeRadiusM: number | null;
+}
+
+const terrainCache = new Map<string, Promise<SiteTerrain>>();
+
+/** Horizon profile, obstruction distances and slope statistics of a built-in site. */
+export function loadSiteTerrain(key: string): Promise<SiteTerrain> {
+  let pending = terrainCache.get(key);
+  if (!pending) {
+    pending = fetchJson<any>(`horizon_${key}.json`).then((doc) => ({
+      horizon: { stepDeg: doc.azimuth_step_deg, horizonDeg: doc.horizon_deg },
+      horizonRangeKm: doc.horizon_range_km,
+      mastM: doc.mast_m,
+      groundHeightM: doc.ground_height_m,
+      slopeP95Deg: doc.surface?.slope_lola_deg?.p95 ?? null,
+      slopeRadiusM: doc.surface?.radius_m ?? null,
+    }));
+    terrainCache.set(key, pending);
+    pending.catch(() => terrainCache.delete(key));
+  }
+  return pending;
+}
+
 /** Precomputed 9 x 9 grid of points around a built-in site (about 0.45 MB). */
 export function loadSiteGrid(key: string): Promise<TerrainGrid> {
   return fetchJson<TerrainGrid>(`grid_${key}.json`);

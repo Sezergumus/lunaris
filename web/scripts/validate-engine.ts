@@ -13,6 +13,8 @@ import {
   type Profile,
   type Score,
 } from "../src/engine/risk.ts";
+import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, DEFAULT_PROFILE } from "../src/engine/risk.ts";
+import { findTransitions, limbClearance, nextTransition } from "../src/engine/events.ts";
 import { bestPoint, scoreGrid, type TerrainGrid } from "../src/engine/grid.ts";
 import { sampleIndex, skyFromVectors, type VectorTable } from "../src/engine/sky.ts";
 
@@ -166,6 +168,58 @@ if (manifest.vectors) {
     }
     console.log(`${site.key}: ${failures === before ? "OK" : "MISMATCH"} (vectors within ${worst.toFixed(5)} deg; ${gridNote})`);
   }
+
+  // ---- Rise/set events of the UI's data path against the backend's `metrics --terrain`.
+  // The UI interpolates the upper-limb clearance linearly between hourly samples; every
+  // backend event must have a counterpart of the same direction, and the largest time
+  // difference is reported.
+  /** Largest accepted difference between an engine event and the backend's, minutes. */
+  const EVENT_TOLERANCE_MIN = 5;
+  let worstEventMin = 0;
+  for (const site of manifest.sites) {
+    const metricsPath = join(backendData, `metrics_${site.key}_terrain.json`);
+    let metrics: any;
+    try {
+      metrics = JSON.parse(readFileSync(metricsPath, "utf8"));
+    } catch {
+      console.log(`${site.key}: no metrics file; events not checked`);
+      continue;
+    }
+    const before = failures;
+    const horizonDoc = JSON.parse(readFileSync(join(publicData, `horizon_${site.key}.json`), "utf8"));
+    const sky = skyFromVectors(vectors, site.lat, site.lon, 0);
+    const series = buildSeries(sky, { stepDeg: horizonDoc.azimuth_step_deg, horizonDeg: horizonDoc.horizon_deg }, stationsLong, DEFAULT_PROFILE);
+    const periodEnd = sampleIndex(vectors, parseUtc(metrics.period.end));
+    let siteWorst = 0;
+    let compared = 0;
+    const tracks = [
+      ["sun", series.sunAboveTerrain, SUN_RADIUS_DEG, "sunrise"],
+      ["earth", series.earthAboveTerrain, EARTH_RADIUS_DEG, "earthrise"],
+    ] as const;
+    for (const [track, above, radius, riseType] of tracks) {
+      const transitions = findTransitions(limbClearance(above, radius));
+      const mine: { ms: number; rising: boolean }[] = [];
+      for (let next = nextTransition(transitions, 0); next && next.position < periodEnd; next = nextTransition(transitions, next.position)) {
+        mine.push({ ms: vectors.startMs + next.position * vectors.stepHours * 3600000, rising: next.rising });
+      }
+      const theirs: { utc: string; type: string }[] = metrics[track].events;
+      check(`${site.key} ${track} event count`, mine.length, theirs.length);
+      theirs.forEach((event, i) => {
+        if (!mine[i]) return;
+        check(`${site.key} ${track} event ${i} direction`, mine[i].rising, event.type === riseType);
+        const minutes = Math.abs(mine[i].ms - parseUtc(event.utc)) / 60000;
+        siteWorst = Math.max(siteWorst, minutes);
+        compared++;
+      });
+    }
+    if (siteWorst > EVENT_TOLERANCE_MIN) {
+      failures++;
+      console.log(`  MISMATCH ${site.key} events: up to ${siteWorst.toFixed(1)} min from the backend`);
+    }
+    worstEventMin = Math.max(worstEventMin, siteWorst);
+    console.log(`${site.key}: ${failures === before ? "OK" : "MISMATCH"} (${compared} rise/set events within ${siteWorst.toFixed(1)} min of the backend)`);
+  }
+  console.log(`Largest rise/set difference: ${worstEventMin.toFixed(1)} min`);
 } else {
   console.log("vectors table not built; skipped the site-independent checks");
 }
