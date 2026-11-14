@@ -324,32 +324,24 @@
   margin-top: 5px;
 }
 
-/*
- * While comparing, the A / B tag heads its column, above the value: tag, value and the lines
- * under it share one left edge, and both columns start at the same height whatever their
- * content (a tag beside the value would center on cells of different heights).
- */
 .metric__cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
   min-width: 0;
 }
 
-.metric__cell > .tag {
-  align-self: flex-start;
+/* Room for the hanging A / B tag: 16px tag + 6px gap. */
+.metric__cell[data-tagged] {
+  padding-left: 22px;
 }
 
-.metric__body {
-  align-self: stretch;
+.metric__value > .tag {
+  margin-left: -22px;
 }
 
-.metric__body {
-  min-width: 0;
-}
-
+/* A flex row so the A / B tag (InspectorPanel Value) centers on the value's line. */
 .metric__value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 20px;
   font-weight: 650;
   line-height: 1.2;
@@ -357,6 +349,12 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   transition: color 200ms ease;
+}
+
+.metric__value-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metric__value--xl {

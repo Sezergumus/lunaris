@@ -1,4 +1,4 @@
-import { Fragment, useMemo, type ReactNode, type Ref } from "react";
+import { Fragment, createContext, useContext, useMemo, type ReactNode, type Ref } from "react";
 import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Radio, RectangleHorizontal, RectangleVertical, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { nextTransition, panelYield, type Transitions } from "../engine/events.ts";
@@ -181,6 +181,24 @@ interface MetricProps {
   cell: (props: { view: ScenarioView }) => ReactNode;
 }
 
+/** The scenario tag of the cell being drawn, or null when only one scenario is on screen. */
+const CellTag = createContext<string | null>(null);
+
+/**
+ * The large value of a cell. While comparing, the A / B tag leads it on the same line,
+ * centered on the value; it hangs in the cell's left padding, so the value and the lines
+ * under it share one left edge.
+ */
+function Value({ className, children }: { className?: string; children: ReactNode }) {
+  const tag = useContext(CellTag);
+  return (
+    <p className={`metric__value${className ? ` ${className}` : ""}`}>
+      {tag ? <span className={`tag tag--${tag.toLowerCase()}`}>{tag}</span> : null}
+      <span className="metric__value-text">{children}</span>
+    </p>
+  );
+}
+
 /** A card with one value per scenario; A and B sit side by side while comparing. */
 function Metric({ label, hint, views, cell: Cell }: MetricProps) {
   return (
@@ -191,11 +209,10 @@ function Metric({ label, hint, views, cell: Cell }: MetricProps) {
       </h3>
       <div className="metric__cells">
         {views.map((view) => (
-          <div key={view.tag} className="metric__cell">
-            {views.length > 1 ? <span className={`tag tag--${view.tag.toLowerCase()}`}>{view.tag}</span> : null}
-            <div className="metric__body">
+          <div key={view.tag} className="metric__cell" data-tagged={views.length > 1 || undefined}>
+            <CellTag.Provider value={views.length > 1 ? view.tag : null}>
               <Cell view={view} />
-            </div>
+            </CellTag.Provider>
           </div>
         ))}
       </div>
@@ -208,7 +225,7 @@ function ElevationCell({ view }: { view: ScenarioView }) {
   const output = panelYield(at.sunAlt, at.solarFraction);
   return (
     <>
-      <p className="metric__value metric__value--xl">{formatAngle(at.sunAlt)}</p>
+      <Value className="metric__value--xl">{formatAngle(at.sunAlt)}</Value>
       <p className="metric__sub">
         {formatAngle(at.sunAboveTerrain, 1)} vs {view.data.horizon ? "terrain" : "horizon"}
       </p>
@@ -245,7 +262,7 @@ function SunsetCell({ view }: { view: ScenarioView }) {
   if (!sun.visible) {
     return (
       <>
-        <p className="metric__value is-danger">In shadow</p>
+        <Value className="is-danger">In shadow</Value>
         <p className="metric__sub">{sun.hours !== null ? `sunrise in ${formatDuration(sun.hours)}` : "None in window"}</p>
         {sun.atMs !== null ? <p className="metric__sub nowrap">{formatUtcDayTime(sun.atMs)}</p> : null}
       </>
@@ -253,7 +270,7 @@ function SunsetCell({ view }: { view: ScenarioView }) {
   }
   return (
     <>
-      <p className="metric__value">{sun.hours !== null ? formatDuration(sun.hours) : "Always lit"}</p>
+      <Value>{sun.hours !== null ? formatDuration(sun.hours) : "Always lit"}</Value>
       {sun.atMs !== null ? (
         <p className="metric__sub">
           Sunset <span className="nowrap">{formatUtcDayTime(sun.atMs)}</span>
@@ -271,9 +288,9 @@ function EarthsetCell({ view }: { view: ScenarioView }) {
   return (
     <>
       {earth.visible ? (
-        <p className="metric__value">{earth.hours !== null ? formatDuration(earth.hours) : "Always visible"}</p>
+        <Value>{earth.hours !== null ? formatDuration(earth.hours) : "Always visible"}</Value>
       ) : (
-        <p className="metric__value is-danger">{earth.hours !== null ? "Earth is down" : "Never rises"}</p>
+        <Value className="is-danger">{earth.hours !== null ? "Earth is down" : "Never rises"}</Value>
       )}
       {earth.atMs !== null ? (
         <p className="metric__sub">
@@ -291,12 +308,12 @@ function EarthsetCell({ view }: { view: ScenarioView }) {
 function DarknessCell({ view }: { view: ScenarioView }) {
   const hours = useScenario((s) => s.windowHours);
   const window = useMemo(() => analyzeWindow(view.data.series, view.startMs, hours / 24), [view, hours]);
-  if (!window) return <p className="metric__value">–</p>;
+  if (!window) return <Value>–</Value>;
   const battery = view.data.series.profile.battery_survival_h;
   const survives = window.power.longest_darkness_h <= battery;
   return (
     <>
-      <p className="metric__value">{formatHours(window.power.longest_darkness_h)}</p>
+      <Value>{formatHours(window.power.longest_darkness_h)}</Value>
       <p className="metric__status" data-state={survives ? "good" : "bad"}>
         {survives ? <BatteryFull aria-hidden="true" /> : <BatteryWarning aria-hidden="true" />}
         {survives ? "≤" : ">"} {battery} h battery
