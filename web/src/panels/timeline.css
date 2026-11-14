@@ -66,6 +66,14 @@
   display: none;
 }
 
+/* Transport on top, the playhead time stacked under it. */
+.timeline__side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: none;
+}
+
 .timeline__transport {
   display: flex;
   align-items: center;
@@ -88,7 +96,6 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 4px 16px;
-  min-height: 18px;
 }
 
 .timeline__readout {
@@ -105,6 +112,18 @@
   min-width: 58px;
   font-weight: 620;
   color: var(--text);
+}
+
+/* Wide screens: one line per value under the transport. Phones use the foot copy. */
+.timeline__readout--side {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-left: 2px;
+}
+
+.timeline__readout--foot {
+  display: none;
 }
 
 /* ---------- A / B tags ---------- */
@@ -195,7 +214,7 @@
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px 14px;
   font-size: 12px;
   color: var(--text-2);
@@ -401,13 +420,22 @@
   align-self: stretch;
   margin-left: auto;
   padding-right: 6px;
-  font-size: 8.5px;
+  font-size: 9px;
   color: var(--text-3);
 }
 
 .track__tags b {
   line-height: var(--strip-h);
-  font-weight: 700;
+  font-weight: 750;
+}
+
+/* The same colors as the A / B tags, so a row reads as "A" or "B" at a glance. */
+.track__tag--a {
+  color: var(--accent);
+}
+
+.track__tag--b {
+  color: #aeaeb2;
 }
 
 .swatch {
@@ -724,6 +752,19 @@
     gap: 14px;
     padding-top: 16px;
     border-top: 1px solid var(--separator);
+  }
+
+  /* Transport straight in the column; the readout moves under the strips. */
+  .timeline__side {
+    display: contents;
+  }
+
+  .timeline__readout--side {
+    display: none;
+  }
+
+  .timeline__readout--foot {
+    display: flex;
   }
 
   .timeline__transport {

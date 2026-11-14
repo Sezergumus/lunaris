@@ -98,24 +98,28 @@ export function TimelineBar({ ref, a, b, macroExtra, summary }: TimelineBarProps
       </div>
 
       <div className="timeline__micro">
-        <div className="timeline__transport">
-          <IconButton
-            label={playing ? "Pause" : "Play"}
-            variant="accent"
-            disabled={!ready}
-            onClick={() => actions.setPlaying(!playing)}
-            // Feedback on press, not on release.
-            data-playing={playing}
-          >
-            {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-          </IconButton>
-          <Segmented
-            label="Playback speed, simulated time per second"
-            size="sm"
-            value={String(speed)}
-            onChange={(value) => actions.setSpeed(Number(value))}
-            options={SPEEDS.map((value) => ({ value: String(value), label: SPEED_LABEL[value] }))}
-          />
+        {/* Wide screens read the playhead time here, in the space under the transport. */}
+        <div className="timeline__side">
+          <div className="timeline__transport">
+            <IconButton
+              label={playing ? "Pause" : "Play"}
+              variant="accent"
+              disabled={!ready}
+              onClick={() => actions.setPlaying(!playing)}
+              // Feedback on press, not on release.
+              data-playing={playing}
+            >
+              {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
+            </IconButton>
+            <Segmented
+              label="Playback speed, simulated time per second"
+              size="sm"
+              value={String(speed)}
+              onChange={(value) => actions.setSpeed(Number(value))}
+              options={SPEEDS.map((value) => ({ value: String(value), label: SPEED_LABEL[value] }))}
+            />
+          </div>
+          {ready ? <CursorReadout place="side" sets={sets} startMs={startMs} startB={startB} /> : null}
         </div>
 
         {ready ? (
@@ -126,7 +130,7 @@ export function TimelineBar({ ref, a, b, macroExtra, summary }: TimelineBarProps
             dated={slipDays === 0}
             foot={
               <>
-                <CursorReadout sets={sets} startMs={startMs} startB={startB} />
+                <CursorReadout place="foot" sets={sets} startMs={startMs} startB={startB} />
                 {summary}
               </>
             }
@@ -267,8 +271,8 @@ function Track({ sets, hours, startMs, dated, foot }: TrackProps) {
             {row.label}
             {sets.length > 1 ? (
               <span className="track__tags">
-                <b>A</b>
-                <b>B</b>
+                <b className="track__tag--a">A</b>
+                <b className="track__tag--b">B</b>
               </span>
             ) : null}
           </span>
@@ -336,13 +340,15 @@ function Scrubber({ hours }: { hours: number }) {
 /**
  * Date and time under the playhead; the only text that changes on every frame. When B starts
  * on another day both times are tagged, without the year (the landing field shows it).
+ * Rendered twice: under the transport on wide screens ("side", stacked), under the strips on
+ * phones ("foot", one row); timeline.css shows one of them.
  */
-function CursorReadout({ sets, startMs, startB }: { sets: StripSet[]; startMs: number; startB: number }) {
+function CursorReadout({ place, sets, startMs, startB }: { place: "side" | "foot"; sets: StripSet[]; startMs: number; startB: number }) {
   const offsetMs = useScenario((s) => s.offsetMs);
   const days = offsetMs / DAY_MS;
   const split = sets.length > 1 && startB !== startMs;
   return (
-    <p className="timeline__readout">
+    <p className={`timeline__readout timeline__readout--${place}`}>
       <span className="timeline__readout-day">Day {days.toFixed(1)}</span>
       {split ? (
         <>
