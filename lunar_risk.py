@@ -115,6 +115,25 @@ def terrain_disk_fraction(center_alt, horizon, radius):
     return 0.5 + (x * np.sqrt(1.0 - x * x) + np.arcsin(x)) / np.pi
 
 
+# ---------------------------------------------------- horizon uncertainty
+def horizon_uncertainty_deg(range_km, height_error_m, min_range_m=60.0):
+    """Angle by which a height error can raise the horizon, per azimuth (deg).
+
+    A terrain point `height_error_m` too low in the map, at the distance of the
+    obstruction that sets the horizon, raises the horizon by atan(error / distance):
+    a nearby ridge matters, a mountain 50 km away does not. Distances below one
+    map pixel are clamped to `min_range_m`.
+    """
+    distance_m = np.maximum(np.asarray(range_km, dtype=float) * 1000.0, min_range_m)
+    return np.degrees(np.arctan2(height_error_m, distance_m))
+
+
+def raised_horizon(horizon, height_error_m):
+    """Copy of a `lunar_terrain.load_horizon` dict, raised by its height-error angle."""
+    margin = horizon_uncertainty_deg(horizon["horizon_range_km"], height_error_m)
+    return {**horizon, "horizon_deg": np.asarray(horizon["horizon_deg"]) + margin}, margin
+
+
 # --------------------------------------------------------------- series
 def load_station_table(path):
     """Read the `dsn` CSV. Returns {utc string: [elevations per station]}."""

@@ -731,6 +731,30 @@ def run_risk(a, key, label, lat, lon, sky_path):
     scan = lr.scan_landing_dates(series, surface)
     dates = lr.date_alternatives(scan, landing)
 
+    # Same mission with the horizon raised by what the map's height error allows.
+    uncertainty = None
+    height_error = ((surface or {}).get("height_error_m") or {}).get("max")
+    if horizon is not None and height_error is not None:
+        import numpy as np
+
+        import lunar_terrain as lt
+
+        raised, margin = lr.raised_horizon(lt.load_horizon(os.path.join(a.out, f"horizon_{key}.json")),
+                                           height_error)
+        sky = lm.load_series(sky_path)
+        worse = lr.build_series(sky[0], sky[1], sky[2], sky[3], sky[4],
+                                horizon=raised, stations=stations, profile=profile)
+        worse_window = lr.analyze_window(worse, landing)
+        uncertainty = {
+            "height_error_m": height_error,
+            "basis": "largest LOLA height error inside the landing ellipse, applied at the distance "
+                     "of the obstruction that sets the horizon in each direction",
+            "margin_deg": {"median": float(np.median(margin)), "max": float(np.max(margin))},
+            "window": worse_window,
+            "score": lr.score_window(worse_window, profile, surface),
+            "low_risk_dates": sum(1 for r in lr.scan_landing_dates(worse, surface) if r["level"] == "low"),
+        }
+
     result = {
         "site": {"key": key, "name": label, "lat": lat, "lon": lon},
         "horizon_model": "terrain" if horizon is not None else "sphere",
@@ -742,6 +766,8 @@ def run_risk(a, key, label, lat, lon, sky_path):
         "dates": dates,
         "scan": scan,
     }
+    if uncertainty is not None:
+        result["horizon_uncertainty"] = uncertainty
     path = os.path.join(a.out, f"risk_{key}.json")
     with open(path, "w") as f:
         f.write(lr.to_json(result) + "\n")
@@ -781,6 +807,13 @@ def run_risk(a, key, label, lat, lon, sky_path):
     print(f"  Risk (0-100): power {fmt(score['power'])}  comm {fmt(score['comm'])}  "
           f"surface {fmt(score['surface'])}  ->  overall {score['overall']:.0f} "
           f"({score['level']}, driven by {score['driver']})")
+    if uncertainty is not None:
+        u, us = uncertainty, uncertainty["score"]
+        low_now = sum(1 for r in scan if r["level"] == "low")
+        print(f"  With the map's height error ({u['height_error_m']:.2f} m -> horizon up to "
+              f"{u['margin_deg']['max']:.2f} deg higher, median {u['margin_deg']['median']:.3f}): "
+              f"power {fmt(us['power'])}  comm {fmt(us['comm'])}  ->  overall {us['overall']:.0f} ({us['level']}); "
+              f"low-risk landing dates {low_now} -> {u['low_risk_dates']}")
     print("  If the landing slips:")
     print(f"    {'slip':>6s} {'landing':>18s} {'sunlit':>7s} {'dark max':>9s} {'comm':>6s} {'outage':>8s} {'risk':>5s}")
     for s in slips:

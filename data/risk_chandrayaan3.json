@@ -4209,5 +4209,52 @@
    "risk_overall": 100.0,
    "level": "high"
   }
- ]
+ ],
+ "horizon_uncertainty": {
+  "height_error_m": 3.111,
+  "basis": "largest LOLA height error inside the landing ellipse, applied at the distance of the obstruction that sets the horizon in each direction",
+  "margin_deg": {
+   "median": 0.008,
+   "max": 0.349
+  },
+  "window": {
+   "landing": "2026-12-16T00:00Z",
+   "end": "2026-12-30T00:00Z",
+   "duration_days": 14.0,
+   "power": {
+    "sunlit_pct": 89.881,
+    "mean_solar_fraction_pct": 89.945,
+    "longest_darkness_h": 32.0,
+    "dark_at_landing": false,
+    "partial_disk_h": 3.0,
+    "earth_eclipse_h": 0.0,
+    "max_earth_cover_pct": 0.0,
+    "sun_above_terrain_deg": [
+     -5.564,
+     20.483
+    ]
+   },
+   "comm": {
+    "available_pct": 99.702,
+    "longest_outage_h": 1.0,
+    "terrain_occultation_h": 0.0,
+    "station_gap_h": 1.0,
+    "conjunction_h": 0.0,
+    "low_elevation_h": 0.0,
+    "earth_above_terrain_deg": [
+     12.641,
+     20.558
+    ]
+   }
+  },
+  "score": {
+   "power": 28.0,
+   "comm": 0.0,
+   "surface": 0.0,
+   "overall": 28.0,
+   "level": "low",
+   "driver": "power"
+  },
+  "low_risk_dates": 37
+ }
 }
