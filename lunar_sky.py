@@ -329,7 +329,7 @@ def compare(sky, hor):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("cmd", choices=["compute", "horizons", "compare", "metrics", "horizon", "dsn", "risk", "mast",
-                                  "rank", "nearby", "vectors", "grid", "sites"])
+                                  "rank", "nearby", "vectors", "grid", "backtest", "sites"])
     p.add_argument("--site", default="malapert_a", help="built-in site key, or a name for custom coordinates")
     p.add_argument("--lat", type=float, help="custom latitude (degrees, north positive)")
     p.add_argument("--lon", type=float, help="custom longitude (degrees, east positive)")
@@ -349,6 +349,8 @@ def main():
                    help="horizon: radius for surface statistics around the site (m)")
     p.add_argument("--landing", help="risk: landing instant, YYYY-MM-DD or YYYY-MM-DDTHH:MM (UTC)")
     p.add_argument("--duration", type=float, help="risk: surface mission length (days)")
+    p.add_argument("--profile", default="generic", choices=["generic", "solar_lander", "battery_rover"],
+                   help="risk: named mission profile (lunar_risk.PROFILE_PRESETS); other options override it")
     p.add_argument("--battery-hours", type=float, help="risk: longest survivable darkness (h)")
     p.add_argument("--max-outage-hours", type=float, help="risk: longest tolerable comm outage (h)")
     p.add_argument("--max-slope", type=float, help="risk: slope limit (deg)")
@@ -391,6 +393,10 @@ def main():
 
     if a.cmd == "vectors":
         run_vectors(a)
+        return
+
+    if a.cmd == "backtest":
+        run_backtest(a)
         return
 
     key, label, lat, lon = resolve_site(a)
@@ -450,7 +456,7 @@ def build_profile(a):
     """Risk profile: defaults overridden by command-line options."""
     import lunar_risk as lr
 
-    profile = dict(lr.DEFAULT_PROFILE)
+    profile = lr.preset_profile(a.profile)
     for name, value in (("duration_days", a.duration), ("battery_survival_h", a.battery_hours),
                         ("max_comm_outage_h", a.max_outage_hours), ("max_slope_deg", a.max_slope),
                         ("landing_precision_m", a.precision), ("mask_deg", a.mask or None)):
@@ -792,6 +798,121 @@ def run_risk(a, key, label, lat, lon, sky_path):
               f"worst {lm.format_time(worst['landing'])} (risk {worst['risk_overall']:.0f})")
     for line in describe_dates(dates):
         print("  " + line)
+
+
+# Flown mission used to check the model against what happened. Dates from ISRO statements
+# as reported in the press (see CLAUDE.md, "Validation").
+BACKTEST = {
+    "site": "chandrayaan3",
+    "mission": "Chandrayaan-3 (Vikram lander, Pragyan rover)",
+    "landing": "2023-08-23T12:33",
+    "duration_days": 12.0,
+    "start": "2023-07-15",
+    "days": 120,
+    "observed": {
+        "rover_put_to_sleep": "2023-09-02",
+        "lander_put_to_sleep": "2023-09-04",
+        "wake_up_attempt_at_next_sunrise": "2023-09-22",
+        "outcome": "operated from landing to local sunset; never woke up after the night",
+    },
+}
+
+
+def run_backtest(a):
+    """Run the model on a mission that has flown and compare with what happened.
+
+    Chandrayaan-3 landed shortly after local sunrise and worked until sunset. The model
+    passes when it rates the real landing date low risk, the same mission two weeks later
+    high risk, and puts the sunset on the days the vehicles were put to sleep. Sky and
+    station tables for 2023 are computed in memory; the terrain horizon is the site's
+    existing data/horizon_<site>.json (terrain does not depend on the date).
+    """
+    import json
+
+    import lunar_metrics as lm
+    import lunar_risk as lr
+    import lunar_terrain as lt
+
+    bt = BACKTEST
+    key = bt["site"]
+    label, lat, lon = SITES[key]
+    times = time_grid(bt["start"], bt["days"], 60)
+    os.makedirs(a.kernels, exist_ok=True)
+    sky = compute_points([(lat, lon)], times, a.kernels)[0]
+    alt = station_moon_elevation(times, a.kernels)
+    stations = {t.strftime("%Y-%m-%dT%H:%MZ"): [float(alt[n][i]) for n in DSN_STATIONS]
+                for i, t in enumerate(times)}
+    hor_path = os.path.join(a.out, f"horizon_{key}.json")
+    horizon = lt.load_horizon(hor_path)
+    with open(hor_path) as f:
+        surface = json.load(f).get("surface")
+
+    profile = build_profile(a)
+    profile["duration_days"] = a.duration or bt["duration_days"]
+    series = lr.build_series(times, sky["sun_alt"], sky["earth_alt"], sky["sun_az"], sky["earth_az"],
+                             horizon=horizon, stations=stations, profile=profile)
+    landing = parse_instant(bt["landing"])
+    slips = []
+    for days in (0, 7, 14, 21, 28):
+        w = lr.analyze_window(series, landing + timedelta(days=days))
+        slips.append({"slip_days": days, "window": w, "score": lr.score_window(w, profile, surface)})
+    scan = lr.scan_landing_dates(series, surface)
+    dates = lr.date_alternatives(scan, landing)
+
+    track = lm.analyze(times, sky["sun_alt"], sky["earth_alt"],
+                       sun_horizon=lt.horizon_at(horizon, sky["sun_az"]).tolist(),
+                       earth_horizon=lt.horizon_at(horizon, sky["earth_az"]).tolist())
+    sun_events = track["sun"]["events"]
+    sunset = next(e["utc"] for e in sun_events if e["type"] == "sunset" and e["utc"] > landing)
+    sunrise = next(e["utc"] for e in sun_events if e["type"] == "sunrise" and e["utc"] > sunset)
+    obs = bt["observed"]
+    sleep = parse_instant(obs["lander_put_to_sleep"])
+    wake = parse_instant(obs["wake_up_attempt_at_next_sunrise"])
+    checks = {
+        "landing_date_is_low_risk": slips[0]["score"]["level"] == "low",
+        "two_weeks_later_is_high_risk": slips[2]["score"]["level"] == "high",
+        "sunset_on_the_day_the_lander_was_put_to_sleep": sunset.date() == sleep.date(),
+        "sunrise_before_the_wake_up_attempt": sunrise <= wake + timedelta(days=1),
+    }
+    result = {
+        "mission": bt["mission"],
+        "site": {"key": key, "name": label, "lat": lat, "lon": lon},
+        "profile": profile,
+        "landing": landing,
+        "observed": obs,
+        "model": {
+            "sunset_after_landing": sunset,
+            "next_sunrise": sunrise,
+            "sunlit_days_after_landing": round((sunset - landing).total_seconds() / 86400, 2),
+            "sunrise_to_wake_up_attempt_days": round((wake - sunrise).total_seconds() / 86400, 2),
+        },
+        "checks": checks,
+        "passed": all(checks.values()),
+        "slips": slips,
+        "dates": dates,
+    }
+    path = os.path.join(a.out, f"backtest_{key}.json")
+    with open(path, "w") as f:
+        f.write(lr.to_json(result) + "\n")
+    print("wrote:", path)
+
+    print(f"{bt['mission']}: land {lm.format_time(landing)}, {profile['duration_days']:g}-day mission, "
+          f"profile '{a.profile}'")
+    print(f"  {'slip':>6s} {'landing':>18s} {'sunlit':>7s} {'dark max':>9s} {'comm':>6s}  risk")
+    for row in slips:
+        w, sc = row["window"], row["score"]
+        print(f"  {row['slip_days']:+5d}d {lm.format_time(w['landing']):>18s} {w['power']['sunlit_pct']:6.1f}% "
+              f"{lm.format_duration(w['power']['longest_darkness_h']):>9s} {w['comm']['available_pct']:5.1f}%"
+              f"  {sc['overall']:.0f} ({sc['level']})")
+    print(f"  Model sunset after landing : {lm.format_time(sunset)}"
+          f"  (rover put to sleep {obs['rover_put_to_sleep']}, lander {obs['lander_put_to_sleep']})")
+    print(f"  Model next sunrise         : {lm.format_time(sunrise)}"
+          f"  (wake-up attempt {obs['wake_up_attempt_at_next_sunrise']})")
+    for line in describe_dates(dates):
+        print("  " + line)
+    for name, ok in checks.items():
+        print(f"  [{'pass' if ok else 'FAIL'}] {name.replace('_', ' ')}")
+    print("  Result:", "PASS" if result["passed"] else "FAIL")
 
 
 def run_mast(a, key, label, lat, lon, sky_path):

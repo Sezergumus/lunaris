@@ -54,6 +54,35 @@ DEFAULT_PROFILE = {
     "mask_deg": 0.0,                # extra elevation margin on every horizon
 }
 
+# Named mission profiles: overrides of DEFAULT_PROFILE taken from real missions. `basis`
+# says where each number comes from and how well it is sourced. Mirrored in
+# web/src/engine/risk.ts (PROFILE_PRESETS); change both.
+PROFILE_PRESETS = {
+    "generic": {
+        "label": "Generic lander",
+        "basis": "Project defaults (placeholder assumptions).",
+        "overrides": {},
+    },
+    "solar_lander": {
+        "label": "Solar lander, no night survival",
+        "basis": ("IM-1 Odysseus and Chandrayaan-3 were not designed to survive the lunar night. "
+                  "The 24 h darkness limit is our assumption for 'a short shadow, not a night'; "
+                  "the 10 deg slope is the landing tolerance stated by Intuitive Machines for Nova-C."),
+        "overrides": {"battery_survival_h": 24.0, "max_slope_deg": 10.0},
+    },
+    "battery_rover": {
+        "label": "Battery rover (VIPER class)",
+        "basis": ("NASA VIPER lunar operations: no more than 50 h of continuous darkness, "
+                  "drives on slopes up to 15 deg."),
+        "overrides": {"battery_survival_h": 50.0, "max_slope_deg": 15.0},
+    },
+}
+
+
+def preset_profile(name):
+    """DEFAULT_PROFILE with the overrides of one named preset."""
+    return {**DEFAULT_PROFILE, **PROFILE_PRESETS[name]["overrides"]}
+
 STATIONS = ("goldstone", "madrid", "canberra")
 
 

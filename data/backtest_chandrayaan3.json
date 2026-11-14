@@ -1,0 +1,280 @@
+{
+ "mission": "Chandrayaan-3 (Vikram lander, Pragyan rover)",
+ "site": {
+  "key": "chandrayaan3",
+  "name": "Chandrayaan-3 (Shiv Shakti)",
+  "lat": -69.37,
+  "lon": 32.32
+ },
+ "profile": {
+  "duration_days": 12.0,
+  "battery_survival_h": 50.0,
+  "min_sunlit_pct": 50.0,
+  "min_solar_fraction": 0.5,
+  "max_comm_outage_h": 24.0,
+  "min_comm_pct": 50.0,
+  "station_min_elevation_deg": 10.0,
+  "conjunction_deg": 2.0,
+  "low_elevation_deg": 2.0,
+  "max_slope_deg": 10.0,
+  "landing_precision_m": 100.0,
+  "mask_deg": 0.0
+ },
+ "landing": "2023-08-23T12:33Z",
+ "observed": {
+  "rover_put_to_sleep": "2023-09-02",
+  "lander_put_to_sleep": "2023-09-04",
+  "wake_up_attempt_at_next_sunrise": "2023-09-22",
+  "outcome": "operated from landing to local sunset; never woke up after the night"
+ },
+ "model": {
+  "sunset_after_landing": "2023-09-04T07:17Z",
+  "next_sunrise": "2023-09-19T22:38Z",
+  "sunlit_days_after_landing": 11.78,
+  "sunrise_to_wake_up_attempt_days": 2.06
+ },
+ "checks": {
+  "landing_date_is_low_risk": true,
+  "two_weeks_later_is_high_risk": true,
+  "sunset_on_the_day_the_lander_was_put_to_sleep": true,
+  "sunrise_before_the_wake_up_attempt": true
+ },
+ "passed": true,
+ "slips": [
+  {
+   "slip_days": 0,
+   "window": {
+    "landing": "2023-08-23T12:33Z",
+    "end": "2023-09-04T12:33Z",
+    "duration_days": 12.0,
+    "power": {
+     "sunlit_pct": 97.569,
+     "mean_solar_fraction_pct": 97.686,
+     "longest_darkness_h": 5.0,
+     "dark_at_landing": false,
+     "partial_disk_h": 3.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -1.035,
+      17.979
+     ]
+    },
+    "comm": {
+     "available_pct": 96.528,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 10.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      7.678,
+      18.567
+     ]
+    }
+   },
+   "score": {
+    "power": 0.0,
+    "comm": 0.0,
+    "surface": 0.0,
+    "overall": 0.0,
+    "level": "low",
+    "driver": "power"
+   }
+  },
+  {
+   "slip_days": 7,
+   "window": {
+    "landing": "2023-08-30T12:33Z",
+    "end": "2023-09-11T12:33Z",
+    "duration_days": 12.0,
+    "power": {
+     "sunlit_pct": 39.236,
+     "mean_solar_fraction_pct": 39.353,
+     "longest_darkness_h": 173.0,
+     "dark_at_landing": false,
+     "partial_disk_h": 3.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -21.814,
+      15.74
+     ]
+    },
+    "comm": {
+     "available_pct": 98.958,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 3.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      10.129,
+      23.155
+     ]
+    }
+   },
+   "score": {
+    "power": 100.0,
+    "comm": 0.0,
+    "surface": 0.0,
+    "overall": 100.0,
+    "level": "high",
+    "driver": "power"
+   }
+  },
+  {
+   "slip_days": 14,
+   "window": {
+    "landing": "2023-09-06T12:33Z",
+    "end": "2023-09-18T12:33Z",
+    "duration_days": 12.0,
+    "power": {
+     "sunlit_pct": 0.0,
+     "mean_solar_fraction_pct": 0.0,
+     "longest_darkness_h": 288.0,
+     "dark_at_landing": true,
+     "partial_disk_h": 0.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -22.401,
+      -6.755
+     ]
+    },
+    "comm": {
+     "available_pct": 98.958,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 3.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      13.039,
+      23.155
+     ]
+    }
+   },
+   "score": {
+    "power": 100.0,
+    "comm": 0.0,
+    "surface": 0.0,
+    "overall": 100.0,
+    "level": "high",
+    "driver": "power"
+   }
+  },
+  {
+   "slip_days": 21,
+   "window": {
+    "landing": "2023-09-13T12:33Z",
+    "end": "2023-09-25T12:33Z",
+    "duration_days": 12.0,
+    "power": {
+     "sunlit_pct": 45.833,
+     "mean_solar_fraction_pct": 46.002,
+     "longest_darkness_h": 154.0,
+     "dark_at_landing": true,
+     "partial_disk_h": 3.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      -22.094,
+      17.815
+     ]
+    },
+    "comm": {
+     "available_pct": 96.875,
+     "longest_outage_h": 1.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 9.0,
+     "conjunction_h": 0.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      7.484,
+      20.757
+     ]
+    }
+   },
+   "score": {
+    "power": 100.0,
+    "comm": 0.0,
+    "surface": 0.0,
+    "overall": 100.0,
+    "level": "high",
+    "driver": "power"
+   }
+  },
+  {
+   "slip_days": 28,
+   "window": {
+    "landing": "2023-09-20T12:33Z",
+    "end": "2023-10-02T12:33Z",
+    "duration_days": 12.0,
+    "power": {
+     "sunlit_pct": 100.0,
+     "mean_solar_fraction_pct": 100.0,
+     "longest_darkness_h": 0.0,
+     "dark_at_landing": false,
+     "partial_disk_h": 0.0,
+     "earth_eclipse_h": 0.0,
+     "max_earth_cover_pct": 0.0,
+     "sun_above_terrain_deg": [
+      2.244,
+      18.611
+     ]
+    },
+    "comm": {
+     "available_pct": 96.181,
+     "longest_outage_h": 2.0,
+     "terrain_occultation_h": 0.0,
+     "station_gap_h": 9.0,
+     "conjunction_h": 2.0,
+     "low_elevation_h": 0.0,
+     "earth_above_terrain_deg": [
+      7.484,
+      19.6
+     ]
+    }
+   },
+   "score": {
+    "power": 0.0,
+    "comm": 0.0,
+    "surface": 0.0,
+    "overall": 0.0,
+    "level": "low",
+    "driver": "power"
+   }
+  }
+ ],
+ "dates": {
+  "requested": "2023-08-23T12:33Z",
+  "nearest_earlier": "2023-08-23T00:00Z",
+  "nearest_later": "2023-08-24T00:00Z",
+  "slip_tolerance_days": 0,
+  "low_risk_now": true,
+  "low_risk_dates": 20,
+  "windows": [
+   {
+    "start": "2023-07-22T00:00Z",
+    "end": "2023-07-26T00:00Z",
+    "days": 5
+   },
+   {
+    "start": "2023-08-21T00:00Z",
+    "end": "2023-08-24T00:00Z",
+    "days": 4
+   },
+   {
+    "start": "2023-09-19T00:00Z",
+    "end": "2023-09-23T00:00Z",
+    "days": 5
+   },
+   {
+    "start": "2023-10-18T00:00Z",
+    "end": "2023-10-23T00:00Z",
+    "days": 6
+   }
+  ]
+ }
+}
