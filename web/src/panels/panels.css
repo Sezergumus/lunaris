@@ -1,0 +1,394 @@
+/* Right panel ("Landing site"): summary, horizon view, key metrics, risk, mast. */
+
+.inspector {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-panel);
+  transform-origin: top right;
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 220ms var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.inspector__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inspector__kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.inspector__title {
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
+}
+
+.inspector__subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.inspector__versus {
+  flex: 1;
+  min-width: 0;
+}
+
+.inspector__vs-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+}
+
+.inspector__vs-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector__vs-date {
+  margin-left: auto;
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 510;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector__scene {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---------- Summary ---------- */
+
+.summary__line {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary__line .tag {
+  margin-right: 6px;
+}
+
+.summary__model {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--text-2);
+}
+
+.summary__dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--success);
+  transform: translateY(-1px);
+}
+
+.summary__model[data-model="sphere"],
+.summary__model[data-model="loading"] {
+  color: var(--warning);
+}
+
+.summary__model[data-model="sphere"] .summary__dot,
+.summary__model[data-model="loading"] .summary__dot {
+  background: var(--warning);
+}
+
+.summary__reason {
+  font-weight: 450;
+  color: var(--text-3);
+}
+
+/* ---------- Horizon view ---------- */
+
+.hv {
+  margin: 0;
+}
+
+.hv svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.hv__sky {
+  fill: rgba(0, 0, 0, 0.42);
+}
+
+.hv__zero {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.hv__ridge {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hv__ytick,
+.hv__compass {
+  font-size: 8.5px;
+  font-weight: 560;
+  fill: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.hv__compass {
+  text-anchor: middle;
+}
+
+.hv__compass[data-north] {
+  fill: var(--text-2);
+}
+
+.hv__trail--sun {
+  fill: var(--sun);
+  opacity: 0.5;
+}
+
+.hv__trail--earth {
+  fill: var(--earth);
+  opacity: 0.45;
+}
+
+.hv__body--sun .hv__disk {
+  fill: var(--sun);
+}
+
+.hv__body--earth .hv__disk {
+  fill: var(--earth);
+}
+
+.hv__glow {
+  fill: var(--sun);
+  opacity: 0.2;
+}
+
+.hv__ring {
+  fill: none;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+}
+
+/* A body behind the terrain keeps a dashed ring so it can still be found. */
+.hv__body[data-hidden] .hv__ring {
+  opacity: 0.75;
+  stroke-dasharray: 2 2;
+}
+
+.hv__body--sun .hv__ring,
+.hv__body--sun .hv__offscale {
+  stroke: var(--sun);
+}
+
+.hv__body--earth .hv__ring,
+.hv__body--earth .hv__offscale {
+  stroke: var(--earth);
+}
+
+.hv__offscale {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hv__label {
+  font-size: 9px;
+  font-weight: 620;
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: rgba(10, 10, 12, 0.85);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  font-variant-numeric: tabular-nums;
+}
+
+.hv__body[data-hidden] .hv__label {
+  fill: var(--text-2);
+}
+
+.hv__caption {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+/* ---------- Metric cards ---------- */
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.inspector[data-compare] .metrics {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.metric {
+  padding: 10px 12px 11px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  min-width: 0;
+}
+
+.metric__label {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.metric__hint {
+  font-weight: 450;
+  color: var(--text-3);
+}
+
+.metric__cells {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.metric__cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.metric__cell > .tag {
+  margin-top: 5px;
+  flex: none;
+}
+
+.metric__body {
+  min-width: 0;
+}
+
+.metric__value {
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: color 200ms ease;
+}
+
+.metric__value--xl {
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.inspector[data-compare] .metric__value--xl {
+  font-size: 26px;
+}
+
+.metric__value.is-danger {
+  color: var(--danger);
+}
+
+.metric__sub {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric__sub b {
+  font-weight: 620;
+  color: var(--text);
+}
+
+.metric__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  transition: color 200ms ease;
+}
+
+.metric__status svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  stroke-width: 2;
+}
+
+.metric__status[data-state="good"] {
+  color: var(--success);
+}
+
+.metric__status[data-state="bad"] {
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector {
+    @starting-style {
+      transform: none;
+    }
+  }
+}
+
+@media (max-width: 759px) {
+  .inspector {
+    grid-column: 1;
+    grid-row: 1;
+    max-height: 36vh;
+    transform-origin: top center;
+  }
+}

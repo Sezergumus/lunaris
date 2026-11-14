@@ -1,23 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MousePointerClick, X } from "lucide-react";
+import { MousePointerClick } from "lucide-react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
-import { DEM_LIMIT_DEG } from "./map/graticule.ts";
 import { MoonMap, type Insets, type MapPoint } from "./map/MoonMap.tsx";
-import { finestLayerAt } from "./map/trek.ts";
-import { formatDistance, formatLat, formatLon, latLonToXY, surfaceDistanceM } from "./geo/polar.ts";
+import { formatLat, formatLon } from "./geo/polar.ts";
+import { InspectorPanel } from "./panels/InspectorPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { siteSubtitle, siteTitle } from "./sites.ts";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
-import { actions, customPlace, placeTitle, sitePlace, useScenario, type Place } from "./state/scenario.ts";
-import { IconButton } from "./ui/Button.tsx";
+import { actions, customPlace, sitePlace, useScenario, type Place } from "./state/scenario.ts";
+import { useViews } from "./state/view.ts";
 
 const PANEL_GAP = 16;
-
-/** Finest Moon Trek hillshade covering a point. */
-function basemapSourceAt(lat: number, lon: number): string {
-  const layer = finestLayerAt(...latLonToXY(lat, lon));
-  return layer ? `LOLA hillshade, ${layer.sourceResolutionM} m source` : "Outside the basemap";
-}
 
 export default function App() {
   const [sites, setSites] = useState<SiteInfo[]>([]);
@@ -35,6 +28,7 @@ export default function App() {
   const { tables, error: tablesError } = useSkyTables();
   const a = usePlaceSeries(tables, placeA);
   const b = usePlaceSeries(tables, placeB);
+  const views = useViews(a, b);
 
   useEffect(() => {
     loadSites()
@@ -191,44 +185,7 @@ export default function App() {
           </p>
         </aside>
 
-        {placeA ? (
-          <aside ref={inspectorRef} key={placeA.id} className="inspector glass glass--thick" aria-label={`Landing site: ${placeTitle(placeA)}`}>
-            <header className="inspector__header">
-              <div>
-                <p className="inspector__kicker">{placeA.kind === "site" ? "Landing site" : "Custom point"}</p>
-                <h2 className="inspector__title">{placeTitle(placeA)}</h2>
-                {placeA.kind === "site" && siteSubtitle(placeA.name) ? <p className="inspector__subtitle">{siteSubtitle(placeA.name)}</p> : null}
-              </div>
-              <IconButton label="Close" size="sm" tipSide="left" onClick={() => actions.selectPlace(null)}>
-                <X aria-hidden="true" />
-              </IconButton>
-            </header>
-            <dl className="facts">
-              <div>
-                <dt>Latitude</dt>
-                <dd>{formatLat(placeA.lat, 3)}</dd>
-              </div>
-              <div>
-                <dt>Longitude</dt>
-                <dd>{formatLon(placeA.lon, 3)}</dd>
-              </div>
-              <div>
-                <dt>Distance to pole</dt>
-                <dd>{formatDistance(surfaceDistanceM(placeA.lat, placeA.lon, -90, 0))}</dd>
-              </div>
-              <div>
-                <dt>Terrain data</dt>
-                <dd className={placeA.lat <= DEM_LIMIT_DEG ? undefined : "is-warning"}>
-                  {placeA.lat <= DEM_LIMIT_DEG ? "LOLA 60 m DEM" : "Sphere model only"}
-                </dd>
-              </div>
-              <div>
-                <dt>Basemap</dt>
-                <dd>{basemapSourceAt(placeA.lat, placeA.lon)}</dd>
-              </div>
-            </dl>
-          </aside>
-        ) : null}
+        {views.length > 0 ? <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views} /> : null}
 
         <TimelineBar ref={timelineRef} a={a} b={b} />
         {tablesError ? (
