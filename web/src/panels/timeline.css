@@ -54,6 +54,18 @@
   padding-right: 2px;
 }
 
+.timeline__controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Parts that only phones show (labelled rows, timeline.css bottom) and their wide-screen twins. */
+.timeline__caption--narrow,
+.timeline__narrow-only {
+  display: none;
+}
+
 .timeline__transport {
   display: flex;
   align-items: center;
@@ -627,24 +639,132 @@
   }
 }
 
+/*
+ * Phones: the bar is a bottom sheet with two sections. Planning on top, one labelled row per
+ * setting (label left, control right, hairlines between rows); playback below a hairline,
+ * with the readout and the A/B comparison as aligned rows under the strips.
+ */
 @media (max-width: 759px) {
   .timeline {
-    --label-w: 78px;
+    --label-w: 86px;
     grid-row: 3;
-    padding: 10px;
+    gap: 16px;
+    padding: 0 16px 16px;
+  }
+
+  .timeline__macro {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .timeline__macro > .timeline__group {
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+  }
+
+  .timeline__macro > .timeline__group + .timeline__group {
+    border-top: 1px solid var(--separator);
+  }
+
+  .timeline__macro .timeline__caption {
+    font-size: 14px;
+    font-weight: 510;
+    color: var(--text);
+  }
+
+  .timeline__caption--narrow,
+  .timeline__narrow-only {
+    display: inline;
+  }
+
+  .timeline__wide-only {
+    display: none;
+  }
+
+  .compare-chip {
+    height: 40px;
+    margin-top: 8px;
+    padding: 0 4px 0 12px;
+    border-radius: 12px;
+    font-size: 13.5px;
+  }
+
+  .compare-chip__text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* The strip is always about scenario A; without the name the legend fits beside the title. */
+  .risk-strip {
+    margin: 14px 0 0;
+    gap: 6px;
+  }
+
+  .risk-strip__place {
+    display: none;
+  }
+
+  .risk-strip__plot {
+    height: 18px;
   }
 
   .timeline__micro {
-    flex-wrap: wrap;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 14px;
+    padding-top: 16px;
+    border-top: 1px solid var(--separator);
   }
 
-  .track {
-    flex-basis: 100%;
+  .timeline__transport {
+    padding-top: 0;
   }
 
-  /* The landing-date strip takes a row of its own. */
-  .risk-strip {
-    flex-basis: 100%;
-    margin-left: 0;
+  .track__foot {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .timeline__readout {
+    justify-content: space-between;
+  }
+
+  .axis__tick[data-minor-label] .axis__label {
+    display: none;
+  }
+
+  /* Metric | change | A → B, every column aligned. */
+  .compare-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 8px 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--separator);
+    font-size: 13px;
+  }
+
+  .compare-summary__who {
+    grid-column: 1 / -1;
+  }
+
+  .compare-summary__item {
+    display: contents;
+  }
+
+  .compare-summary b {
+    text-align: right;
+  }
+
+  .compare-summary__detail {
+    text-align: right;
+    color: var(--text-3);
   }
 }

@@ -178,20 +178,25 @@ function SlipControl({ disabled }: { disabled: boolean }) {
   };
   return (
     <div className="timeline__group">
-      <InlineNumberField
-        label={`Slip in days, 1 to ${MAX_SLIP_DAYS}`}
-        value={text}
-        onChange={setText}
-        onCommit={commit}
-        prefix="+"
-        suffix="d"
-        invalid={!valid}
-        chars={3}
-        disabled={disabled}
-      />
-      <Button onClick={commit} disabled={disabled || !valid}>
-        Slip
-      </Button>
+      {/* Phones lay the macro row out as labelled rows; this label is shown there only. */}
+      <span className="timeline__caption timeline__caption--narrow">Slip</span>
+      <span className="timeline__controls">
+        <InlineNumberField
+          label={`Slip in days, 1 to ${MAX_SLIP_DAYS}`}
+          value={text}
+          onChange={setText}
+          onCommit={commit}
+          prefix="+"
+          suffix="d"
+          invalid={!valid}
+          chars={3}
+          disabled={disabled}
+        />
+        <Button onClick={commit} disabled={disabled || !valid}>
+          <span className="timeline__wide-only">Slip</span>
+          <span className="timeline__narrow-only">Compare</span>
+        </Button>
+      </span>
     </div>
   );
 }
@@ -204,7 +209,14 @@ function Axis({ hours, startMs, dated }: { hours: number; startMs: number; dated
   for (let day = 0; day <= days; day++) {
     const labelled = day % every === 0 && (day + every * 0.4) * 24 <= hours;
     ticks.push(
-      <span key={day} className="axis__tick" data-major={labelled || undefined} style={{ left: `${((day * 24) / hours) * 100}%` }}>
+      <span
+        key={day}
+        className="axis__tick"
+        data-major={labelled || undefined}
+        // Every other label is dropped where the plot is narrow (phones, timeline.css).
+        data-minor-label={(labelled && day % (every * 2) !== 0) || undefined}
+        style={{ left: `${((day * 24) / hours) * 100}%` }}
+      >
         {labelled ? <span className="axis__label">{dated ? formatUtcDay(startMs + day * DAY_MS) : `Day ${day}`}</span> : null}
       </span>,
     );

@@ -74,8 +74,8 @@ export function RiskStrip({ view }: { view: ScenarioView }) {
     <div className="risk-strip">
       <p className="risk-strip__caption">
         <span className="risk-strip__title">
-          <span>Landing-date risk ·&nbsp;</span>
-          <span className="risk-strip__place">{placeTitle(view.data.place)}</span>
+          <span>Landing-date risk</span>
+          <span className="risk-strip__place">&nbsp;·&nbsp;{placeTitle(view.data.place)}</span>
           <span>
             &nbsp;· <b>{lowCount}</b> low-risk days
           </span>
