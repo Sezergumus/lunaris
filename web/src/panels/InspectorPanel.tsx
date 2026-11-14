@@ -292,15 +292,16 @@ function EarthsetCell({ view }: { view: ScenarioView }) {
       ) : (
         <Value className="is-danger">{earth.hours !== null ? "Earth is down" : "Never rises"}</Value>
       )}
+      {/* Status right under the value, as in the darkness card; the dated detail after it. */}
+      <p className="metric__status" data-state={at.link ? "good" : "bad"}>
+        <Radio aria-hidden="true" />
+        Link: {at.link ? "Active" : LINK_BLOCK_LABEL[at.linkBlock!]}
+      </p>
       {earth.atMs !== null ? (
         <p className="metric__sub">
           {earth.visible ? "Earthset" : <span className="nowrap">Earthrise in {formatDuration(earth.hours!)},</span>} <span className="nowrap">{formatUtcDayTime(earth.atMs)}</span>
         </p>
       ) : null}
-      <p className="metric__status" data-state={at.link ? "good" : "bad"}>
-        <Radio aria-hidden="true" />
-        Link: {at.link ? "Active" : LINK_BLOCK_LABEL[at.linkBlock!]}
-      </p>
     </>
   );
 }
