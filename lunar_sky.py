@@ -353,6 +353,7 @@ def main():
                    help="risk: named mission profile (lunar_risk.PROFILE_PRESETS); other options override it")
     p.add_argument("--battery-hours", type=float, help="risk: longest survivable darkness (h)")
     p.add_argument("--max-outage-hours", type=float, help="risk: longest tolerable comm outage (h)")
+    p.add_argument("--min-contact-hours", type=float, help="risk: required contact in every 24 h (h)")
     p.add_argument("--max-slope", type=float, help="risk: slope limit (deg)")
     p.add_argument("--sphere", action="store_true",
                    help="risk: ignore the terrain horizon even if one is available")
@@ -458,7 +459,8 @@ def build_profile(a):
 
     profile = lr.preset_profile(a.profile)
     for name, value in (("duration_days", a.duration), ("battery_survival_h", a.battery_hours),
-                        ("max_comm_outage_h", a.max_outage_hours), ("max_slope_deg", a.max_slope),
+                        ("max_comm_outage_h", a.max_outage_hours),
+                        ("min_daily_contact_h", a.min_contact_hours), ("max_slope_deg", a.max_slope),
                         ("landing_precision_m", a.precision), ("mask_deg", a.mask or None)):
         if value is not None:
             profile[name] = value
@@ -790,6 +792,8 @@ def run_risk(a, key, label, lat, lon, sky_path):
     print(f"    link available                : {cm['available_pct']:.1f}% of the mission")
     print(f"    longest outage                : {lm.format_duration(cm['longest_outage_h'])}"
           f"  (limit {profile['max_comm_outage_h']:g} h)")
+    print(f"    contact on the worst day      : {cm['worst_day_contact_h']:g} h"
+          f"  (required {profile['min_daily_contact_h']:g} h in every 24 h)")
     print(f"    Earth hidden by terrain       : {lm.format_duration(cm['terrain_occultation_h'])}")
     print(f"    no ground station in view     : {lm.format_duration(cm['station_gap_h'])}")
     print(f"    solar conjunction (< {profile['conjunction_deg']:g} deg)  : {lm.format_duration(cm['conjunction_h'])}")

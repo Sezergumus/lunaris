@@ -23,8 +23,8 @@ export interface Profile {
   min_solar_fraction: number;
   /** Longest tolerable loss of contact. */
   max_comm_outage_h: number;
-  /** Required share of the mission with contact. */
-  min_comm_pct: number;
+  /** Required contact in every 24 h of the mission, hours. */
+  min_daily_contact_h: number;
   station_min_elevation_deg: number;
   /** Sun-Earth separation below which solar radio noise jams the link. */
   conjunction_deg: number;
@@ -44,7 +44,7 @@ export const DEFAULT_PROFILE: Profile = {
   min_sunlit_pct: 50,
   min_solar_fraction: 0.5,
   max_comm_outage_h: 24,
-  min_comm_pct: 50,
+  min_daily_contact_h: 8,
   station_min_elevation_deg: 10,
   conjunction_deg: 2,
   low_elevation_deg: 2,
@@ -145,6 +145,8 @@ export interface PowerIndicators {
 export interface CommIndicators {
   available_pct: number;
   longest_outage_h: number;
+  /** Fewest contact hours in any 24 h block counted from the landing. */
+  worst_day_contact_h: number;
   terrain_occultation_h: number;
   station_gap_h: number;
   conjunction_h: number;
@@ -335,6 +337,10 @@ export function analyzeWindow(series: Series, landingMs: number, durationDays?: 
   let sunlit = 0, solarSum = 0, darkRun = 0, darkLongest = 0, partial = 0, eclipse = 0, coverMax = 0;
   let comm = 0, outageRun = 0, outageLongest = 0, hidden = 0, gap = 0, conjunction = 0, low = 0;
   let sunMin = Infinity, sunMax = -Infinity, earthMin = Infinity, earthMax = -Infinity;
+  // Contact per 24 h block from the landing; whole blocks only, a shorter window is one block.
+  const perDay = Math.max(1, Math.round(24 / step));
+  const days = Math.floor(samples / perDay);
+  let dayContact = 0, worstDay = Infinity;
 
   for (let i = first; i < first + samples; i++) {
     sunlit += series.sunlit[i];
@@ -351,6 +357,13 @@ export function analyzeWindow(series: Series, landingMs: number, durationDays?: 
     if (sunAbove > sunMax) sunMax = sunAbove;
 
     comm += series.comm[i];
+    if (i - first < days * perDay) {
+      dayContact += series.comm[i];
+      if ((i - first + 1) % perDay === 0) {
+        if (dayContact < worstDay) worstDay = dayContact;
+        dayContact = 0;
+      }
+    }
     outageRun = series.comm[i] ? 0 : outageRun + 1;
     if (outageRun > outageLongest) outageLongest = outageRun;
     if (!series.earthVisible[i]) hidden++;
@@ -379,6 +392,7 @@ export function analyzeWindow(series: Series, landingMs: number, durationDays?: 
     comm: {
       available_pct: (100 * comm * step) / total,
       longest_outage_h: outageLongest * step,
+      worst_day_contact_h: (days === 0 ? comm : worstDay) * step,
       terrain_occultation_h: hidden * step,
       station_gap_h: gap * step,
       conjunction_h: conjunction * step,
@@ -417,7 +431,7 @@ export function scoreWindow(window: MissionWindow, profile: Profile, slopeP95Deg
   );
   const comm = Math.max(
     limitRisk(window.comm.longest_outage_h, profile.max_comm_outage_h),
-    shortfallRisk(window.comm.available_pct, profile.min_comm_pct),
+    shortfallRisk(window.comm.worst_day_contact_h, profile.min_daily_contact_h),
   );
   const surface = slopeP95Deg === null ? null : limitRisk(slopeP95Deg, profile.max_slope_deg);
   let overall = power;

@@ -12,7 +12,7 @@
   "min_sunlit_pct": 50.0,
   "min_solar_fraction": 0.5,
   "max_comm_outage_h": 24.0,
-  "min_comm_pct": 50.0,
+  "min_daily_contact_h": 8.0,
   "station_min_elevation_deg": 10.0,
   "conjunction_deg": 2.0,
   "low_elevation_deg": 2.0,

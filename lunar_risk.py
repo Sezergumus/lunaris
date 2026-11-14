@@ -45,7 +45,7 @@ DEFAULT_PROFILE = {
     "min_sunlit_pct": 50.0,         # required share of the mission with usable Sun
     "min_solar_fraction": 0.5,      # disk fraction that counts as usable Sun
     "max_comm_outage_h": 24.0,      # longest tolerable loss of contact
-    "min_comm_pct": 50.0,           # required share of the mission with contact
+    "min_daily_contact_h": 8.0,     # required contact in every 24 h of the mission
     "station_min_elevation_deg": 10.0,
     "conjunction_deg": 2.0,         # Sun-Earth separation that jams the link
     "low_elevation_deg": 2.0,       # Earth center this close to terrain = degraded
@@ -223,6 +223,19 @@ def _hours(flags, step_h):
     return float(np.count_nonzero(flags)) * step_h
 
 
+def _worst_day_h(flags, step_h):
+    """Fewest True hours in any 24 h block counted from the start (whole blocks only).
+
+    A window shorter than one day counts as a single block.
+    """
+    per_day = max(1, int(round(24.0 / step_h)))
+    days = len(flags) // per_day
+    if days == 0:
+        return _hours(flags, step_h)
+    blocks = np.asarray(flags[:days * per_day]).reshape(days, per_day)
+    return float(blocks.sum(axis=1).min()) * step_h
+
+
 def analyze_window(series, landing, duration_days=None):
     """Indicators over the mission window starting at `landing`."""
     p = series["profile"]
@@ -256,6 +269,7 @@ def analyze_window(series, landing, duration_days=None):
         "comm": {
             "available_pct": 100.0 * _hours(s["comm"], step_h) / total_h,
             "longest_outage_h": _longest_run_h(~s["comm"], step_h),
+            "worst_day_contact_h": _worst_day_h(s["comm"], step_h),
             "terrain_occultation_h": _hours(~s["earth_visible"], step_h),
             "station_gap_h": _hours(s["earth_visible"] & ~s["station_ok"], step_h),
             "conjunction_h": _hours(s["conjunction"], step_h),
@@ -297,7 +311,7 @@ def score_window(window, profile, surface=None):
     power = max(_limit_risk(pw["longest_darkness_h"], profile["battery_survival_h"]),
                 _shortfall_risk(pw["sunlit_pct"], profile["min_sunlit_pct"]))
     comm = max(_limit_risk(cm["longest_outage_h"], profile["max_comm_outage_h"]),
-               _shortfall_risk(cm["available_pct"], profile["min_comm_pct"]))
+               _shortfall_risk(cm["worst_day_contact_h"], profile["min_daily_contact_h"]))
     slope = None
     if surface is not None:
         stats = surface.get("slope_lola_deg") or surface["slope_derived_deg"]
