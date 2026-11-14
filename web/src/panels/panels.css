@@ -324,16 +324,25 @@
   margin-top: 5px;
 }
 
+/*
+ * While comparing, the A / B tag heads its column, above the value: tag, value and the lines
+ * under it share one left edge, and both columns start at the same height whatever their
+ * content (a tag beside the value would center on cells of different heights).
+ */
 .metric__cell {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
 }
 
 .metric__cell > .tag {
-  margin-top: 5px;
-  flex: none;
+  align-self: flex-start;
+}
+
+.metric__body {
+  align-self: stretch;
 }
 
 .metric__body {
