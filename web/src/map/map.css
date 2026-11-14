@@ -408,9 +408,9 @@
 /* ---------- Footer: cursor readout and scale ---------- */
 
 /*
- * Kept clear of the zoom buttons (40px + a gap). The first item (the legend) sits in the
- * bottom-left corner at every width; the rest follow to its right and wrap upward, left-aligned,
- * when the space is narrow.
+ * A left-aligned stack in the bottom-left corner of the free map area at every width: the
+ * legend at the bottom, the scale above it, the hover readout on top. On phones it is kept
+ * clear of the zoom buttons (40px + a gap) beside it.
  */
 .map-footer {
   position: absolute;
@@ -419,8 +419,8 @@
   right: calc(var(--chrome-right, 388px) + 52px);
   bottom: var(--chrome-bottom, 16px);
   display: flex;
-  flex-wrap: wrap-reverse;
-  align-items: flex-end;
+  flex-direction: column-reverse;
+  align-items: flex-start;
   gap: 8px;
   pointer-events: none;
   transition:
@@ -471,31 +471,15 @@
   transition: width 120ms var(--ease-out);
 }
 
+/* Only while the basemap tiles fail; the credit itself is in the sites panel footer. */
 .map-attribution {
   position: absolute;
   z-index: 1000;
   left: var(--chrome-top-left, 360px);
-  right: var(--chrome-top-right, 388px);
   top: var(--chrome-top, 16px);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
   font-size: 11px;
-  color: var(--text-3);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-.map-attribution a {
-  color: var(--text-2);
-  text-decoration: none;
-}
-
-.map-attribution a:hover {
-  text-decoration: underline;
-}
-
-.map-attribution__warning {
   color: var(--warning);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -516,14 +500,28 @@
     left: 16px;
     right: auto;
     bottom: 16px;
-    flex-direction: column-reverse;
-    flex-wrap: nowrap;
-    align-items: flex-start;
   }
 
   .map-controls {
     right: 16px;
     bottom: 16px;
+  }
+}
+
+/*
+ * Docked widths below that: the timeline spans the bottom, so the corners beside it are taken.
+ * The zoom buttons move to the top-right corner of the free area, and the legend stack keeps
+ * the bottom-left one to itself.
+ */
+@media (min-width: 760px) and (max-width: 1759px) {
+  .map-footer {
+    right: var(--chrome-right, 388px);
+  }
+
+  .map-controls {
+    top: var(--chrome-top, 16px);
+    right: var(--chrome-top-right, 388px);
+    bottom: auto;
   }
 }
 

@@ -111,10 +111,19 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
             <CustomEntry key={custom?.id ?? "empty"} initial={custom} comparing={placeA !== null} onChoose={onChoose} />
           </div>
 
-          <p className="sidebar__hint">
-            <MousePointerClick aria-hidden="true" />
-            Or click anywhere on the map.
-          </p>
+          <footer className="sidebar__foot">
+            <p className="sidebar__hint">
+              <MousePointerClick aria-hidden="true" />
+              Or click anywhere on the map.
+            </p>
+            <p className="sidebar__credit">
+              Basemap:{" "}
+              <a href="https://trek.nasa.gov/moon/" target="_blank" rel="noreferrer">
+                NASA Moon Trek
+              </a>{" "}
+              · LRO LOLA hillshade
+            </p>
+          </footer>
         </>
       )}
     </aside>

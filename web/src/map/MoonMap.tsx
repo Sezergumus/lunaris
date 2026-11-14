@@ -507,20 +507,12 @@ export function MoonMap({
         </div>
       </div>
 
-      <div className="map-attribution">
-        {tilesFailing ? (
-          <span className="map-attribution__warning" role="status">
-            Moon Trek tiles are not responding
-          </span>
-        ) : null}
-        <span>
-          Basemap:{" "}
-          <a href="https://trek.nasa.gov/moon/" target="_blank" rel="noreferrer">
-            NASA Moon Trek
-          </a>{" "}
-          · LRO LOLA hillshade
-        </span>
-      </div>
+      {/* The basemap credit lives in the sites panel footer; only a tile outage shows here. */}
+      {tilesFailing ? (
+        <p className="map-attribution" role="status">
+          Moon Trek tiles are not responding
+        </p>
+      ) : null}
     </div>
   );
 }
