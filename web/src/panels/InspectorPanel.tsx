@@ -90,7 +90,8 @@ function Summary({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
       ? `LOLA terrain · ${data.mast.heightM} m mast${mastNote}`
       : data.status === "loading"
         ? "Sphere model · loading terrain…"
-        : "Sphere model · no terrain";
+        : // The reason ("Terrain service not connected") already says there is no terrain.
+          (data.sphereReason ?? "Sphere model · no terrain");
   return (
     <div className="summary">
       <div className="summary__text">
@@ -107,11 +108,19 @@ function Summary({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
             </Fragment>
           ))}
         </p>
-        <p className="summary__model" data-model={data.status}>
-          <span className="summary__dot" aria-hidden="true" />
-          {model}
-          {data.status === "sphere" && data.sphereReason ? <span className="summary__reason"> — {data.sphereReason}</span> : null}
-        </p>
+        {data.status === "sphere" && data.sphereReason ? (
+          <Tip label="Sphere model: the horizon of a smooth Moon, without terrain" side="bottom">
+            <p className="summary__model" data-model={data.status}>
+              <span className="summary__dot" aria-hidden="true" />
+              {model}
+            </p>
+          </Tip>
+        ) : (
+          <p className="summary__model" data-model={data.status}>
+            <span className="summary__dot" aria-hidden="true" />
+            {model}
+          </p>
+        )}
       </div>
       {data.place.kind === "custom" ? <SavePointButton view={view} /> : null}
     </div>

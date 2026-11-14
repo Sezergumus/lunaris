@@ -170,11 +170,6 @@
   background: var(--warning);
 }
 
-.summary__reason {
-  font-weight: 450;
-  color: var(--text-3);
-}
-
 /* ---------- Horizon view ---------- */
 
 .hv {
