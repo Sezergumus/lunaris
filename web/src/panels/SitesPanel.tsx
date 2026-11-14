@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState, type Ref } from "react";
 import { DropdownMenu } from "radix-ui";
-import { CalendarCheck, ChevronDown, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, Pencil, Plus, ShieldAlert, ShieldCheck, ShieldX, Trash2, X } from "lucide-react";
+import { CalendarCheck, ChevronDown, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, PanelLeftClose, PanelLeftOpen, Pencil, Plus, ShieldAlert, ShieldCheck, ShieldX, Trash2, X } from "lucide-react";
 import type { SiteInfo } from "../data/load.ts";
 import { insideTerrainCoverage } from "../data/terrain.ts";
 import { siteSubtitle, siteTitle } from "../sites.ts";
 import { MAX_SAVED_POINTS, getSavedPoint, savedPlace, savedPointActions, useSavedPoints, type SavedPoint } from "../state/savedPoints.ts";
 import type { SiteScores } from "../state/siteScores.ts";
-import { APOLLO_11, actions, customPlace, sitePlace, type Place } from "../state/scenario.ts";
+import { APOLLO_11, actions, customPlace, placeTitle, sitePlace, type Place } from "../state/scenario.ts";
+import type { ScenarioView } from "../state/view.ts";
 import type { RiskLevel } from "../engine/risk.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { NumberField } from "../ui/NumberField.tsx";
 import { formatDays, formatUtcDate, parseDecimal } from "../ui/format.ts";
+import { MissionParameters } from "./MissionParameters.tsx";
 
 interface SitesPanelProps {
   ref?: Ref<HTMLElement>;
@@ -24,9 +26,12 @@ interface SitesPanelProps {
   onChoose: (place: Place) => void;
   /** Live risk of each built-in site for the mission on screen. */
   scores: SiteScores;
+  /** The scenarios on screen, for the mission parameters (the mast applies to them). */
+  views: ScenarioView[];
 }
 
-export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, onHover, onChoose, scores }: SitesPanelProps) {
+export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, onHover, onChoose, scores, views }: SitesPanelProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const rows: Pick<SiteRowProps, "place" | "subtitle" | "hoverKey" | "risk" | "best">[] = sites.map((site) => {
     const entry = scores.byKey.get(site.key);
     return {
@@ -40,55 +45,73 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
   const custom = placeA?.kind === "custom" ? placeA : placeB?.kind === "custom" ? placeB : null;
 
   return (
-    <aside ref={ref} className="sidebar glass glass--thick">
+    <aside ref={ref} className="sidebar glass glass--thick" data-collapsed={collapsed || undefined}>
       <header className="brand">
         <svg className="brand__mark" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 3a9 9 0 0 0 0 18" />
         </svg>
-        <div>
+        <div className="brand__text">
           <h1 className="brand__name">Lunaris</h1>
-          <p className="brand__tagline">Lunar south pole landing sites</p>
+          {/* Collapsed, the selected place stands in for the tagline. */}
+          <p className="brand__tagline">{collapsed && placeA ? placeTitle(placeA) : "Lunar south pole landing sites"}</p>
+        </div>
+        <div className="brand__actions">
+          <MissionParameters views={views} />
+          <IconButton
+            label={collapsed ? "Expand sites" : "Collapse sites"}
+            variant="plain"
+            size="sm"
+            tipSide="bottom"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+          </IconButton>
         </div>
       </header>
 
-      <div className="sidebar__scroll">
-        <section className="site-list" aria-labelledby="site-list-heading">
-          <h2 id="site-list-heading" className="section-label">
-            Sites
-          </h2>
-          {loadError ? <p className="site-list__error">Site list could not be loaded ({loadError}).</p> : null}
-          <ul>
-            {rows.map((row) => (
-              <SiteRow key={row.place.id} {...row} placeA={placeA} placeB={placeB} hovered={hoveredKey === row.hoverKey} onHover={onHover} onChoose={onChoose} />
-            ))}
-          </ul>
+      {collapsed ? null : (
+        <>
+          <div className="sidebar__scroll">
+            <section className="site-list" aria-labelledby="site-list-heading">
+              <h2 id="site-list-heading" className="section-label">
+                Sites
+              </h2>
+              {loadError ? <p className="site-list__error">Site list could not be loaded ({loadError}).</p> : null}
+              <ul>
+                {rows.map((row) => (
+                  <SiteRow key={row.place.id} {...row} placeA={placeA} placeB={placeB} hovered={hoveredKey === row.hoverKey} onHover={onHover} onChoose={onChoose} />
+                ))}
+              </ul>
 
-          <SavedPoints placeA={placeA} placeB={placeB} onChoose={onChoose} />
+              <SavedPoints placeA={placeA} placeB={placeB} onChoose={onChoose} />
 
-          <h2 className="section-label">Reference</h2>
-          <ul>
-            <SiteRow
-              place={APOLLO_11}
-              subtitle="Equatorial reference · off map"
-              hoverKey={null}
-              placeA={placeA}
-              placeB={placeB}
-              hovered={false}
-              onHover={onHover}
-              onChoose={onChoose}
-            />
-          </ul>
-        </section>
+              <h2 className="section-label">Reference</h2>
+              <ul>
+                <SiteRow
+                  place={APOLLO_11}
+                  subtitle="Equatorial reference · off map"
+                  hoverKey={null}
+                  placeA={placeA}
+                  placeB={placeB}
+                  hovered={false}
+                  onHover={onHover}
+                  onChoose={onChoose}
+                />
+              </ul>
+            </section>
 
-        {/* Remounted when a point is picked on the map, so the fields show that point. */}
-        <CustomEntry key={custom?.id ?? "empty"} initial={custom} comparing={placeA !== null} onChoose={onChoose} />
-      </div>
+            {/* Remounted when a point is picked on the map, so the fields show that point. */}
+            <CustomEntry key={custom?.id ?? "empty"} initial={custom} comparing={placeA !== null} onChoose={onChoose} />
+          </div>
 
-      <p className="sidebar__hint">
-        <MousePointerClick aria-hidden="true" />
-        Or click anywhere on the map.
-      </p>
+          <p className="sidebar__hint">
+            <MousePointerClick aria-hidden="true" />
+            Or click anywhere on the map.
+          </p>
+        </>
+      )}
     </aside>
   );
 }

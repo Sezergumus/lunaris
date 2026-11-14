@@ -43,7 +43,8 @@ horizon-uncertainty score, then:
    in every 24 h" (profile key `min_daily_contact_h` replaces `min_comm_pct`; new indicator
    `comm.worst_day_contact_h`; both engines; `risk_*`, `ranking`, `nearby_*`, `backtest_*`
    regenerated; no score changed). See "Risk model".
-2. Web only: a "Mission limits" card under the risk card (`web/src/panels/LimitsControl.tsx`,
+2. Web only: a "Mission limits" card in the Mission parameters popover of the sites header
+   (`web/src/panels/MissionParameters.tsx`, `web/src/panels/LimitsControl.tsx`,
    `web/src/state/limits.ts`) with five sliders: darkness survived, usable Sun needed,
    longest outage, contact per day, slope limit. A slider overrides the selected profile
    (`limitOverrides` in the scenario store; choosing a profile or "Reset" clears them); the
@@ -137,7 +138,7 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
 **Next action (backend):** ask Kerem what he wants next; the current list is in "Next steps"
 at the end of this file (item 1 is connecting the deployed site to the live API).
 **Next action (frontend):** the design is decided and planned in `frontend-plan.md`. Phase 8
-has its explainer lines (`Explainer.tsx`) and URL state (`state/url.ts`); whether phase 8 is
+has its explainer lines (`Explainer.tsx`, an info tooltip in the inspector header) and URL state (`state/url.ts`); whether phase 8 is
 complete was not checked in the running app by the backend side. Ask Sezer.
 **Open decisions (user/team; do not decide silently):**
 

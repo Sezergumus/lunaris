@@ -203,6 +203,47 @@ svg {
   margin-top: 2px;
   font-size: 13px;
   color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.brand__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  align-self: flex-start;
+}
+
+/* Collapsed: the sidebar shrinks to its header, so the map gets the room back. */
+.sidebar[data-collapsed] {
+  align-self: start;
+  justify-self: start;
+  max-width: 328px;
+}
+
+.sidebar[data-collapsed] .brand {
+  padding: 12px 12px 12px 16px;
+}
+
+.sidebar[data-collapsed] .brand__mark {
+  width: 24px;
+  height: 24px;
+}
+
+.sidebar[data-collapsed] .brand__text {
+  flex: 0 1 auto;
+  max-width: 190px;
+}
+
+.sidebar[data-collapsed] .brand__actions {
+  align-self: center;
 }
 
 .sidebar__scroll {
@@ -431,8 +472,22 @@ svg {
     grid-row: 4;
   }
 
+  /* The header stays for its buttons; only the name goes. */
   .brand {
+    padding: 8px 8px 8px 14px;
+  }
+
+  .brand__mark,
+  .brand__name {
     display: none;
+  }
+
+  .brand__tagline {
+    margin-top: 0;
+  }
+
+  .brand__actions {
+    align-self: center;
   }
 
   .sidebar__hint {

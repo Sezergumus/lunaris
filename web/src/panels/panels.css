@@ -24,6 +24,13 @@
   }
 }
 
+.inspector__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
 .inspector__header {
   display: flex;
   align-items: flex-start;
@@ -572,10 +579,6 @@
   color: var(--risk-medium);
 }
 
-.risk__profile {
-  margin-top: 8px;
-}
-
 .risk__none {
   margin-top: 8px;
   font-size: 11px;
@@ -626,6 +629,52 @@
 .mast__note[data-tone="estimate"] {
   font-weight: 560;
   color: var(--warning);
+}
+
+/* ---------- Mission parameters (popover in the sites header) ---------- */
+
+.popover--params {
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: var(--radix-popover-content-available-height);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  gap: 8px;
+}
+
+.params__profile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.params__profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 26px;
+}
+
+.params__profile-head svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Marks a button whose settings differ from the defaults. */
+.params-trigger {
+  position: relative;
+}
+
+.params-trigger__dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 0 1.5px rgba(30, 30, 34, 0.9);
 }
 
 /* ---------- Mission limits ---------- */
@@ -690,29 +739,12 @@
   color: var(--text-3);
 }
 
-/* ---------- Plain-language notes ---------- */
+/* ---------- Plain-language notes (tooltip behind the info icon) ---------- */
 
 .explainer {
-  padding: 2px 4px 0;
-}
-
-.explainer .metric__label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.explainer .metric__label svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 2;
-}
-
-.explainer ul {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-top: 6px;
 }
 
 .explainer li {

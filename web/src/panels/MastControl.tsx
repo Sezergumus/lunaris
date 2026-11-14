@@ -2,6 +2,7 @@ import { MAST_RANGE_M } from "../engine/mast.ts";
 import { actions, useScenario } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
 import { Slider } from "../ui/Slider.tsx";
+import { Tip } from "../ui/Tooltip.tsx";
 
 /**
  * Height of the solar panel / antenna above ground. Moving it changes the horizon, and with
@@ -11,15 +12,16 @@ export function MastControl({ views }: { views: ScenarioView[] }) {
   const mastM = useScenario((s) => s.mastM);
   const modes = views.map((view) => view.data.mast.mode);
   // Places without obstruction distances (custom points, the reference) cannot be adjusted.
-  const adjustable = modes.some((mode) => mode !== "fixed");
+  // With no place selected the value is still set; it applies to the next one.
+  const adjustable = views.length === 0 || modes.some((mode) => mode !== "fixed");
   const estimated = modes.includes("estimate");
 
   return (
     <section className="mast" aria-label="Mast height">
       <div className="mast__head">
-        <h3 className="metric__label">
-          Mast height<span className="metric__hint"> · solar panel and antenna above ground</span>
-        </h3>
+        <Tip label="Solar panel and antenna above ground" side="left">
+          <h3 className="metric__label">Mast height</h3>
+        </Tip>
         <output className="mast__value">{mastM} m</output>
       </div>
       <Slider
@@ -33,13 +35,15 @@ export function MastControl({ views }: { views: ScenarioView[] }) {
         disabled={!adjustable}
       />
       <p className="mast__note" data-tone={estimated ? "estimate" : undefined}>
-        {!adjustable
-          ? "Needs the terrain horizon and its obstruction distances; not available for this place."
-          : estimated
-            ? "Estimate, leans optimistic · exact values need the terrain service"
-            : modes.includes("exact")
-              ? "Horizon recomputed by the terrain service."
-              : `Precomputed horizon at ${MAST_RANGE_M.min} m. Raise the mast to see over nearby terrain.`}
+        {views.length === 0
+          ? "Applies to the place you select."
+          : !adjustable
+            ? "Not adjustable for this place."
+            : estimated
+              ? "Estimate, leans optimistic."
+              : modes.includes("exact")
+                ? "Recomputed by the terrain service."
+                : `Precomputed at ${MAST_RANGE_M.min} m.`}
       </p>
     </section>
   );

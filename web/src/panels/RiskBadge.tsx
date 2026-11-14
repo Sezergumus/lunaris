@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
-import { PROFILE_PRESETS, analyzeWindow, scoreWindow, type ProfileKey, type RiskLevel, type Score } from "../engine/risk.ts";
-import { actions, useScenario } from "../state/scenario.ts";
-import { Segmented } from "../ui/Segmented.tsx";
+import { analyzeWindow, scoreWindow, type RiskLevel, type Score } from "../engine/risk.ts";
 import { Tip } from "../ui/Tooltip.tsx";
 import type { ScenarioView } from "../state/view.ts";
 
@@ -13,11 +11,6 @@ const CATEGORIES = [
   { id: "comm", label: "Comm" },
   { id: "surface", label: "Surface" },
 ] as const;
-const PROFILE_OPTIONS = (Object.keys(PROFILE_PRESETS) as ProfileKey[]).map((key) => ({
-  value: key,
-  label: PROFILE_PRESETS[key].short,
-  ariaLabel: PROFILE_PRESETS[key].label,
-}));
 
 /** Risk of the mission that lands at the scenario's start date; null if it leaves the data. */
 function useScore(view: ScenarioView): Score | null {
@@ -92,15 +85,11 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
  * The limits come from the selected mission profile (see the mission parameters).
  */
 export function RiskBadge({ views }: { views: ScenarioView[] }) {
-  const profileKey = useScenario((s) => s.profileKey);
   return (
     <section className="risk" aria-label="Mission risk">
       <h3 className="metric__label">
         Mission risk
       </h3>
-      <div className="risk__profile">
-        <Segmented value={profileKey} onChange={actions.setProfile} options={PROFILE_OPTIONS} label="Mission profile" size="sm" />
-      </div>
       <div className="risk__columns">
         {views.map((view) => (
           <ScoreColumn key={view.tag} view={view} tagged={views.length > 1} />

@@ -3,10 +3,7 @@ import { loadSites, type SiteInfo } from "./data/load.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
 import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
-import { Explainer } from "./panels/Explainer.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
-import { LimitsControl } from "./panels/LimitsControl.tsx";
-import { MastControl } from "./panels/MastControl.tsx";
 import { Recommendations } from "./panels/Recommendations.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
@@ -196,15 +193,13 @@ export default function App() {
           onHover={setHoveredKey}
           onChoose={choose}
           scores={siteScores}
+          views={views}
         />
 
         {views.length > 0 ? (
           <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
             <RiskBadge views={views} />
             <Recommendations view={views[0]} nearby={nearby} />
-            <LimitsControl />
-            <MastControl views={views} />
-            <Explainer views={views} />
           </InspectorPanel>
         ) : null}
 

@@ -11,6 +11,7 @@ import { useInstant, type ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Tip } from "../ui/Tooltip.tsx";
 import { formatAngle, formatDuration, formatHours, formatUtcDate, formatUtcDayTime } from "../ui/format.ts";
+import { Explainer } from "./Explainer.tsx";
 import "./panels.css";
 
 const HOUR_MS = 3600000;
@@ -20,7 +21,7 @@ const KICKER = { site: "Landing site", custom: "Custom point", reference: "Equat
 interface InspectorPanelProps {
   ref?: Ref<HTMLElement>;
   views: ScenarioView[];
-  /** Risk badge and mast control, added below the metric cards. */
+  /** Risk badge and suggestions, added below the metric cards. */
   children?: ReactNode;
 }
 
@@ -51,9 +52,12 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
             {subtitle ? <p className="inspector__subtitle">{subtitle}</p> : null}
           </div>
         )}
-        <IconButton label={comparing ? "Close scenario A" : "Close"} size="sm" tipSide="left" onClick={() => actions.selectPlace(null)}>
-          <X aria-hidden="true" />
-        </IconButton>
+        <div className="inspector__actions">
+          <Explainer views={views} />
+          <IconButton label={comparing ? "Close scenario A" : "Close"} size="sm" tipSide="left" onClick={() => actions.selectPlace(null)}>
+            <X aria-hidden="true" />
+          </IconButton>
+        </div>
       </header>
 
       {views.map((view) => (
