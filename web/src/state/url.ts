@@ -8,6 +8,7 @@ import { MAST_RANGE_M } from "../engine/mast.ts";
 import { PROFILE_PRESETS, type ProfileKey } from "../engine/risk.ts";
 import { isoDay } from "../ui/format.ts";
 import { LIMITS, type LimitOverrides } from "./limits.ts";
+import { getSavedPoint, savedPlace } from "./savedPoints.ts";
 import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, validWindowHours, type Place } from "./scenario.ts";
 
 function placeToParam(place: Place): string {
@@ -24,7 +25,11 @@ function paramToPlace(value: string | null, sites: SiteInfo[]): Place | null {
   const match = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(value);
   if (!match) return null;
   const lat = Number(match[1]);
-  return lat >= -90 && lat <= 90 ? customPlace(lat, Number(match[2])) : null;
+  if (lat < -90 || lat > 90) return null;
+  // A saved point comes back with its name and its stored terrain.
+  const place = customPlace(lat, Number(match[2]));
+  const saved = getSavedPoint(place.id);
+  return saved ? savedPlace(saved) : place;
 }
 
 export interface UrlScenario {

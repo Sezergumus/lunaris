@@ -92,6 +92,38 @@
 
 /* ---------- Summary ---------- */
 
+.summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.summary__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.summary__save {
+  flex: none;
+}
+
+.summary__saved {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 560;
+  color: var(--success);
+}
+
+.summary__saved svg {
+  width: 13px;
+  height: 13px;
+}
+
 .summary__line {
   font-size: 12.5px;
   color: var(--text-2);

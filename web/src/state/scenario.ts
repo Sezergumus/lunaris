@@ -178,10 +178,13 @@ export const actions = {
       startMs: clampStart(state.startMs, next),
     });
   },
-  /** A saved point was renamed: places on screen with that id take the new name. */
-  renamePlace(id: string, name: string) {
-    const rename = (place: Place | null) => (place && place.id === id ? { ...place, name } : place);
-    if (state.placeA?.id === id || state.placeB?.id === id) set({ placeA: rename(state.placeA), placeB: rename(state.placeB) });
+  /**
+   * Swap a place on screen for another one, keeping its role (A or B), dates and cursor:
+   * a point that was just saved, or a saved point that was renamed.
+   */
+  replacePlace(id: string, place: Place) {
+    const swap = (current: Place | null) => (current && current.id === id ? place : current);
+    if (state.placeA?.id === id || state.placeB?.id === id) set({ placeA: swap(state.placeA), placeB: swap(state.placeB) });
   },
   setOffsetMs(ms: number) {
     set({ offsetMs: Math.min(state.windowHours * HOUR_MS, Math.max(0, ms)) });

@@ -64,8 +64,8 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // Escape inside a popover closes the popover, not the panel.
-      if (event.key !== "Escape" || (event.target as HTMLElement).closest("[role='dialog']")) return;
+      // Escape inside a popover or a menu closes that, not the panel.
+      if (event.key !== "Escape" || (event.target as HTMLElement).closest("[role='dialog'], [role='menu']")) return;
       // One step back at a time: the comparison first, then the selection.
       if (getScenario().placeB) actions.clearComparison();
       else actions.selectPlace(null);

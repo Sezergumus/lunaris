@@ -7,11 +7,12 @@ import { useEffect, useMemo, useState } from "react";
 import { loadSiteTerrain, loadSkyTables, type SiteTerrain, type SkyTables } from "../data/load.ts";
 import { TerrainError, fetchHorizon, insideTerrainCoverage, terrainConfigured } from "../data/terrain.ts";
 import { findTransitions, limbClearance, type Transitions } from "../engine/events.ts";
-import { pointHorizon } from "../engine/grid.ts";
+import { pointHorizon, type TerrainGrid, type TerrainPoint } from "../engine/grid.ts";
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
 import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, raisedHorizon, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
 import { useEffectiveProfile } from "./limits.ts";
+import { getSavedPoint } from "./savedPoints.ts";
 import type { Place } from "./scenario.ts";
 
 let tablesPromise: Promise<SkyTables> | null = null;
@@ -60,12 +61,49 @@ function sphereReason(place: Place): string | null {
   return null;
 }
 
-/** Terrain of a place: a precomputed file for built-in sites, the terrain service for custom points. */
+/** Terrain of one point of a grid (an answer of the service or a precomputed grid file). */
+export function terrainFromPoint(point: TerrainPoint, grid: TerrainGrid): SiteTerrain {
+  return {
+    horizon: pointHorizon(point),
+    horizonRangeKm: [],
+    mastM: point.mast_m,
+    groundHeightM: point.ground_height_m ?? 0,
+    slopeP95Deg: point.slope_deg,
+    slopeRadiusM: grid.precision_m,
+    heightErrorM: null,
+  };
+}
+
+interface KnownTerrain {
+  terrain: SiteTerrain;
+  center: { lat: number; lon: number };
+}
+
+/** Terrain the page already has for custom places, e.g. neighbours of a scored grid. */
+const knownTerrain = new Map<string, KnownTerrain>();
+
+/** Remember the terrain of a custom place so opening it needs no request. */
+export function rememberTerrain(placeId: string, terrain: SiteTerrain, center: { lat: number; lon: number }) {
+  knownTerrain.set(placeId, { terrain, center });
+}
+
+function lookUpTerrain(place: Place): KnownTerrain | null {
+  if (place.kind !== "custom") return null;
+  const saved = getSavedPoint(place.id);
+  if (saved?.terrain) return { terrain: saved.terrain, center: { lat: saved.lat, lon: saved.lon } };
+  return knownTerrain.get(place.id) ?? null;
+}
+
+/**
+ * Terrain of a place: a precomputed file for built-in sites; for custom points the terrain
+ * kept with a saved point or a scored grid, else the terrain service.
+ */
 function useTerrain(place: Place | null): TerrainState | null {
   const [loaded, setLoaded] = useState<TerrainState | null>(null);
+  const known = useMemo(() => (place ? lookUpTerrain(place) : null), [place]);
 
   useEffect(() => {
-    if (!place) return;
+    if (!place || known) return;
     const controller = new AbortController();
     const done = (patch: Omit<TerrainState, "placeId">) => {
       if (!controller.signal.aborted) setLoaded({ placeId: place.id, ...patch });
@@ -78,23 +116,7 @@ function useTerrain(place: Place | null): TerrainState | null {
     } else if (place.kind === "custom" && terrainConfigured() && insideTerrainCoverage(place.lat, place.lon)) {
       // A newer click aborts this request (see the cleanup below).
       fetchHorizon({ lat: place.lat, lon: place.lon, grid: 1, precision: DEFAULT_PROFILE.landing_precision_m }, controller.signal).then(
-        (grid) => {
-          const point = grid.points[0];
-          done({
-            terrain: {
-              horizon: pointHorizon(point),
-              horizonRangeKm: [],
-              mastM: point.mast_m,
-              groundHeightM: point.ground_height_m ?? 0,
-              slopeP95Deg: point.slope_deg,
-              slopeRadiusM: grid.precision_m,
-              heightErrorM: null,
-            },
-            center: grid.center,
-            status: "terrain",
-            reason: null,
-          });
-        },
+        (grid) => done({ terrain: terrainFromPoint(grid.points[0], grid), center: grid.center, status: "terrain", reason: null }),
         (error: unknown) => {
           const reason = error instanceof TerrainError ? error.message : "The terrain service cannot be reached";
           done({ terrain: null, center: null, status: "sphere", reason });
@@ -102,15 +124,16 @@ function useTerrain(place: Place | null): TerrainState | null {
       );
     }
     return () => controller.abort();
-  }, [place]);
+  }, [place, known]);
 
   // Until the terrain arrives (or when there is none) the place is shown on the sphere model.
   const fallback = useMemo((): TerrainState | null => {
     if (!place) return null;
+    if (known) return { placeId: place.id, terrain: known.terrain, center: known.center, status: "terrain", reason: null };
     const reason = sphereReason(place);
     return { placeId: place.id, terrain: null, center: null, status: reason ? "sphere" : "loading", reason };
-  }, [place]);
-  return place && loaded?.placeId === place.id ? loaded : fallback;
+  }, [place, known]);
+  return place && !known && loaded?.placeId === place.id ? loaded : fallback;
 }
 
 /** Everything the panels need about one place, over the whole date range. */

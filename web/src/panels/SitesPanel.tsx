@@ -1,13 +1,15 @@
-import { useState, type Ref } from "react";
-import { Crosshair, GitCompareArrows, MousePointerClick, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState, type Ref } from "react";
+import { DropdownMenu } from "radix-ui";
+import { CalendarCheck, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { SiteInfo } from "../data/load.ts";
 import { insideTerrainCoverage } from "../data/terrain.ts";
 import { formatLat, formatLon } from "../geo/polar.ts";
 import { siteSubtitle, siteTitle } from "../sites.ts";
+import { MAX_SAVED_POINTS, getSavedPoint, savedPlace, savedPointActions, useSavedPoints, type SavedPoint } from "../state/savedPoints.ts";
 import { APOLLO_11, actions, customPlace, sitePlace, type Place } from "../state/scenario.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { NumberField } from "../ui/NumberField.tsx";
-import { parseDecimal } from "../ui/format.ts";
+import { formatDays, formatUtcDate, parseDecimal } from "../ui/format.ts";
 
 interface SitesPanelProps {
   ref?: Ref<HTMLElement>;
@@ -51,6 +53,8 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
               <SiteRow key={row.place.id} {...row} placeA={placeA} placeB={placeB} hovered={hoveredKey === row.hoverKey} onHover={onHover} onChoose={onChoose} />
             ))}
           </ul>
+
+          <SavedPoints placeA={placeA} placeB={placeB} onChoose={onChoose} />
 
           <h2 className="section-label">Reference</h2>
           <ul>
@@ -136,6 +140,175 @@ function SiteRow({ place, subtitle, hoverKey, placeA, placeB, hovered, onHover, 
         </IconButton>
       )}
     </li>
+  );
+}
+
+interface SavedPointsProps {
+  placeA: Place | null;
+  placeB: Place | null;
+  onChoose: (place: Place) => void;
+}
+
+/**
+ * Custom points the user saved. Each keeps its own landing date and mission length: the
+ * list does not follow the timeline, and opening a point brings its date back.
+ */
+function SavedPoints({ placeA, placeB, onChoose }: SavedPointsProps) {
+  const points = useSavedPoints();
+  if (points.length === 0) return null;
+  return (
+    <>
+      <h2 className="section-label">
+        Saved points
+        <span className="section-label__count">
+          {points.length} / {MAX_SAVED_POINTS}
+        </span>
+      </h2>
+      <ul>
+        {points.map((point) => (
+          <SavedRow key={point.id} point={point} placeA={placeA} placeB={placeB} onChoose={onChoose} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+interface SavedRowProps {
+  point: SavedPoint;
+  placeA: Place | null;
+  placeB: Place | null;
+  onChoose: (place: Place) => void;
+}
+
+function SavedRow({ point, placeA, placeB, onChoose }: SavedRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const isA = placeA?.id === point.id;
+  const isB = placeB?.id === point.id;
+
+  /** Open the point as scenario A on the date and with the mission length it was saved with. */
+  const open = () => {
+    onChoose(savedPlace(point));
+    actions.setWindowHours(point.savedWindowHours);
+    actions.setStart(point.savedStartMs);
+  };
+  const rename = (name: string) => {
+    setRenaming(false);
+    savedPointActions.rename(point.id, name);
+    const renamed = getSavedPoint(point.id);
+    if (renamed) actions.replacePlace(point.id, savedPlace(renamed));
+  };
+
+  return (
+    <li className="site-item" data-role={isA ? "a" : isB ? "b" : undefined}>
+      {renaming ? (
+        <RenameField initial={point.name} onDone={rename} onCancel={() => setRenaming(false)} />
+      ) : (
+        <button
+          type="button"
+          className="site-row"
+          aria-pressed={isA}
+          onClick={open}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenuOpen(true);
+          }}
+        >
+          {placeB && (isA || isB) ? <span className={`tag tag--${isA ? "a" : "b"}`}>{isA ? "A" : "B"}</span> : <span className="site-row__dot site-row__dot--saved" aria-hidden="true" />}
+          <span className="site-row__text">
+            <span className="site-row__title">{point.name}</span>
+            <span className="site-row__subtitle">
+              {formatUtcDate(point.savedStartMs)} · {formatDays(point.savedWindowHours / 24)} d
+            </span>
+          </span>
+          <span className="site-row__coords">
+            <span>{formatLat(point.lat)}</span>
+            <span>{formatLon(point.lon)}</span>
+          </span>
+        </button>
+      )}
+      <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+        <DropdownMenu.Trigger asChild>
+          <IconButton className="site-item__compare" label={`Actions for ${point.name}`} variant="plain" size="sm" tipSide="right">
+            <EllipsisVertical aria-hidden="true" />
+          </IconButton>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            className="menu glass glass--thick"
+            side="right"
+            align="start"
+            sideOffset={6}
+            collisionPadding={12}
+            // Rename moves focus into the row's name field instead of back to the button.
+            onCloseAutoFocus={(event) => renaming && event.preventDefault()}
+          >
+            <DropdownMenu.Item className="menu__item" onSelect={() => onChoose(savedPlace(point))}>
+              <CalendarCheck aria-hidden="true" />
+              Apply to current date
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className="menu__item" disabled={isA} onSelect={() => actions.compareWith(savedPlace(point))}>
+              <GitCompareArrows aria-hidden="true" />
+              Compare
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className="menu__item" onSelect={() => setRenaming(true)}>
+              <Pencil aria-hidden="true" />
+              Rename
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="menu__separator" />
+            <DropdownMenu.Item className="menu__item menu__item--danger" onSelect={() => savedPointActions.remove(point.id)}>
+              <Trash2 aria-hidden="true" />
+              Delete
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+    </li>
+  );
+}
+
+/** Inline name editor: Enter or leaving the field saves, Escape cancels. */
+function RenameField({ initial, onDone, onCancel }: { initial: string; onDone: (name: string) => void; onCancel: () => void }) {
+  const [text, setText] = useState(initial);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Enter, Escape and the blur that follows when the field goes away must act only once.
+  const finished = useRef(false);
+  const finish = (action: () => void) => {
+    if (finished.current) return;
+    finished.current = true;
+    action();
+  };
+
+  useEffect(() => {
+    // After the menu that opened the editor has closed.
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <span className="site-row site-row--editing">
+      <span className="site-row__dot site-row__dot--saved" aria-hidden="true" />
+      <input
+        ref={inputRef}
+        className="rename-field"
+        aria-label="Name of the saved point"
+        value={text}
+        maxLength={60}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => finish(() => onDone(text))}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") finish(() => onDone(text));
+          if (event.key === "Escape") {
+            // Escape here only cancels the edit; it must not close the panels (App.tsx).
+            event.stopPropagation();
+            finish(onCancel);
+          }
+        }}
+      />
+    </span>
   );
 }
 

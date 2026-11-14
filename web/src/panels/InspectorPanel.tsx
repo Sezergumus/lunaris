@@ -1,13 +1,15 @@
 import { useMemo, type ReactNode, type Ref } from "react";
-import { BatteryFull, BatteryWarning, Radio, X } from "lucide-react";
+import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Radio, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { nextTransition, panelYield, type Transitions } from "../engine/events.ts";
 import { analyzeWindow } from "../engine/risk.ts";
 import { formatDistance, formatLat, formatLon, surfaceDistanceM } from "../geo/polar.ts";
 import { siteSubtitle } from "../sites.ts";
-import { actions, placeTitle, useScenario } from "../state/scenario.ts";
+import { MAX_SAVED_POINTS, savedPlace, savedPointActions, useSavedPoints } from "../state/savedPoints.ts";
+import { actions, customPlace, placeTitle, useScenario } from "../state/scenario.ts";
 import { useInstant, type ScenarioView } from "../state/view.ts";
-import { IconButton } from "../ui/Button.tsx";
+import { Button, IconButton } from "../ui/Button.tsx";
+import { Tip } from "../ui/Tooltip.tsx";
 import { formatAngle, formatDuration, formatHours, formatPercent, formatUtcDate, formatUtcDayTime } from "../ui/format.ts";
 import "./panels.css";
 
@@ -87,16 +89,66 @@ function Summary({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
         : "Sphere model · no terrain";
   return (
     <div className="summary">
-      <p className="summary__line">
-        {tagged ? <span className={`tag tag--${view.tag.toLowerCase()}`}>{view.tag}</span> : null}
-        {parts.join(" • ")}
-      </p>
-      <p className="summary__model" data-model={data.status}>
-        <span className="summary__dot" aria-hidden="true" />
-        {model}
-        {data.status === "sphere" && data.sphereReason ? <span className="summary__reason"> — {data.sphereReason}</span> : null}
-      </p>
+      <div className="summary__text">
+        <p className="summary__line">
+          {tagged ? <span className={`tag tag--${view.tag.toLowerCase()}`}>{view.tag}</span> : null}
+          {parts.join(" • ")}
+        </p>
+        <p className="summary__model" data-model={data.status}>
+          <span className="summary__dot" aria-hidden="true" />
+          {model}
+          {data.status === "sphere" && data.sphereReason ? <span className="summary__reason"> — {data.sphereReason}</span> : null}
+        </p>
+      </div>
+      {data.place.kind === "custom" ? <SavePointButton view={view} /> : null}
     </div>
+  );
+}
+
+/**
+ * Keeps a custom point in the "Saved points" list with its terrain, date and mission
+ * length. The place on screen becomes the saved point (its snapped position and name).
+ */
+function SavePointButton({ view }: { view: ScenarioView }) {
+  const saved = useSavedPoints();
+  const windowHours = useScenario((s) => s.windowHours);
+  const { data } = view;
+  const id = customPlace(data.lat, data.lon).id;
+  const isSaved = saved.some((point) => point.id === id || point.id === data.place.id);
+  const full = saved.length >= MAX_SAVED_POINTS;
+  const loading = data.status === "loading";
+
+  if (isSaved) {
+    return (
+      <Tip label="In the saved points on the left" side="left">
+        <span className="summary__saved">
+          <BookmarkCheck aria-hidden="true" />
+          Saved
+        </span>
+      </Tip>
+    );
+  }
+  const save = () => {
+    const point = savedPointActions.save({
+      lat: data.lat,
+      lon: data.lon,
+      startMs: view.startMs,
+      windowHours,
+      terrain: data.status === "terrain" ? data.terrain : null,
+    });
+    if (point) actions.replacePlace(data.place.id, savedPlace(point));
+  };
+  const hint = full ? `Up to ${MAX_SAVED_POINTS} saved points; delete one first` : loading ? "Waiting for the terrain" : "Save this point with its date and mission length";
+  return (
+    <Tip label={hint} side="left">
+      {/* The wrapper keeps the tooltip working while the button is disabled. */}
+      <span className="summary__save">
+        <Button size="sm" variant="filled" onClick={save} disabled={full || loading}>
+          <Bookmark aria-hidden="true" />
+          Save
+        </Button>
+      </span>
+    </Tip>
   );
 }
 
