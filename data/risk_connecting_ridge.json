@@ -18,6 +18,7 @@
   "conjunction_deg": 2.0,
   "low_elevation_deg": 2.0,
   "max_slope_deg": 10.0,
+  "landing_precision_m": 100.0,
   "mask_deg": 0.0
  },
  "window": {
