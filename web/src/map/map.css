@@ -175,6 +175,36 @@
   transform: translateX(-50%);
 }
 
+/* ---------- Saved points ---------- */
+
+/*
+ * A saved point: a hollow ring in the saved color (the sites list uses the same ring), and a
+ * bookmark before its name. Built-in sites are filled white dots, so shape and color both
+ * tell them apart.
+ */
+.saved-pin .site-pin__dot {
+  background: rgba(12, 12, 16, 0.55);
+  border-color: var(--saved);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.saved-pin .site-pin__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-left: 7px;
+  border-color: color-mix(in srgb, var(--saved) 45%, transparent);
+}
+
+.saved-pin__icon {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  color: var(--saved);
+}
+
 /* ---------- Picked point ---------- */
 
 .pick-pin__ring {

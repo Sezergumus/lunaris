@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
-import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type PinRisk } from "./map/MoonMap.tsx";
+import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type MapSavedPin, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
 import { Recommendations } from "./panels/Recommendations.tsx";
@@ -15,6 +15,7 @@ import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
 import { useSiteScores } from "./state/siteScores.ts";
 import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
 import type { LimitKey } from "./state/limits.ts";
+import { getSavedPoint, openSavedPoint, useSavedPoints } from "./state/savedPoints.ts";
 import { readUrl, syncUrl } from "./state/url.ts";
 import { useViews } from "./state/view.ts";
 import { Sheet, type SheetState } from "./ui/Sheet.tsx";
@@ -248,6 +249,23 @@ export default function App() {
     return list;
   }, [placeA, placeB]);
 
+  // Saved points on the map, except the ones on screen as A or B (they have a pick marker).
+  const savedPoints = useSavedPoints();
+  const savedPins = useMemo(
+    (): MapSavedPin[] =>
+      savedPoints
+        .filter((point) => point.id !== placeA?.id && point.id !== placeB?.id)
+        .map((point) => ({ id: point.id, name: point.name, lat: point.lat, lon: point.lon })),
+    [savedPoints, placeA, placeB],
+  );
+  const selectSaved = useCallback(
+    (id: string) => {
+      const point = getSavedPoint(id);
+      if (point) openSavedPoint(point, choose);
+    },
+    [choose],
+  );
+
   return (
     <div ref={appRef} className="app">
       <MoonMap
@@ -256,6 +274,8 @@ export default function App() {
         compareKey={placeB?.kind === "site" ? placeB.key : null}
         hoveredKey={hoveredKey}
         picks={picks}
+        savedPins={savedPins}
+        onSelectSaved={selectSaved}
         flyTarget={flyTarget}
         views={views}
         siteRisk={siteRisk}

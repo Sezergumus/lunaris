@@ -4,7 +4,7 @@ import { CalendarCheck, ChevronDown, Crosshair, EllipsisVertical, GitCompareArro
 import type { SiteInfo } from "../data/load.ts";
 import { insideTerrainCoverage } from "../data/terrain.ts";
 import { siteSubtitle, siteTitle } from "../sites.ts";
-import { MAX_SAVED_POINTS, getSavedPoint, savedPlace, savedPointActions, useSavedPoints, type SavedPoint } from "../state/savedPoints.ts";
+import { MAX_SAVED_POINTS, getSavedPoint, openSavedPoint, savedPlace, savedPointActions, useSavedPoints, type SavedPoint } from "../state/savedPoints.ts";
 import type { SiteScores } from "../state/siteScores.ts";
 import { APOLLO_11, actions, customPlace, placeTitle, sitePlace, type Place } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
@@ -239,12 +239,7 @@ function SavedRow({ point, placeA, placeB, onChoose }: SavedRowProps) {
   const isA = placeA?.id === point.id;
   const isB = placeB?.id === point.id;
 
-  /** Open the point as scenario A on the date and with the mission length it was saved with. */
-  const open = () => {
-    onChoose(savedPlace(point));
-    actions.setWindowHours(point.savedWindowHours);
-    actions.setStart(point.savedStartMs);
-  };
+  const open = () => openSavedPoint(point, onChoose);
   const rename = (name: string) => {
     setRenaming(false);
     savedPointActions.rename(point.id, name);

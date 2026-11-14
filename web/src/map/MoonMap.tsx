@@ -26,6 +26,12 @@ export interface MapPick extends MapPoint {
   tag: "A" | "B";
 }
 
+/** A point the user saved; shown with its name, apart from the built-in sites. */
+export interface MapSavedPin extends MapPoint {
+  id: string;
+  name: string;
+}
+
 /** A scored point near scenario A's place, drawn as a dot of the nearby-spot heat map. */
 export interface MapCandidate extends MapPoint {
   level: RiskLevel;
@@ -61,6 +67,8 @@ interface MoonMapProps {
   hoveredKey: string | null;
   /** Custom points on screen. */
   picks: MapPick[];
+  /** Saved points not on screen as A or B (those have their pick marker). */
+  savedPins: MapSavedPin[];
   /** View request: the map flies there when the object changes. Null leaves the view alone. */
   flyTarget: MapPoint | null;
   /** Scenarios on screen; each gets Sun and Earth direction arrows at its place. */
@@ -73,6 +81,7 @@ interface MoonMapProps {
   /** A candidate dot was clicked (index into `candidates`). */
   onPickCandidate: (index: number) => void;
   onSelectSite: (key: string) => void;
+  onSelectSaved: (id: string) => void;
   onHoverSite: (key: string | null) => void;
   onPick: (point: MapPoint) => void;
   /** Screen area covered by floating panels; views are centered in what remains. */
@@ -105,6 +114,21 @@ function pinIcon(site: SiteInfo): L.DivIcon {
   });
 }
 
+const BOOKMARK_SVG =
+  '<svg class="saved-pin__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
+
+/**
+ * A saved point: a hollow ring in the saved color and a bookmark in its label, unlike the
+ * filled dot of a built-in site. It shares the site pin's label class, so the label layout
+ * places it with the others. The name is user text: set as text, never parsed as markup.
+ */
+function savedPinIcon(name: string): L.DivIcon {
+  const holder = document.createElement("div");
+  holder.innerHTML = `<span class="site-pin__dot"></span><span class="site-pin__label">${BOOKMARK_SVG}<span class="saved-pin__name"></span></span>`;
+  holder.querySelector(".saved-pin__name")!.textContent = name;
+  return L.divIcon({ className: "site-pin saved-pin", html: holder.innerHTML, iconSize: [0, 0] });
+}
+
 /** Heat-map colors of the nearby-spot dots; the same hues as the landing-date strip. */
 const CANDIDATE_COLOR: Record<RiskLevel, string> = { low: "#30d158", medium: "#ffd60a", high: "#a8403a" };
 const LEVEL_WORD: Record<RiskLevel, string> = { low: "low", medium: "medium", high: "high" };
@@ -134,6 +158,7 @@ export function MoonMap({
   compareKey,
   hoveredKey,
   picks,
+  savedPins,
   flyTarget,
   views,
   siteRisk,
@@ -141,6 +166,7 @@ export function MoonMap({
   candidates,
   onPickCandidate,
   onSelectSite,
+  onSelectSaved,
   onHoverSite,
   onPick,
   getInsets,
@@ -150,10 +176,11 @@ export function MoonMap({
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailing, setTilesFailing] = useState(false);
   const markersRef = useRef(new Map<string, L.Marker>());
+  const savedMarkersRef = useRef(new Map<string, { marker: L.Marker; pin: MapSavedPin }>());
   // Leaflet handlers are bound once; they read the latest callbacks through this ref.
-  const callbacks = useRef({ onSelectSite, onHoverSite, onPick, onPickCandidate, getInsets });
+  const callbacks = useRef({ onSelectSite, onSelectSaved, onHoverSite, onPick, onPickCandidate, getInsets });
   useLayoutEffect(() => {
-    callbacks.current = { onSelectSite, onHoverSite, onPick, onPickCandidate, getInsets };
+    callbacks.current = { onSelectSite, onSelectSaved, onHoverSite, onPick, onPickCandidate, getInsets };
   });
 
   // Create the map once.
@@ -237,6 +264,22 @@ export function MoonMap({
     };
   }, [map, sites]);
 
+  // Saved-point pins. Declared before the label layout, which places their labels too.
+  useEffect(() => {
+    if (!map) return;
+    const markers = savedMarkersRef.current;
+    for (const pin of savedPins) {
+      const marker = L.marker([pin.lat, pin.lon], { icon: savedPinIcon(pin.name), title: pin.name, keyboard: true, riseOnHover: true, zIndexOffset: 900 })
+        .on("click", () => callbacks.current.onSelectSaved(pin.id))
+        .addTo(map);
+      markers.set(pin.id, { marker, pin });
+    }
+    return () => {
+      markers.forEach(({ marker }) => marker.remove());
+      markers.clear();
+    };
+  }, [map, savedPins]);
+
   // Pin states and label placement. Labels are placed in priority order (selected, hovered, then
   // list order); a label that would cover another pin or an already placed label is hidden.
   useEffect(() => {
@@ -264,17 +307,22 @@ export function MoonMap({
 
     const rank = (key: string) => (key === selectedKey ? 0 : key === compareKey ? 1 : key === hoveredKey ? 2 : key === bestKey ? 3 : 4);
     const layout = () => {
-      const entries = sites
-        .map((site, index) => ({ site, index, element: markers.get(site.key)?.getElement() }))
+      // Saved points come after every site: a site's label wins a collision.
+      const pins = [
+        ...sites.map((site) => ({ key: site.key, lat: site.lat, lon: site.lon, rank: rank(site.key), element: markers.get(site.key)?.getElement() })),
+        ...[...savedMarkersRef.current.values()].map(({ marker, pin }) => ({ key: pin.id, lat: pin.lat, lon: pin.lon, rank: 5, element: marker.getElement() })),
+      ];
+      const entries = pins
+        .map((pin, index) => ({ ...pin, index }))
         .filter((entry): entry is typeof entry & { element: HTMLElement } => Boolean(entry.element))
-        .map((entry) => ({ ...entry, point: map.latLngToContainerPoint([entry.site.lat, entry.site.lon]) }))
-        .sort((a, b) => rank(a.site.key) - rank(b.site.key) || a.index - b.index);
-      const dots = entries.map(({ site, point }) => ({ key: site.key, box: { x: point.x - 8, y: point.y - 8, w: 16, h: 16 } }));
+        .map((entry) => ({ ...entry, point: map.latLngToContainerPoint([entry.lat, entry.lon]) }))
+        .sort((a, b) => a.rank - b.rank || a.index - b.index);
+      const dots = entries.map(({ key, point }) => ({ key, box: { x: point.x - 8, y: point.y - 8, w: 16, h: 16 } }));
       const placed: Box[] = [];
-      for (const { site, element, point } of entries) {
+      for (const { key, element, point } of entries) {
         const label = element.querySelector<HTMLElement>(".site-pin__label")!;
         const box = { x: point.x + 12, y: point.y - 13, w: label.offsetWidth + 2, h: label.offsetHeight + 2 };
-        const blocked = placed.some((other) => overlaps(box, other)) || dots.some((dot) => dot.key !== site.key && overlaps(box, dot.box));
+        const blocked = placed.some((other) => overlaps(box, other)) || dots.some((dot) => dot.key !== key && overlaps(box, dot.box));
         label.classList.toggle("is-collapsed", blocked);
         if (!blocked) placed.push(box);
       }
@@ -284,7 +332,7 @@ export function MoonMap({
     return () => {
       map.off("zoom zoomend viewreset", layout);
     };
-  }, [selectedKey, compareKey, hoveredKey, sites, map, siteRisk, bestKey]);
+  }, [selectedKey, compareKey, hoveredKey, sites, savedPins, map, siteRisk, bestKey]);
 
   // Nearby-spot heat map: one dot per scored grid point. The dots follow the ground spacing
   // of the grid (a little under half a step in radius, at least 2 px) and are drawn once

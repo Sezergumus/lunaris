@@ -5,7 +5,7 @@
 // It also keeps the landing date and mission length it was saved with.
 import { useSyncExternalStore } from "react";
 import type { SiteTerrain } from "../data/load.ts";
-import { customPlace, type Place } from "./scenario.ts";
+import { actions, customPlace, type Place } from "./scenario.ts";
 
 export const MAX_SAVED_POINTS = 10;
 const STORAGE_KEY = "lunaris.savedPoints.v1";
@@ -93,6 +93,16 @@ export function getSavedPoint(id: string): SavedPoint | undefined {
 /** The place a saved point stands for: a custom point with the saved name. */
 export function savedPlace(point: SavedPoint): Place {
   return { ...customPlace(point.lat, point.lon), id: point.id, name: point.name };
+}
+
+/**
+ * Open a saved point as scenario A on the date and with the mission length it was saved
+ * with. `choose` is the app's selection (assess, open the card on phones, fly there).
+ */
+export function openSavedPoint(point: SavedPoint, choose: (place: Place) => void) {
+  choose(savedPlace(point));
+  actions.setWindowHours(point.savedWindowHours);
+  actions.setStart(point.savedStartMs);
 }
 
 /** First "Saved point N" not taken yet. */
