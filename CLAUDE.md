@@ -33,10 +33,12 @@ only); never edit it.
 `Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line, in commits, pull
 requests, code or docs.
 
-**Where we are (2026-11-14, ~17:15 local):** everything is committed and pushed: the backend
-side of the custom-coordinate plan and the non-visual frontend data layer for it (written on
-Kerem's Mac, with his approval, to unblock the frontend). The working tree is clean. Nothing
-visual was touched. Nothing is in progress.
+**Where we are (2026-11-14, ~20:15 local):** everything is committed and pushed, the working
+tree is clean, nothing is in progress. Last work (Kerem's Mac): mission-profile presets
+(`--profile`, `PROFILE_PRESETS`), the Chandrayaan-3 backtest (`backtest` command,
+`data/backtest_chandrayaan3.json`, passes) and the profile selector in the risk card of the
+web UI (a visual addition in the frontend's area, made with Kerem's approval; tell Sezer).
+See "Mission-profile presets" and "Validation".
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
@@ -46,13 +48,18 @@ visual was touched. Nothing is in progress.
 - Built on 2026-11-14 (backend, contracts confirmed by Kerem as proposed): `vectors` and
   `grid` commands, the `landing_precision_m` profile key, the terrain service in `api/`.
   See "Backend state against this plan" below for the exact shapes and measured numbers.
+- Built on 2026-11-14 evening: profile presets and the backtest (above). Not done there:
+  a heated / nuclear preset (no sourced numbers), the `date_alternatives` midnight quirk
+  (see pitfalls), a `validate` check that the Python and TypeScript presets are equal.
 - Not built: deployment of the API (no Docker on Kerem's Mac, image never built), every
   visual part of the frontend (see "Frontend status"), README.
 
 **Next action (backend):** ask Kerem what he wants next. Open backend items: deploy the API
 (Hugging Face Space, or a laptop for the demo), decide the slope source and the surface-score
 radius (see open decisions), then "Next steps".
-**Next action (frontend):** the design is decided and planned in `frontend-plan.md` recently finished phase 7, 1 phase left
+**Next action (frontend):** the design is decided and planned in `frontend-plan.md`. Phase 8
+has its explainer lines (`Explainer.tsx`) and URL state (`state/url.ts`); whether phase 8 is
+complete was not checked in the running app by the backend side. Ask Sezer.
 **Open decisions (user/team; do not decide silently):**
 
 - Slope source for scores. Kerem supplied local `LDSM_60S_120MPP_ADJ.tiff` and asked to use
@@ -114,6 +121,11 @@ radius (see open decisions), then "Next steps".
 - The API snaps a clicked point to the nearest 60 m height pixel (moves it up to ~42 m); the
   UI must use the `center` returned, not the clicked coordinate. `snap=false` turns it off.
 - `fastapi`/`uvicorn` are in `api/requirements.txt` only (installed in Kerem's `.venv`).
+- After pulling frontend work run `npm install` in `web/` (new dependencies such as
+  `radix-ui`, `lucide-react`); it may touch `package-lock.json`, do not commit that by accident.
+- `date_alternatives` matches the landing against the scan's midnight dates: with a landing
+  time that is not 00:00 the "Requested date" line can say "NOT low risk" although the
+  window itself scores low (seen in `backtest --profile solar_lander`). Trust the slip table.
 - The terrain-sensitivity experiment (hypothetical uniform horizons by latitude) was a
   throwaway script; only its result table is kept below.
 
@@ -439,6 +451,8 @@ python lunar_sky.py rank     --landing 2026-12-16            # all precomputed s
 python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16   # --radii 1,2,5,10 --ellipse 1000
 python lunar_sky.py vectors  --start 2026-12-01 --days 1491           # site-independent Sun/Earth vectors
 python lunar_sky.py grid     --site malapert_a --landing 2026-12-16   # --grid 9 --grid-step 125 --precision 100
+python lunar_sky.py backtest                                          # Chandrayaan-3, August 2023 (pass/fail checks)
+# named mission profile for risk/rank/nearby/grid/backtest: --profile generic|solar_lander|battery_rover
 # custom point: --lat -85 --lon 30 --site custom85   step: --step 60 (min)
 # risk profile overrides: --battery-hours 50 --max-outage-hours 24 --max-slope 10 --mask 0 --sphere
 ```
@@ -458,6 +472,7 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 | `ranking.json`                                       | all sites for one landing date: window, score, date alternatives; sorted by risk                                                                                                                |
 | `ephemeris_vectors.csv`                              | `utc, sun_x_km … earth_z_km`: Sun and Earth from the Moon's center in `MOON_ME_DE421`, hourly to 2030-12-31                                                                                     |
 | `grid_<site>.json`                                   | 9×9 points every 125 m around the site: horizon profile and slope per point (shape of the API response)                                                                                         |
+| `backtest_chandrayaan3.json`                         | the model run on the flown Chandrayaan-3 mission (2023): slip table, model sunset/sunrise, observed dates, `checks`, `passed`                                                                   |
 | `nearby_<site>.json`                                 | 33 candidate points (site + 8 bearings × rings): position, height, slope, indicators, scores, slip tolerance, low-risk date count; `best_for_date`, `most_slip_tolerant`, `most_low_risk_dates` |
 
 ### Conventions
@@ -506,6 +521,20 @@ surface = 95th-percentile slope within the ellipse vs slope limit. Overall = wor
 10° slope, 50 % minimum Sun/comm) are **placeholder assumptions** — the team must choose a
 mission profile.
 
+**Mission-profile presets** (`PROFILE_PRESETS` in `lunar_risk.py`, mirrored in
+`web/src/engine/risk.ts`; CLI `--profile`, UI selector in the risk card, URL `profile=`).
+Each preset only overrides `DEFAULT_PROFILE` and carries a `basis` text shown in the UI:
+
+| Key             | Darkness limit | Slope limit | Basis                                                                                                                                                                                              |
+| --------------- | -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generic`       | 50 h           | 10 deg      | project defaults (placeholders); the reference files `risk_<site>.json` use this one                                                                                                               |
+| `solar_lander`  | 24 h           | 10 deg      | IM-1 / Chandrayaan-3 class, no night survival (confirmed). 24 h is OUR assumption; 10 deg is a statement by the Intuitive Machines CTO, not a document. Chandrayaan-3's slope limit was not looked up |
+| `battery_rover` | 50 h           | 15 deg      | NASA VIPER lunar operations page (50 h continuous darkness, drives up to 15 deg). Other sources say "a little over four days" of darkness                                                          |
+
+A heated / nuclear-powered preset was left out: no sourced numbers. Mission length stays
+14 days in every preset. Seen in the UI: Mons Mouton, landing 2026-12-16, scores 18 (low,
+surface) with `solar_lander` and 0 with `battery_rover` (slope 5.9 deg against 15).
+
 Alternatives: `dates` block = nearest low-risk landing date before/after, slip tolerance
 (days the landing can slip and stay low-risk), list of low-risk landing windows. `rank`
 compares the preset sites. `nearby` evaluates rings around a site with one shared DEM window;
@@ -550,6 +579,16 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
 - Earth-caused eclipse found on 2027-08-17 (max 53 % of the disk), the date of a penumbral
   lunar eclipse.
 - Horizon from the local DEM equals the remote-derived one within 0.00005° at all five sites.
+- **Backtest against a flown mission** (`python lunar_sky.py backtest`, result in
+  `data/backtest_chandrayaan3.json`, all four checks pass with every preset): Chandrayaan-3
+  landed 2023-08-23 12:33 UTC and worked until local sunset. Model, 12-day mission, terrain
+  horizon, DSN: landing date risk 0 (97.6 % usable Sun); +7 d 100; +14 d 100 (0 % Sun);
+  +28 d 0. Model sunset 2023-09-04 07:17 UTC (ISRO put the rover to sleep on 2 Sep and the
+  lander on 4 Sep); model next sunrise 2023-09-19 22:38 UTC (ISRO's wake-up attempt was on
+  22 Sep, no response). Low-risk landing windows: 21-24 Aug, i.e. the real date is inside,
+  with slip tolerance 0-1 day. Observed dates are from press reports of ISRO statements; the
+  official sunset time was not found. Comm in the model is DSN, the mission used ISRO/ESA
+  stations too, so only the power side is really tested.
 - **Not validated:** rise/set event times against Horizons.
 
 ### One year from 2026-12-01, terrain vs ideal sphere (observer 2 m above ground)
