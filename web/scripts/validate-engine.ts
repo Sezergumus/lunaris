@@ -16,6 +16,7 @@ import {
 import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, DEFAULT_PROFILE } from "../src/engine/risk.ts";
 import { findTransitions, limbClearance, nextTransition } from "../src/engine/events.ts";
 import { bestPoint, scoreGrid, type TerrainGrid } from "../src/engine/grid.ts";
+import { estimateMastHorizon } from "../src/engine/mast.ts";
 import { sampleIndex, skyFromVectors, type VectorTable } from "../src/engine/sky.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -220,6 +221,36 @@ if (manifest.vectors) {
     console.log(`${site.key}: ${failures === before ? "OK" : "MISMATCH"} (${compared} rise/set events within ${siteWorst.toFixed(1)} min of the backend)`);
   }
   console.log(`Largest rise/set difference: ${worstEventMin.toFixed(1)} min`);
+
+  // ---- Mast slider: first-order horizon estimate against the backend's `mast` command
+  // (which recomputes the horizon from the height map). Reported, not enforced: the estimate
+  // is labelled as one in the UI and is expected to lean optimistic.
+  let worstMastPts = 0;
+  for (const site of manifest.sites) {
+    let doc: any;
+    try {
+      doc = JSON.parse(readFileSync(join(backendData, `mast_${site.key}.json`), "utf8"));
+    } catch {
+      continue;
+    }
+    const horizonDoc = JSON.parse(readFileSync(join(publicData, `horizon_${site.key}.json`), "utf8"));
+    const base = { stepDeg: horizonDoc.azimuth_step_deg, horizonDeg: horizonDoc.horizon_deg };
+    const first = sampleIndex(vectors, parseUtc(doc.period[0]));
+    const samples = sampleIndex(vectors, parseUtc(doc.period[1])) - first;
+    const sky = skyFromVectors(vectors, site.lat, site.lon, 0, { first, count: samples });
+    const parts: string[] = [];
+    for (const row of doc.rows) {
+      const horizon = row.mast_m === horizonDoc.mast_m ? base : estimateMastHorizon(base, horizonDoc.horizon_range_km, horizonDoc.mast_m, row.mast_m);
+      const series = buildSeries(sky, horizon, null, DEFAULT_PROFILE);
+      let visible = 0;
+      for (let i = 0; i < samples; i++) if (series.sunAboveTerrain[i] + SUN_RADIUS_DEG > 0) visible++;
+      const pct = (100 * visible) / samples;
+      if (row.mast_m !== horizonDoc.mast_m) worstMastPts = Math.max(worstMastPts, Math.abs(pct - row.sun_visible_pct));
+      parts.push(`${row.mast_m} m ${pct.toFixed(1)}% (backend ${row.sun_visible_pct.toFixed(1)}%)`);
+    }
+    console.log(`${site.key}: mast estimate, Sun visible over the year: ${parts.join(", ")}`);
+  }
+  console.log(`Largest mast-estimate difference: ${worstMastPts.toFixed(1)} points of yearly Sun visibility`);
 } else {
   console.log("vectors table not built; skipped the site-independent checks");
 }

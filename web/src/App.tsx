@@ -4,6 +4,7 @@ import { RiskStrip } from "./charts/RiskStrip.tsx";
 import { MoonMap, type Insets, type MapPick, type MapPoint } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
+import { MastControl } from "./panels/MastControl.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
@@ -29,8 +30,9 @@ export default function App() {
   const placeA = useScenario((s) => s.placeA);
   const placeB = useScenario((s) => s.placeB);
   const { tables, error: tablesError } = useSkyTables();
-  const a = usePlaceSeries(tables, placeA);
-  const b = usePlaceSeries(tables, placeB);
+  const mastM = useScenario((s) => s.mastM);
+  const a = usePlaceSeries(tables, placeA, mastM);
+  const b = usePlaceSeries(tables, placeB, mastM);
   const views = useViews(a, b);
 
   // Start-up: the site list and the tables arrive separately; the scenario in the URL is
@@ -47,6 +49,7 @@ export default function App() {
     if (!getScenario().limits) {
       const url = readUrl(sites);
       actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, url.startMs, url.windowHours);
+      if (url.mastM !== null) actions.setMast(url.mastM);
       if (url.placeA) actions.selectPlace(url.placeA);
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
       if (url.placeA && url.slipDays > 0) actions.slip(url.slipDays);
@@ -150,6 +153,7 @@ export default function App() {
         {views.length > 0 ? (
           <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
             <RiskBadge views={views} />
+            <MastControl views={views} />
           </InspectorPanel>
         ) : null}
 

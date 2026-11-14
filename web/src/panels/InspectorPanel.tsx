@@ -78,8 +78,13 @@ function Summary({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
   const { data } = view;
   const parts = [`${formatLat(data.lat)}, ${formatLon(data.lon)}`, `${formatDistance(surfaceDistanceM(data.lat, data.lon, -90, 0))} to pole`];
   if (data.slopeP95Deg !== null) parts.push(`Slope p95 ${data.slopeP95Deg.toFixed(1)}°`);
+  const mastNote = data.mast.mode === "estimate" ? ", estimate" : "";
   const model =
-    data.status === "terrain" ? "LOLA terrain horizon" : data.status === "loading" ? "Sphere model · loading terrain…" : "Sphere model · no terrain";
+    data.status === "terrain"
+      ? `LOLA terrain horizon · ${data.mast.heightM} m mast${mastNote}`
+      : data.status === "loading"
+        ? "Sphere model · loading terrain…"
+        : "Sphere model · no terrain";
   return (
     <div className="summary">
       <p className="summary__line">

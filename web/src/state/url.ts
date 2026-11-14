@@ -1,7 +1,8 @@
 // Scenario <-> URL, so a view can be shared as a link:
-//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708
+//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708&mast=10
 // A custom point is written as `lat,lon` (for example site=-85.3,31), the reference as `apollo11`.
 import type { SiteInfo } from "../data/load.ts";
+import { MAST_RANGE_M } from "../engine/mast.ts";
 import { isoDay } from "../ui/format.ts";
 import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, type Place } from "./scenario.ts";
 
@@ -28,6 +29,7 @@ export interface UrlScenario {
   startMs: number | null;
   slipDays: number;
   windowHours: number | null;
+  mastM: number | null;
 }
 
 export function readUrl(sites: SiteInfo[]): UrlScenario {
@@ -36,12 +38,14 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
   const startMs = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? Date.parse(`${date}T00:00:00Z`) : NaN;
   const slip = Number(params.get("slip"));
   const windowHours = Number(params.get("window"));
+  const mast = Number(params.get("mast"));
   return {
     placeA: paramToPlace(params.get("site"), sites),
     placeB: paramToPlace(params.get("compare"), sites),
     startMs: Number.isNaN(startMs) ? null : startMs,
     slipDays: Number.isInteger(slip) && slip > 0 ? slip : 0,
     windowHours: (Object.values(WINDOW_HOURS) as number[]).includes(windowHours) ? windowHours : null,
+    mastM: Number.isInteger(mast) && mast >= MAST_RANGE_M.min && mast <= MAST_RANGE_M.max ? mast : null,
   };
 }
 
@@ -57,6 +61,7 @@ export function syncUrl(): () => void {
     if (s.placeB && s.placeB.id !== s.placeA?.id) params.set("compare", placeToParam(s.placeB));
     if (s.placeB && s.slipDays > 0) params.set("slip", String(s.slipDays));
     if (s.windowHours !== WINDOW_HOURS.mission) params.set("window", String(s.windowHours));
+    if (s.mastM !== MAST_RANGE_M.min) params.set("mast", String(s.mastM));
     const query = params.toString();
     // The store also changes on every playback frame; the URL only when the scenario does.
     if (query === last) return;

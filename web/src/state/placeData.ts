@@ -8,6 +8,7 @@ import { loadSiteTerrain, loadSkyTables, type SiteTerrain, type SkyTables } from
 import { TerrainError, fetchHorizon, insideTerrainCoverage, terrainConfigured } from "../data/terrain.ts";
 import { findTransitions, limbClearance, type Transitions } from "../engine/events.ts";
 import { pointHorizon } from "../engine/grid.ts";
+import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
 import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, type Horizon, type Series, type SkySeries } from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
 import type { Place } from "./scenario.ts";
@@ -128,6 +129,17 @@ export interface PlaceData {
   earthEvents: Transitions;
   /** Slope statistic for the surface score; null on the sphere model. */
   slopeP95Deg: number | null;
+  mast: MastState;
+}
+
+export interface MastState {
+  /** Observer height the horizon in use stands for, meters. */
+  heightM: number;
+  /**
+   * "base": the precomputed profile; "estimate": first-order formula (engine/mast.ts);
+   * "exact": recomputed by the terrain service; "fixed": this place has no adjustable horizon.
+   */
+  mode: "base" | "estimate" | "exact" | "fixed";
 }
 
 /** Sun/Earth angles are a few milliseconds of work per place; keep the last few. */
@@ -153,6 +165,7 @@ export function buildPlaceData(
   status: TerrainStatus,
   reason: string | null,
   center: { lat: number; lon: number } | null,
+  mast: MastState,
 ): PlaceData {
   const lat = center?.lat ?? place.lat;
   const lon = center?.lon ?? place.lon;
@@ -171,15 +184,73 @@ export function buildPlaceData(
     sunEvents: findTransitions(limbClearance(series.sunAboveTerrain, SUN_RADIUS_DEG)),
     earthEvents: findTransitions(limbClearance(series.earthAboveTerrain, EARTH_RADIUS_DEG)),
     slopeP95Deg: terrain?.slopeP95Deg ?? null,
+    mast,
   };
 }
 
-/** Per-sample state of a place over the whole table; null until the tables have loaded. */
-export function usePlaceSeries(tables: SkyTables | null, place: Place | null): PlaceData | null {
+/** How long the mast slider must rest before the terrain service is asked, milliseconds. */
+const MAST_REQUEST_DELAY_MS = 350;
+
+/**
+ * Exact horizon for a mast height from the terrain service, when one is configured.
+ * Returns null while there is none (no service, the base height, a request under way or
+ * failed); the caller then falls back to the estimate.
+ */
+function useExactMastHorizon(place: Place | null, lat: number | null, lon: number | null, mastM: number, baseMastM: number | null) {
+  const [exact, setExact] = useState<{ key: string; horizon: Horizon } | null>(null);
+  const wanted = place && lat !== null && lon !== null && baseMastM !== null && mastM !== baseMastM && terrainConfigured() && insideTerrainCoverage(lat, lon);
+  const key = wanted ? `${place.id}|${mastM}` : null;
+
+  useEffect(() => {
+    if (!key || lat === null || lon === null) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetchHorizon({ lat, lon, grid: 1, mast: mastM, precision: DEFAULT_PROFILE.landing_precision_m }, controller.signal).then(
+        (grid) => !controller.signal.aborted && setExact({ key, horizon: pointHorizon(grid.points[0]) }),
+        // The estimate stays on screen; nothing to report.
+        () => undefined,
+      );
+    }, MAST_REQUEST_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [key, lat, lon, mastM]);
+
+  return exact && exact.key === key ? exact.horizon : null;
+}
+
+/**
+ * Per-sample state of a place over the whole table for an observer `mastM` above ground;
+ * null until the tables have loaded.
+ */
+export function usePlaceSeries(tables: SkyTables | null, place: Place | null, mastM: number): PlaceData | null {
   const terrainState = useTerrain(place);
+  const terrain = terrainState?.terrain ?? null;
+  const exact = useExactMastHorizon(
+    place,
+    terrain ? (terrainState?.center?.lat ?? place?.lat ?? null) : null,
+    terrain ? (terrainState?.center?.lon ?? place?.lon ?? null) : null,
+    mastM,
+    terrain?.mastM ?? null,
+  );
   return useMemo(() => {
     if (!tables || !place || !terrainState) return null;
-    const { terrain, status, reason, center } = terrainState;
-    return buildPlaceData(tables, place, terrain, terrain?.horizon ?? null, status, reason, center);
-  }, [tables, place, terrainState]);
+    const { status, reason, center } = terrainState;
+    let horizon: Horizon | null = null;
+    let mast: MastState = { heightM: terrain?.mastM ?? mastM, mode: "fixed" };
+    if (terrain) {
+      if (exact) {
+        horizon = exact;
+        mast = { heightM: mastM, mode: "exact" };
+      } else if (mastAdjustable(terrain)) {
+        const adjusted = horizonForMast(terrain, mastM);
+        horizon = adjusted.horizon;
+        mast = { heightM: mastM, mode: adjusted.mode };
+      } else {
+        horizon = terrain.horizon;
+      }
+    }
+    return buildPlaceData(tables, place, terrain, horizon, status, reason, center, mast);
+  }, [tables, place, terrainState, terrain, exact, mastM]);
 }
