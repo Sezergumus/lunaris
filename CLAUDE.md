@@ -33,14 +33,27 @@ only); never edit it.
 `Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line, in commits, pull
 requests, code or docs.
 
-**Where we are (2026-11-14, ~21:15 local):** everything is committed and pushed, the working
-tree is clean, nothing is in progress. Work of the evening on Kerem's Mac: mission-profile
-presets, the Chandrayaan-3 backtest, the profile selector, and the horizon-uncertainty
-score (backend `risk`, web engine, one line in the risk card, `validate` check; the five
-`risk_<site>.json` files gained the key `horizon_uncertainty`, nothing else in them
-changed). See "Mission-profile presets", "Horizon uncertainty" and "Validation". The
-risk-card additions are visual changes in the frontend's area, made with Kerem's approval;
-tell Sezer.
+**Where we are (2026-11-14, ~22:30 local):** everything is committed and pushed, the working
+tree is clean, nothing is in progress. Work of the evening on Kerem's Mac, in order:
+mission-profile presets, the Chandrayaan-3 backtest, the profile selector, the
+horizon-uncertainty score, then:
+
+1. Communication requirement: "link in 50 % of the mission" became "at least 8 h of contact
+   in every 24 h" (profile key `min_daily_contact_h` replaces `min_comm_pct`; new indicator
+   `comm.worst_day_contact_h`; both engines; `risk_*`, `ranking`, `nearby_*`, `backtest_*`
+   regenerated; no score changed). See "Risk model".
+2. Web only: a "Mission limits" card under the risk card (`web/src/panels/LimitsControl.tsx`,
+   `web/src/state/limits.ts`) with five sliders: darkness survived, usable Sun needed,
+   longest outage, contact per day, slope limit. A slider overrides the selected profile
+   (`limitOverrides` in the scenario store; choosing a profile or "Reset" clears them); the
+   risk badge, landing-date strip and comparison follow live; the values travel in the URL
+   as `dark`, `sun`, `outage`, `contact`, `slope`. Checked in the browser on Malapert A
+   (`dark=140&slope=20`: risk 100 -> 59; reset -> 100), not on a phone-sized screen. Mission
+   length is not a slider (the timeline's 14 d / lunar day control owns the window).
+
+The risk-card additions of the evening are visual changes in the frontend's area, made with
+Kerem's approval; tell Sezer. Still open from Kerem's idea list: a battery state-of-charge
+model as an extra indicator (not started; no sourced Wh / W numbers).
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
@@ -78,7 +91,7 @@ complete was not checked in the running app by the backend side. Ask Sezer.
 - Roughness (`LDRM`, 80S to the pole only) is reported per grid point but not scored; its
   unit was not checked against the product description.
 - Mission-profile defaults: mission length, battery survival hours, max comm outage, slope
-  limit, minimum Sun/comm share (`DEFAULT_PROFILE` in `lunar_risk.py`, mirrored in
+  limit, minimum Sun share, daily contact hours (`DEFAULT_PROFILE` in `lunar_risk.py`, mirrored in
   `web/src/engine/risk.ts`; change both and re-run `npm run validate`).
 - Landing precision / ellipse radius. Results flip with it: Malapert A `nearby` finds nothing
   low-risk at 1000 m but a risk-3 point 2 km E at 300 m.
@@ -514,13 +527,16 @@ Earth's disk (Earth-caused eclipse, circle overlap); `comm` = Earth's upper limb
 terrain AND some DSN complex has the Moon above 10° AND Sun–Earth separation ≥ 2° (solar
 conjunction); `low_elevation` = Earth center < 2° above terrain (degraded, not an outage).
 Window indicators: usable-Sun %, longest darkness, grazing-Sun hours, Earth-eclipse hours,
-link %, longest outage, hours lost to terrain / station gap / conjunction.
+link %, longest outage, contact on the worst day (fewest contact hours in any 24 h block
+counted from the landing, whole blocks only), hours lost to terrain / station gap / conjunction.
 
 Score per category, 0–100: 0 while at most half of a limit is used, 100 at the limit.
-Power = worse of (longest darkness vs battery) and (usable-Sun shortfall); comm likewise;
+Power = worse of (longest darkness vs battery) and (usable-Sun shortfall); comm = worse of
+(longest outage vs limit) and (shortfall of the worst day's contact against
+`min_daily_contact_h`);
 surface = 95th-percentile slope within the ellipse vs slope limit. Overall = worst category.
 <33 low, <66 medium. `DEFAULT_PROFILE` values (14-day mission, 50 h battery, 24 h max outage,
-10° slope, 50 % minimum Sun/comm) are **placeholder assumptions** — the team must choose a
+10° slope, 50 % minimum Sun, 8 h of contact in every 24 h) are **placeholder assumptions** — the team must choose a
 mission profile.
 
 **Mission-profile presets** (`PROFILE_PRESETS` in `lunar_risk.py`, mirrored in
@@ -563,6 +579,17 @@ near the site, not at the far obstruction (where the angle is small anyway); lan
 error is a separate, probably larger source (see the grids). Not available for custom points:
 the API and `grid_<site>.json` carry neither `horizon_range_km` nor the height error. With a
 raised mast the UI still uses the obstruction distances of the 2 m horizon.
+
+Daily contact rule (2026-11-14): replaced "link in at least 50 % of the mission", which
+never decided anything (the longest-outage test always fired first). The 8 h is an
+assumption (about one ground-station pass), not sourced; CLI `--min-contact-hours`. Measured
+before the change: with 4, 8 or 12 h the low-risk landing dates per year are the same as
+with the old rule at every site (Mons Mouton 22, Chandrayaan-3 37, others 0), so the number
+is not sensitive. Reason: with three DSN complexes the link is nearly continuous while the
+Earth is up (worst day 23 h at Mons Mouton, Malapert A, Chandrayaan-3 for the 16 Dec window;
+16 h is the lowest day of the year at the last two), and a day without contact already
+fails the 24 h outage limit. The rule only bites for a mission with fewer stations or a
+shorter outage limit. Over the year Mons Mouton has 21 days below 8 h, the ridge 177.
 
 Alternatives: `dates` block = nearest low-risk landing date before/after, slip tolerance
 (days the landing can slip and stay low-risk), list of low-risk landing windows. `rank`
