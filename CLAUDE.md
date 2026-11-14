@@ -33,12 +33,14 @@ only); never edit it.
 `Co-Authored-By: Claude …` trailer, no "Generated with Claude Code" line, in commits, pull
 requests, code or docs.
 
-**Where we are (2026-11-14, ~20:15 local):** everything is committed and pushed, the working
-tree is clean, nothing is in progress. Last work (Kerem's Mac): mission-profile presets
-(`--profile`, `PROFILE_PRESETS`), the Chandrayaan-3 backtest (`backtest` command,
-`data/backtest_chandrayaan3.json`, passes) and the profile selector in the risk card of the
-web UI (a visual addition in the frontend's area, made with Kerem's approval; tell Sezer).
-See "Mission-profile presets" and "Validation".
+**Where we are (2026-11-14, ~21:15 local):** everything is committed and pushed, the working
+tree is clean, nothing is in progress. Work of the evening on Kerem's Mac: mission-profile
+presets, the Chandrayaan-3 backtest, the profile selector, and the horizon-uncertainty
+score (backend `risk`, web engine, one line in the risk card, `validate` check; the five
+`risk_<site>.json` files gained the key `horizon_uncertainty`, nothing else in them
+changed). See "Mission-profile presets", "Horizon uncertainty" and "Validation". The
+risk-card additions are visual changes in the frontend's area, made with Kerem's approval;
+tell Sezer.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
@@ -467,7 +469,7 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 | `metrics_<site>.json`, `metrics_<site>_terrain.json` | per track `sun`/`earth`/`both`: `summary`, `events`, `windows` (+ `status` with `--at`)                                                                                                         |
 | `horizon_<site>.json`                                | `horizon_deg` and `horizon_range_km` per azimuth (0.5° step), `ground_height_m`, `surface` (slope stats from LOLA LDSM and derived from DEM, `height_error_m`, `effective_resolution_m`, `psr`) |
 | `dsn_moon.csv`                                       | `utc, goldstone_alt_deg, madrid_alt_deg, canberra_alt_deg` (site independent)                                                                                                                   |
-| `risk_<site>.json`                                   | `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date)           |
+| `risk_<site>.json`                                   | `horizon_uncertainty` (same mission on the horizon raised by the map's height error), `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date)           |
 | `mast_<site>.json`                                   | Sun/Earth visibility for several mast heights                                                                                                                                                   |
 | `ranking.json`                                       | all sites for one landing date: window, score, date alternatives; sorted by risk                                                                                                                |
 | `ephemeris_vectors.csv`                              | `utc, sun_x_km … earth_z_km`: Sun and Earth from the Moon's center in `MOON_ME_DE421`, hourly to 2030-12-31                                                                                     |
@@ -534,6 +536,33 @@ Each preset only overrides `DEFAULT_PROFILE` and carries a `basis` text shown in
 A heated / nuclear-powered preset was left out: no sourced numbers. Mission length stays
 14 days in every preset. Seen in the UI: Mons Mouton, landing 2026-12-16, scores 18 (low,
 surface) with `solar_lander` and 0 with `battery_rover` (slope 5.9 deg against 15).
+
+**Horizon uncertainty** (2026-11-14; Kerem rejected a fixed 0.5 deg margin as arbitrary).
+The margin is derived per azimuth from the data: `atan(height error / distance of the
+obstruction that sets the horizon)`, with the largest LOLA height error inside the landing
+ellipse (`surface.height_error_m.max`) and `horizon_range_km` of `horizon_<site>.json`
+(`lunar_risk.horizon_uncertainty_deg` / `raised_horizon`, ported as `raisedHorizon` in
+`web/src/engine/risk.ts`). `risk` scores the mission again on the raised horizon and writes
+`horizon_uncertainty` (margin, window, score, low-risk date count) into `risk_<site>.json`;
+the UI shows it under each score ("With map height error ...").
+
+| Site             | Height error (max) | Nearest obstruction | Margin max / median | Effect, landing 2026-12-16                           |
+| ---------------- | ------------------ | ------------------- | ------------------- | ---------------------------------------------------- |
+| Shackleton       | 0.36 m             | 9.5 km              | 0.002 / 0.002 deg   | none                                                 |
+| Connecting ridge | 0.55 m             | 0.09 km             | 0.35 / 0.117 deg    | link 83.3 -> 81.8 %, score unchanged                 |
+| Mons Mouton      | 1.09 m             | 0.39 km             | 0.16 / 0.005 deg    | none                                                 |
+| Malapert A       | 1.99 m             | 0.21 km             | 0.54 / 0.097 deg    | usable Sun 81.0 -> 80.1 %, dark 62 -> 65 h, same score |
+| Chandrayaan-3    | 3.11 m             | 0.51 km             | 0.35 / 0.008 deg    | none                                                 |
+
+**Result: no score, level or low-risk date count changes at any site**, so the verdicts are
+robust to the map's stated height error. For comparison, a uniform 0.5 deg mask (not
+justified by the data) moves Chandrayaan-3 from 28 (low) to 40 (medium) and cuts Mons
+Mouton's low-risk dates from 22 to 16. Limits to state: the LOLA error map is the formal
+interpolation error and ignores rocks and craters below the 60 m pixel; the error is taken
+near the site, not at the far obstruction (where the angle is small anyway); landing-position
+error is a separate, probably larger source (see the grids). Not available for custom points:
+the API and `grid_<site>.json` carry neither `horizon_range_km` nor the height error. With a
+raised mast the UI still uses the obstruction distances of the 2 m horizon.
 
 Alternatives: `dates` block = nearest low-risk landing date before/after, slip tolerance
 (days the landing can slip and stay low-risk), list of low-risk landing windows. `rank`
