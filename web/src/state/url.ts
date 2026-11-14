@@ -1,5 +1,6 @@
 // Scenario <-> URL, so a view can be shared as a link:
-//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=708&mast=10&profile=battery_rover&dark=72&slope=12
+//   ?site=mons_mouton&date=2026-12-16&compare=malapert_a&slip=7&window=240&mast=10&profile=battery_rover&dark=72&slope=12
+// `window` is the mission length in hours (1 to 60 days), `slip` may be negative (B before A).
 // Limits changed by hand travel as dark / sun / outage / contact / slope (state/limits.ts).
 // A custom point is written as `lat,lon` (for example site=-85.3,31), the reference as `apollo11`.
 import type { SiteInfo } from "../data/load.ts";
@@ -7,7 +8,7 @@ import { MAST_RANGE_M } from "../engine/mast.ts";
 import { PROFILE_PRESETS, type ProfileKey } from "../engine/risk.ts";
 import { isoDay } from "../ui/format.ts";
 import { LIMITS, type LimitOverrides } from "./limits.ts";
-import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, type Place } from "./scenario.ts";
+import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, validWindowHours, type Place } from "./scenario.ts";
 
 function placeToParam(place: Place): string {
   if (place.kind === "site") return place.key;
@@ -56,8 +57,8 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
     placeA: paramToPlace(params.get("site"), sites),
     placeB: paramToPlace(params.get("compare"), sites),
     startMs: Number.isNaN(startMs) ? null : startMs,
-    slipDays: Number.isInteger(slip) && slip > 0 ? slip : 0,
-    windowHours: (Object.values(WINDOW_HOURS) as number[]).includes(windowHours) ? windowHours : null,
+    slipDays: Number.isInteger(slip) ? slip : 0,
+    windowHours: params.has("window") ? validWindowHours(windowHours) : null,
     mastM: Number.isInteger(mast) && mast >= MAST_RANGE_M.min && mast <= MAST_RANGE_M.max ? mast : null,
     profileKey: profile !== null && Object.hasOwn(PROFILE_PRESETS, profile) ? (profile as ProfileKey) : null,
   };
@@ -73,7 +74,7 @@ export function syncUrl(): () => void {
     if (s.placeA) params.set("site", placeToParam(s.placeA));
     params.set("date", isoDay(s.startMs));
     if (s.placeB && s.placeB.id !== s.placeA?.id) params.set("compare", placeToParam(s.placeB));
-    if (s.placeB && s.slipDays > 0) params.set("slip", String(s.slipDays));
+    if (s.placeB && s.slipDays !== 0) params.set("slip", String(s.slipDays));
     if (s.windowHours !== WINDOW_HOURS.mission) params.set("window", String(s.windowHours));
     if (s.mastM !== MAST_RANGE_M.min) params.set("mast", String(s.mastM));
     if (s.profileKey !== "generic") params.set("profile", s.profileKey);

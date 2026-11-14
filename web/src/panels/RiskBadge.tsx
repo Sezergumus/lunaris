@@ -3,6 +3,7 @@ import { ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
 import { PROFILE_PRESETS, analyzeWindow, scoreWindow, type ProfileKey, type RiskLevel, type Score } from "../engine/risk.ts";
 import { actions, useScenario } from "../state/scenario.ts";
 import { Segmented } from "../ui/Segmented.tsx";
+import { formatDays } from "../ui/format.ts";
 import type { ScenarioView } from "../state/view.ts";
 
 const LEVEL_TEXT: Record<RiskLevel, string> = { low: "Low", medium: "Medium", high: "High" };
@@ -95,7 +96,7 @@ export function RiskBadge({ views }: { views: ScenarioView[] }) {
   return (
     <section className="risk" aria-label="Mission risk">
       <h3 className="metric__label">
-        Mission risk<span className="metric__hint"> · {profile.duration_days}-day mission · 0 best, 100 worst</span>
+        Mission risk<span className="metric__hint"> · {formatDays(profile.duration_days)}-day mission · 0 best, 100 worst</span>
       </h3>
       <div className="risk__profile">
         <Segmented value={profileKey} onChange={actions.setProfile} options={PROFILE_OPTIONS} label="Mission profile" size="sm" />

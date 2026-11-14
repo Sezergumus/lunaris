@@ -41,3 +41,48 @@ export function NumberField({ label, suffix, value, onChange, onEnter, invalid, 
     </label>
   );
 }
+
+interface InlineNumberFieldProps {
+  /** Accessible name; the field shows no label of its own. */
+  label: string;
+  value: string;
+  onChange: (text: string) => void;
+  /** Enter, and leaving the field when `commitOnBlur` is set. */
+  onCommit: () => void;
+  commitOnBlur?: boolean;
+  /** Text before and after the number, inside the field ("+", "d"). */
+  prefix?: ReactNode;
+  suffix?: ReactNode;
+  invalid?: boolean;
+  /** Width of the number in characters. */
+  chars?: number;
+  disabled?: boolean;
+}
+
+/** One-line number field for toolbars: `+ [ 7 ] d`. Same look as NumberField, no label row. */
+export function InlineNumberField({ label, value, onChange, onCommit, commitOnBlur, prefix, suffix, invalid, chars = 2, disabled }: InlineNumberFieldProps) {
+  return (
+    <span className="field__box field__box--inline" data-invalid={invalid || undefined} data-disabled={disabled || undefined}>
+      {prefix ? <span className="field__prefix">{prefix}</span> : null}
+      <input
+        className="field__input"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        spellCheck={false}
+        aria-label={label}
+        aria-invalid={invalid || undefined}
+        disabled={disabled}
+        value={value}
+        style={{ width: `${chars + 0.5}ch` }}
+        onChange={(event) => onChange(event.target.value)}
+        onFocus={(event) => event.target.select()}
+        onBlur={() => commitOnBlur && onCommit()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onCommit();
+        }}
+      />
+      {suffix ? <span className="field__suffix">{suffix}</span> : null}
+    </span>
+  );
+}

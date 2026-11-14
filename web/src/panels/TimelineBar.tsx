@@ -6,12 +6,13 @@ import { STRIP_ROWS } from "../charts/stripRows.ts";
 import { sampleAt } from "../engine/events.ts";
 import { sampleIndex } from "../engine/sky.ts";
 import type { PlaceData } from "../state/placeData.ts";
-import { SPEEDS, WINDOW_HOURS, actions, placeTitle, startOfB, useScenario } from "../state/scenario.ts";
+import { SPEEDS, WINDOW_DAYS, WINDOW_HOURS, actions, placeTitle, startOfB, useScenario } from "../state/scenario.ts";
 import { usePlayback } from "../state/usePlayback.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { DatePicker } from "../ui/DatePicker.tsx";
+import { InlineNumberField } from "../ui/NumberField.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
-import { formatPercent, formatUtcDate, formatUtcDateTime, formatUtcDay } from "../ui/format.ts";
+import { formatDays, formatPercent, formatUtcDate, formatUtcDateTime, formatUtcDay, parseDecimal } from "../ui/format.ts";
 import "./timeline.css";
 
 const HOUR_MS = 3600000;
@@ -78,29 +79,15 @@ export function TimelineBar({ ref, a, b, macroExtra, summary }: TimelineBarProps
           <span className="timeline__caption">Landing</span>
           <DatePicker label="Landing date" valueMs={startMs} minMs={limits.minMs} maxMs={lastStart} onChange={actions.setStart} />
         </div>
-        <Segmented
-          label="Window length"
-          value={String(windowHours)}
-          onChange={(value) => actions.setWindowHours(Number(value))}
-          options={[
-            { value: String(WINDOW_HOURS.mission), label: "14 d" },
-            { value: String(WINDOW_HOURS.lunarDay), label: "1 lunar day · 708 h" },
-          ]}
-        />
-        <div className="timeline__group">
-          <Button onClick={() => actions.slip(7)} disabled={!ready}>
-            Slip +7 d
-          </Button>
-          <Button onClick={() => actions.slip(14)} disabled={!ready}>
-            Slip +14 d
-          </Button>
-        </div>
+        {/* Remounted when the length changes elsewhere (URL, preset), so the field shows it. */}
+        <MissionLength key={windowHours} windowHours={windowHours} />
+        <SlipControl disabled={!ready} />
         {b ? (
           <div className="compare-chip">
             <span className="tag tag--b">B</span>
             <span className="compare-chip__text">
               {placeTitle(b.place)}
-              {slipDays > 0 ? ` · ${formatUtcDate(startB)} (+${slipDays} d)` : ""}
+              {slipDays !== 0 ? ` · ${formatUtcDate(startB)} (${slipDays > 0 ? "+" : "−"}${Math.abs(slipDays)} d)` : ""}
             </span>
             <IconButton label="Clear comparison" variant="plain" size="sm" onClick={actions.clearComparison}>
               <X aria-hidden="true" />
@@ -149,6 +136,73 @@ export function TimelineBar({ ref, a, b, macroExtra, summary }: TimelineBarProps
         )}
       </div>
     </section>
+  );
+}
+
+/** Mission length in days: a free field and two quick choices. Sets the timeline window too. */
+function MissionLength({ windowHours }: { windowHours: number }) {
+  const [text, setText] = useState(formatDays(windowHours / 24));
+  const days = parseDecimal(text);
+  const valid = days >= WINDOW_DAYS.min && days <= WINDOW_DAYS.max;
+  const commit = () => {
+    if (valid) actions.setWindowHours(Math.round(days * 24));
+    else setText(formatDays(windowHours / 24));
+  };
+  return (
+    <div className="timeline__group">
+      <span className="timeline__caption">Mission</span>
+      <InlineNumberField
+        label={`Mission length in days, ${WINDOW_DAYS.min} to ${WINDOW_DAYS.max}`}
+        value={text}
+        onChange={setText}
+        onCommit={commit}
+        commitOnBlur
+        suffix="d"
+        invalid={!valid}
+        chars={4}
+      />
+      <Segmented
+        label="Mission length presets"
+        size="sm"
+        value={String(windowHours)}
+        onChange={(value) => actions.setWindowHours(Number(value))}
+        options={[
+          { value: String(WINDOW_HOURS.mission), label: "14 d" },
+          { value: String(WINDOW_HOURS.month), label: "30 d" },
+        ]}
+      />
+    </div>
+  );
+}
+
+/** Largest slip the field accepts; the store also keeps B inside the data. */
+const MAX_SLIP_DAYS = 365;
+
+/** "The mission slipped by N days": opens scenario B at A's date + N days (set, not added). */
+function SlipControl({ disabled }: { disabled: boolean }) {
+  const [text, setText] = useState("7");
+  const days = parseDecimal(text);
+  const valid = Number.isInteger(days) && days >= 1 && days <= MAX_SLIP_DAYS;
+  const commit = () => {
+    if (valid && !disabled) actions.slip(days);
+  };
+  return (
+    <div className="timeline__group">
+      <InlineNumberField
+        label={`Slip in days, 1 to ${MAX_SLIP_DAYS}`}
+        value={text}
+        onChange={setText}
+        onCommit={commit}
+        prefix="+"
+        suffix="d"
+        invalid={!valid}
+        chars={3}
+        disabled={disabled}
+      />
+      <Button onClick={commit} disabled={disabled || !valid}>
+        Slip
+      </Button>
+    </div>
   );
 }
 

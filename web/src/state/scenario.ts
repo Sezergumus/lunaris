@@ -36,8 +36,15 @@ export function placeTitle(place: Place): string {
   return place.kind === "site" ? siteTitle(place.name) : place.name;
 }
 
-/** Window lengths offered by the timeline, hours. 708 h is one mean synodic day of the Moon. */
-export const WINDOW_HOURS = { mission: 336, lunarDay: 708 } as const;
+/** Quick choices for the mission length, hours; any whole number of days in WINDOW_DAYS also works. */
+export const WINDOW_HOURS = { mission: 336, month: 720 } as const;
+/** Mission length the user can type, days. */
+export const WINDOW_DAYS = { min: 1, max: 60 } as const;
+
+/** Mission length within WINDOW_DAYS, hours; null for anything else. */
+export function validWindowHours(hours: number): number | null {
+  return Number.isFinite(hours) && hours >= WINDOW_DAYS.min * 24 && hours <= WINDOW_DAYS.max * 24 ? Math.round(hours) : null;
+}
 /** Playback speeds in simulated hours per second. */
 export const SPEEDS = [6, 24, 72] as const;
 
@@ -48,8 +55,12 @@ export interface ScenarioState {
   placeB: Place | null;
   /** Start (landing) instant of scenario A. */
   startMs: number;
-  /** Scenario B starts this many days after A; 0 when two places are compared on one date. */
+  /**
+   * Scenario B starts this many days after A (negative: before); 0 when two places are
+   * compared on one date.
+   */
   slipDays: number;
+  /** Mission length, hours; also the length of the timeline window. */
   windowHours: number;
   /** Cursor, measured from the start of each scenario's window. */
   offsetMs: number;
@@ -106,24 +117,26 @@ export function useScenario<T>(selector: (state: ScenarioState) => T): T {
 
 const floorToDay = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
 
-/** Latest start that keeps both windows inside the data. */
+/** Start that keeps both windows inside the data. */
 function clampStart(startMs: number, s: ScenarioState): number {
   if (!s.limits) return startMs;
+  const first = s.limits.minMs + Math.max(0, -s.slipDays) * DAY_MS;
   const last = floorToDay(s.limits.maxMs - s.windowHours * HOUR_MS - Math.max(0, s.slipDays) * DAY_MS);
-  return Math.min(last, Math.max(s.limits.minMs, startMs));
+  return Math.min(last, Math.max(first, startMs));
 }
 
-/** Largest slip that keeps scenario B's window inside the data. */
+/** Slip that keeps scenario B's window inside the data. */
 function clampSlip(slipDays: number, s: ScenarioState): number {
   if (!s.limits) return slipDays;
-  const room = Math.floor((s.limits.maxMs - s.windowHours * HOUR_MS - s.startMs) / DAY_MS);
-  return Math.max(0, Math.min(room, slipDays));
+  const later = Math.floor((s.limits.maxMs - s.windowHours * HOUR_MS - s.startMs) / DAY_MS);
+  const earlier = -Math.floor((s.startMs - s.limits.minMs) / DAY_MS);
+  return Math.max(earlier, Math.min(later, Math.round(slipDays)));
 }
 
 export const actions = {
   /** Called once when the tables arrive. `startMs` may come from the URL. */
   init(limits: { minMs: number; maxMs: number }, startMs: number | null, windowHours: number | null) {
-    const next = { ...state, limits, windowHours: windowHours ?? state.windowHours };
+    const next = { ...state, limits, windowHours: (windowHours !== null ? validWindowHours(windowHours) : null) ?? state.windowHours };
     // Without a date in the URL, start half a month into the data: the first day rarely
     // shows a whole day/night cycle from its beginning.
     set({ ...next, startMs: clampStart(floorToDay(startMs ?? limits.minMs + 15 * DAY_MS), next) });
@@ -145,16 +158,30 @@ export const actions = {
   },
   /**
    * "The mission slipped": scenario A keeps the original date, B is the same place (or the
-   * place already compared) N days later. Repeated slips add up.
+   * place already compared) `days` after A's date. The value is set, not added: slipping by
+   * 10 shows A + 10 days however often it is pressed.
    */
   slip(days: number) {
     if (!state.placeA) return;
     const next = { ...state, placeB: state.placeB ?? state.placeA };
-    set({ placeB: next.placeB, slipDays: clampSlip(state.slipDays + days, next) });
+    set({ placeB: next.placeB, slipDays: clampSlip(days, next) });
   },
   setWindowHours(hours: number) {
-    const next = { ...state, windowHours: hours };
-    set({ windowHours: hours, offsetMs: Math.min(state.offsetMs, hours * HOUR_MS), startMs: clampStart(state.startMs, next) });
+    const valid = validWindowHours(hours);
+    if (valid === null) return;
+    const next = { ...state, windowHours: valid };
+    next.slipDays = clampSlip(state.slipDays, next);
+    set({
+      windowHours: valid,
+      slipDays: next.slipDays,
+      offsetMs: Math.min(state.offsetMs, valid * HOUR_MS),
+      startMs: clampStart(state.startMs, next),
+    });
+  },
+  /** A saved point was renamed: places on screen with that id take the new name. */
+  renamePlace(id: string, name: string) {
+    const rename = (place: Place | null) => (place && place.id === id ? { ...place, name } : place);
+    if (state.placeA?.id === id || state.placeB?.id === id) set({ placeA: rename(state.placeA), placeB: rename(state.placeB) });
   },
   setOffsetMs(ms: number) {
     set({ offsetMs: Math.min(state.windowHours * HOUR_MS, Math.max(0, ms)) });

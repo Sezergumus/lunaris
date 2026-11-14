@@ -1,6 +1,8 @@
 // Mission limits the user can change: the numbers the risk score is judged against.
 // A preset (engine/risk.ts, PROFILE_PRESETS) sets them; the sliders override single values.
+import { useMemo } from "react";
 import { presetProfile, type Profile, type ProfileKey } from "../engine/risk.ts";
+import { useScenario } from "./scenario.ts";
 
 export type LimitKey = "battery_survival_h" | "min_sunlit_pct" | "max_comm_outage_h" | "min_daily_contact_h" | "max_slope_deg";
 
@@ -28,7 +30,21 @@ export const LIMITS: LimitSpec[] = [
 
 export type LimitOverrides = Partial<Pick<Profile, LimitKey>>;
 
-/** The profile in use: the preset with the user's overrides on top. */
-export function effectiveProfile(key: ProfileKey, overrides: LimitOverrides): Profile {
-  return { ...presetProfile(key), ...overrides };
+/**
+ * The profile in use: the preset with the user's overrides on top. `windowHours`, the
+ * mission length chosen on the timeline, replaces the preset's duration, so every score,
+ * the landing-date scan and the nearby-spot search judge the mission the user set.
+ */
+export function effectiveProfile(key: ProfileKey, overrides: LimitOverrides, windowHours?: number): Profile {
+  const profile = { ...presetProfile(key), ...overrides };
+  if (windowHours !== undefined) profile.duration_days = windowHours / 24;
+  return profile;
+}
+
+/** The profile of the current scenario, as a hook. */
+export function useEffectiveProfile(): Profile {
+  const profileKey = useScenario((s) => s.profileKey);
+  const overrides = useScenario((s) => s.limitOverrides);
+  const windowHours = useScenario((s) => s.windowHours);
+  return useMemo(() => effectiveProfile(profileKey, overrides, windowHours), [profileKey, overrides, windowHours]);
 }

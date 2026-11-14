@@ -11,8 +11,8 @@ import { pointHorizon } from "../engine/grid.ts";
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
 import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, raisedHorizon, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
-import { effectiveProfile } from "./limits.ts";
-import { useScenario, type Place } from "./scenario.ts";
+import { useEffectiveProfile } from "./limits.ts";
+import type { Place } from "./scenario.ts";
 
 let tablesPromise: Promise<SkyTables> | null = null;
 
@@ -253,9 +253,7 @@ export function usePlaceSeries(tables: SkyTables | null, place: Place | null, ma
     mastM,
     terrain?.mastM ?? null,
   );
-  const profileKey = useScenario((s) => s.profileKey);
-  const limitOverrides = useScenario((s) => s.limitOverrides);
-  const profile = useMemo(() => effectiveProfile(profileKey, limitOverrides), [profileKey, limitOverrides]);
+  const profile = useEffectiveProfile();
   return useMemo(() => {
     if (!tables || !place || !terrainState) return null;
     const { status, reason, center } = terrainState;

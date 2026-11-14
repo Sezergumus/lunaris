@@ -57,7 +57,7 @@ export default function App() {
       for (const [key, value] of Object.entries(url.limitOverrides)) actions.setLimit(key as LimitKey, value);
       if (url.placeA) actions.selectPlace(url.placeA);
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
-      if (url.placeA && url.slipDays > 0) actions.slip(url.slipDays);
+      if (url.placeA && url.slipDays !== 0) actions.slip(url.slipDays);
     }
     return syncUrl();
   }, [tables, sites]);

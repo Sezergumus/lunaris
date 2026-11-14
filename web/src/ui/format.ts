@@ -46,6 +46,11 @@ export function formatDuration(hours: number): string {
   return `${m} min`;
 }
 
+/** A number of days without needless decimals: "14", "29.5". */
+export function formatDays(days: number): string {
+  return Number.isInteger(days) ? String(days) : days.toFixed(1);
+}
+
 /** Whole-hour spans as the risk model counts them: "0 h", "32 h", "6.6 d". */
 export function formatHours(hours: number): string {
   return hours < 48 ? `${Math.round(hours)} h` : `${(hours / 24).toFixed(1)} d`;
