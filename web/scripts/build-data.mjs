@@ -42,7 +42,12 @@ function toIso(utc) {
 
 mkdirSync(target, { recursive: true });
 
+// The station table may run longer than the per-site tables (it shares its date range with
+// ephemeris_vectors.csv). The files written here cover the per-site range, so it is cut to
+// that length; both tables must start at the same instant.
 const dsn = readCsv(join(source, "dsn_moon.csv"));
+const siteTable = readdirSync(source).find((file) => /^skyfield_.+\.csv$/.test(file));
+if (siteTable) dsn.rows.length = Math.min(dsn.rows.length, readCsv(join(source, siteTable)).rows.length);
 const utc = dsn.rows.map((r) => r[0]);
 const stepMinutes = (Date.parse(toIso(utc[1])) - Date.parse(toIso(utc[0]))) / 60000;
 writeFileSync(
