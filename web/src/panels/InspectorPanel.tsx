@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode, type Ref } from "react";
-import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Radio, X } from "lucide-react";
+import { Fragment, useMemo, type ReactNode, type Ref } from "react";
+import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Radio, RectangleHorizontal, RectangleVertical, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { nextTransition, panelYield, type Transitions } from "../engine/events.ts";
 import { analyzeWindow } from "../engine/risk.ts";
@@ -54,7 +54,7 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
         )}
         <div className="inspector__actions">
           <Explainer views={views} />
-          <IconButton label={comparing ? "Close scenario A" : "Close"} size="sm" tipSide="left" onClick={() => actions.selectPlace(null)}>
+          <IconButton className="inspector__close" label={comparing ? "Close scenario A" : "Close"} size="sm" tipSide="left" onClick={() => actions.selectPlace(null)}>
             <X aria-hidden="true" />
           </IconButton>
         </div>
@@ -96,7 +96,16 @@ function Summary({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
       <div className="summary__text">
         <p className="summary__line">
           {tagged ? <span className={`tag tag--${view.tag.toLowerCase()}`}>{view.tag}</span> : null}
-          {parts.join(" • ")}
+          {/* Breaks only between the parts, never inside one. */}
+          {parts.map((part, index) => (
+            <Fragment key={index}>
+              {index > 0 ? " " : null}
+              <span className="summary__part">
+                {part}
+                {index < parts.length - 1 ? " •" : null}
+              </span>
+            </Fragment>
+          ))}
         </p>
         <p className="summary__model" data-model={data.status}>
           <span className="summary__dot" aria-hidden="true" />
@@ -194,9 +203,18 @@ function ElevationCell({ view }: { view: ScenarioView }) {
       <p className="metric__sub">
         {formatAngle(at.sunAboveTerrain, 1)} vs {view.data.horizon ? "terrain" : "horizon"}
       </p>
-      <p className="metric__sub">
-        Panel: <b>{(output.vertical * 100).toFixed(0)}%</b> upright · <b>{(output.horizontal * 100).toFixed(0)}%</b> flat
-      </p>
+      <Tip label={`Panel yield: upright ${(output.vertical * 100).toFixed(0)} %, flat ${(output.horizontal * 100).toFixed(0)} %`} side="bottom">
+        <p className="metric__sub metric__panel">
+          <span>
+            <RectangleVertical aria-label="Upright panel" />
+            <b>{(output.vertical * 100).toFixed(0)}%</b>
+          </span>
+          <span>
+            <RectangleHorizontal aria-label="Flat panel" />
+            <b>{(output.horizontal * 100).toFixed(0)}%</b>
+          </span>
+        </p>
+      </Tip>
     </>
   );
 }
@@ -220,14 +238,20 @@ function SunsetCell({ view }: { view: ScenarioView }) {
       <>
         <p className="metric__value is-danger">In shadow</p>
         <p className="metric__sub">{sun.hours !== null ? `sunrise in ${formatDuration(sun.hours)}` : "None in window"}</p>
-        {sun.atMs !== null ? <p className="metric__sub">{formatUtcDayTime(sun.atMs)}</p> : null}
+        {sun.atMs !== null ? <p className="metric__sub nowrap">{formatUtcDayTime(sun.atMs)}</p> : null}
       </>
     );
   }
   return (
     <>
       <p className="metric__value">{sun.hours !== null ? formatDuration(sun.hours) : "Always lit"}</p>
-      <p className="metric__sub">{sun.atMs !== null ? `Sunset ${formatUtcDayTime(sun.atMs)}` : "None in window"}</p>
+      {sun.atMs !== null ? (
+        <p className="metric__sub">
+          Sunset <span className="nowrap">{formatUtcDayTime(sun.atMs)}</span>
+        </p>
+      ) : (
+        <p className="metric__sub">None in window</p>
+      )}
     </>
   );
 }
@@ -244,7 +268,7 @@ function EarthsetCell({ view }: { view: ScenarioView }) {
       )}
       {earth.atMs !== null ? (
         <p className="metric__sub">
-          {earth.visible ? "Earthset" : `Earthrise in ${formatDuration(earth.hours!)},`} {formatUtcDayTime(earth.atMs)}
+          {earth.visible ? "Earthset" : <span className="nowrap">Earthrise in {formatDuration(earth.hours!)},</span>} <span className="nowrap">{formatUtcDayTime(earth.atMs)}</span>
         </p>
       ) : null}
       <p className="metric__status" data-state={at.link ? "good" : "bad"}>

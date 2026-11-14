@@ -1,0 +1,263 @@
+/*
+ * Bottom sheets and the dock, narrow screens only. On wide screens a sheet is
+ * `display: contents`: the panel inside is a grid item of the HUD as if the sheet were not
+ * there, and the dock is hidden.
+ *
+ * Motion: the sheet slides on transform only, with an iOS-like curve (fast out, long settle).
+ * While a finger drags it the transition is off and the position follows the finger.
+ */
+
+.sheet {
+  display: contents;
+}
+
+.sheet__bar,
+.dock {
+  display: none;
+}
+
+@media (max-width: 759px) {
+  .sheet {
+    --sheet-bar-h: 32px;
+    --sheet-ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+    position: fixed;
+    z-index: 10;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+    /* Nearly opaque: over the whole screen, map labels showing through would clash with the text. */
+    background: rgba(20, 20, 24, 0.97);
+    border-top: 1px solid var(--glass-highlight);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.45);
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform 360ms var(--sheet-ease),
+      visibility 0s 360ms;
+  }
+
+  .sheet[data-state="half"] {
+    transform: translateY(50%);
+  }
+
+  .sheet[data-state="full"] {
+    transform: none;
+  }
+
+  .sheet:not([data-state="closed"]) {
+    visibility: visible;
+    transition: transform 360ms var(--sheet-ease);
+  }
+
+  .sheet[data-dragging] {
+    transition: none;
+  }
+
+  /* A fit sheet (the timeline) is as tall as its content. */
+  .sheet[data-fit] {
+    height: auto;
+    max-height: 100dvh;
+  }
+
+  /* The sheet is the glass; the panel inside is just its content. */
+  .sheet > .glass {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sheet > .sidebar,
+  .sheet > .inspector {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    align-self: stretch;
+  }
+
+  /* Half open: only the upper half is on screen, so the panel scrolls within it. */
+  .sheet[data-state="half"]:not([data-dragging]) > .sidebar,
+  .sheet[data-state="half"]:not([data-dragging]) > .inspector {
+    flex: none;
+    height: calc(50dvh - var(--sheet-bar-h));
+  }
+
+  .sheet > .inspector {
+    padding-top: 2px;
+    transform-origin: top center;
+  }
+
+  .sheet > .timeline {
+    width: 100%;
+    max-width: none;
+  }
+
+  .sheet__bar {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    height: var(--sheet-bar-h);
+  }
+
+  .sheet__handle {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--text-2);
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .sheet__handle:active {
+    cursor: grabbing;
+  }
+
+  .sheet__handle svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sheet__grabber {
+    width: 36px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  .sheet__close {
+    position: absolute;
+    z-index: 1;
+    top: 6px;
+    right: 10px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--fill-hover);
+    color: var(--text-2);
+  }
+
+  .sheet__close svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.2;
+  }
+
+  /* In a sheet the bar's close button closes the card; the place stays selected. */
+  .sheet .inspector__close {
+    display: none;
+  }
+
+  /* ---------- Dock ---------- */
+
+  .dock {
+    position: fixed;
+    z-index: 5;
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    transition:
+      opacity 200ms var(--ease-out),
+      transform 200ms var(--ease-out);
+  }
+
+  /* While a sheet is open it covers the dock; the dock steps out of its way. */
+  .hud[data-sheet] .dock {
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+  }
+
+  .dock__button {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 7px;
+    height: 40px;
+    padding: 0 14px 0 12px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 590;
+    white-space: nowrap;
+    transition:
+      background-color 140ms ease,
+      transform 120ms var(--ease-out);
+  }
+
+  .dock__button:active {
+    background: var(--fill-press);
+    transform: scale(0.97);
+  }
+
+  .dock__button svg {
+    width: 17px;
+    height: 17px;
+    flex: none;
+  }
+
+  .dock__button--place {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: var(--accent-soft);
+  }
+
+  .dock__place {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dock__button--icon {
+    justify-content: center;
+    width: 40px;
+    padding: 0;
+    background: var(--fill-hover);
+  }
+
+  .dock__hint {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-3);
+  }
+
+  .hud__error {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+  }
+}
+
+@media (max-width: 759px) and (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet:not([data-state="closed"]) {
+    transition: none;
+  }
+
+  .dock__button:active {
+    transform: none;
+  }
+}

@@ -382,6 +382,32 @@
   color: var(--text);
 }
 
+/* Panel yield: an icon for each orientation, one line. */
+.metric__panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.metric__panel span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.metric__panel svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  stroke-width: 2;
+  color: var(--text-3);
+}
+
+.summary__part {
+  white-space: nowrap;
+}
+
 .metric__status {
   display: flex;
   align-items: center;
@@ -413,15 +439,6 @@
     @starting-style {
       transform: none;
     }
-  }
-}
-
-@media (max-width: 759px) {
-  .inspector {
-    grid-column: 1;
-    grid-row: 1;
-    max-height: 36vh;
-    transform-origin: top center;
   }
 }
 
@@ -571,6 +588,7 @@
 }
 
 .risk__error strong {
+  white-space: nowrap;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -633,7 +651,9 @@
 
 /* ---------- Mission parameters (popover in the sites header) ---------- */
 
+/* Nearly opaque: it sits over the map legends, whose text must not show through. */
 .popover--params {
+  background: rgba(20, 20, 24, 0.95);
   width: 320px;
   max-width: calc(100vw - 24px);
   max-height: var(--radix-popover-content-available-height);

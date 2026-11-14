@@ -6,6 +6,7 @@ import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
 import { Recommendations } from "./panels/Recommendations.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
+import { MobileDock, type SheetId } from "./panels/MobileDock.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { betterSpot, neighbourPlace, offsetText, useNearby } from "./state/nearby.ts";
@@ -15,8 +16,16 @@ import { actions, customPlace, getScenario, sitePlace, useScenario, type Place }
 import type { LimitKey } from "./state/limits.ts";
 import { readUrl, syncUrl } from "./state/url.ts";
 import { useViews } from "./state/view.ts";
+import { Sheet, type SheetState } from "./ui/Sheet.tsx";
+import { MOBILE_QUERY, useMediaQuery } from "./ui/useMediaQuery.ts";
 
 const PANEL_GAP = 16;
+/** Distance of the map's own chrome from a panel edge, and from the screen edge without one. */
+const CHROME_GAP = 12;
+const DOCKED_MIN_WIDTH = 760;
+const MOBILE_GAP = 8;
+/** Height kept clear above the bottom chrome (the zoom buttons are the tallest). */
+const CHROME_ZONE = 140;
 /** The basemap ends near 55°S; places north of this are not flown to. */
 const MAP_NORTH_LIMIT_DEG = -56;
 
@@ -29,6 +38,7 @@ export default function App() {
   const sidebarRef = useRef<HTMLElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
   const timelineRef = useRef<HTMLElement>(null);
+  const dockRef = useRef<HTMLElement>(null);
 
   const placeA = useScenario((s) => s.placeA);
   const placeB = useScenario((s) => s.placeB);
@@ -64,59 +74,132 @@ export default function App() {
     return syncUrl();
   }, [tables, sites]);
 
+  // Narrow screens: the map is full screen and each panel opens as a bottom sheet, one at a
+  // time. Wide screens ignore this state (the sheets are `display: contents` there).
+  const mobile = useMediaQuery(MOBILE_QUERY);
+  const [sheet, setSheet] = useState<{ id: SheetId; state: SheetState } | null>(null);
+  const sheetRef = useRef(sheet);
+  const showSheet = useCallback((next: { id: SheetId; state: SheetState } | null) => {
+    // Kept in a ref as well: the camera reads it in the same event that opens a sheet.
+    sheetRef.current = next && next.state !== "closed" ? next : null;
+    setSheet(sheetRef.current);
+  }, []);
+  const sheetState = (id: SheetId): SheetState => (sheet?.id === id ? sheet.state : "closed");
+  const onSheetState = (id: SheetId) => (state: SheetState) => showSheet({ id, state });
+  const openSheet = useCallback(
+    (id: SheetId) => {
+      showSheet({ id, state: id === "timeline" ? "full" : "half" });
+      // The card covers the lower half: bring the place into the half above it.
+      const place = getScenario().placeA;
+      if (id === "inspector" && place && place.lat <= MAP_NORTH_LIMIT_DEG) setFlyTarget({ lat: place.lat, lon: place.lon });
+    },
+    [showSheet],
+  );
+
+  const hasInspector = views.length > 0;
+  useEffect(() => {
+    if (!mobile || (!hasInspector && sheetRef.current?.id === "inspector")) showSheet(null);
+  }, [mobile, hasInspector, showSheet]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // Escape inside a popover or a menu closes that, not the panel.
       if (event.key !== "Escape" || (event.target as HTMLElement).closest("[role='dialog'], [role='menu']")) return;
-      // One step back at a time: the comparison first, then the selection.
-      if (getScenario().placeB) actions.clearComparison();
+      // One step back at a time: an open sheet first, then the comparison, then the selection.
+      if (sheetRef.current) showSheet(null);
+      else if (getScenario().placeB) actions.clearComparison();
       else actions.selectPlace(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [showSheet]);
+
+  /**
+   * The part of the screen the panels leave free, as distances from each screen edge to the
+   * nearest panel edge (0 where nothing is in the way). Docked: sites on the left, landing
+   * site on the right, timeline below. Narrow: the dock below, or the open sheet.
+   */
+  const panelEdges = useCallback(() => {
+    const edges = { top: 0, right: 0, bottom: 0, left: 0 };
+    const height = window.innerHeight;
+    if (window.innerWidth < DOCKED_MIN_WIDTH) {
+      const dock = dockRef.current?.getBoundingClientRect();
+      edges.bottom = dock ? height - dock.top : 0;
+      const open = sheetRef.current;
+      // Read from the state, not the screen: the sheet may still be sliding in.
+      if (open?.id === "timeline") edges.bottom = Math.max(edges.bottom, timelineRef.current?.parentElement?.offsetHeight ?? 0);
+      else if (open) edges.bottom = Math.max(edges.bottom, height / 2);
+      return edges;
+    }
+    const sidebar = sidebarRef.current?.getBoundingClientRect();
+    const inspector = inspectorRef.current?.getBoundingClientRect();
+    const timeline = timelineRef.current?.getBoundingClientRect();
+    if (timeline) edges.bottom = height - timeline.top;
+    if (sidebar) edges.left = sidebar.right;
+    if (inspector) edges.right = window.innerWidth - inspector.left;
+    return edges;
   }, []);
 
-  // The map's own chrome (scale, zoom buttons, legend) sits just above the timeline.
+  // The map's own chrome (legends, zoom buttons, attribution) stays in the free part,
+  // following the panels as they resize, collapse, open and close.
   useLayoutEffect(() => {
     const app = appRef.current!;
-    const timeline = timelineRef.current!;
     const update = () => {
-      const docked = window.innerWidth >= 760;
-      app.style.setProperty("--hud-bottom", docked ? `${timeline.offsetHeight + 12}px` : "0px");
+      const edges = panelEdges();
+      const set = (name: string, px: number) => app.style.setProperty(`--chrome-${name}`, `${Math.round(px)}px`);
+      if (window.innerWidth < DOCKED_MIN_WIDTH) {
+        for (const name of ["top", "right", "left", "top-left", "top-right"]) set(name, MOBILE_GAP);
+        set("bottom", edges.bottom + MOBILE_GAP);
+        return;
+      }
+      const height = window.innerHeight;
+      const sidebar = sidebarRef.current?.getBoundingClientRect();
+      const inspector = inspectorRef.current?.getBoundingClientRect();
+      // The bottom chrome steps beside a panel only when that panel reaches down to it
+      // (a collapsed sites panel or a short landing-site card leaves the corner free).
+      const zoneTop = height - edges.bottom - CHROME_ZONE;
+      const beside = (rect: DOMRect | undefined, edge: number) => (rect && rect.bottom > zoneTop ? edge + CHROME_GAP : PANEL_GAP);
+      set("bottom", edges.bottom > 0 ? edges.bottom + CHROME_GAP : PANEL_GAP);
+      set("left", beside(sidebar, edges.left));
+      set("right", beside(inspector, edges.right));
+      set("top", PANEL_GAP);
+      set("top-left", sidebar ? edges.left + CHROME_GAP : PANEL_GAP);
+      set("top-right", inspector ? edges.right + CHROME_GAP : PANEL_GAP);
     };
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(timeline);
+    for (const ref of [sidebarRef, inspectorRef, timelineRef, dockRef]) if (ref.current) observer.observe(ref.current);
     window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, []);
+  }, [panelEdges, hasInspector, sheet, mobile]);
 
   const getInsets = useCallback((): Insets => {
-    const insets: Insets = { top: PANEL_GAP, right: PANEL_GAP, bottom: PANEL_GAP, left: PANEL_GAP };
-    const sidebar = sidebarRef.current?.getBoundingClientRect();
-    const inspector = inspectorRef.current?.getBoundingClientRect();
-    const timeline = timelineRef.current?.getBoundingClientRect();
-    const docked = window.innerWidth >= 760;
-    if (timeline) insets.bottom = window.innerHeight - timeline.top + PANEL_GAP;
-    if (sidebar) {
-      if (docked) insets.left = sidebar.right + PANEL_GAP;
-      else insets.bottom = window.innerHeight - sidebar.top + PANEL_GAP;
-    }
-    if (inspector) {
-      if (docked) insets.right = window.innerWidth - inspector.left + PANEL_GAP;
-      else insets.top = inspector.bottom + PANEL_GAP;
-    }
-    return insets;
-  }, []);
+    const edges = panelEdges();
+    return {
+      top: edges.top + PANEL_GAP,
+      right: edges.right + PANEL_GAP,
+      bottom: edges.bottom + PANEL_GAP,
+      left: edges.left + PANEL_GAP,
+    };
+  }, [panelEdges]);
+
+  /** On narrow screens a place the user picks opens its card, over the lower half. */
+  const showCardOnMobile = useCallback(() => {
+    if (window.matchMedia(MOBILE_QUERY).matches) openSheet("inspector");
+  }, [openSheet]);
 
   /** A selection made by the user: assess the place and bring it into view. */
-  const choose = useCallback((place: Place) => {
-    actions.selectPlace(place);
-    if (place.lat <= MAP_NORTH_LIMIT_DEG) setFlyTarget({ lat: place.lat, lon: place.lon });
-  }, []);
+  const choose = useCallback(
+    (place: Place) => {
+      actions.selectPlace(place);
+      showCardOnMobile();
+      if (place.lat <= MAP_NORTH_LIMIT_DEG) setFlyTarget({ lat: place.lat, lon: place.lon });
+    },
+    [showCardOnMobile],
+  );
 
   const siteRisk = useMemo(() => {
     const map = new Map<string, PinRisk>();
@@ -178,38 +261,50 @@ export default function App() {
           if (site) choose(sitePlace(site));
         }}
         onHoverSite={setHoveredKey}
-        onPick={(point) => actions.selectPlace(customPlace(point.lat, point.lon))}
+        onPick={(point) => {
+          actions.selectPlace(customPlace(point.lat, point.lon));
+          showCardOnMobile();
+        }}
         getInsets={getInsets}
       />
 
-      <div className="hud">
-        <SitesPanel
-          ref={sidebarRef}
-          sites={sites}
-          loadError={loadError}
-          placeA={placeA}
-          placeB={placeB}
-          hoveredKey={hoveredKey}
-          onHover={setHoveredKey}
-          onChoose={choose}
-          scores={siteScores}
-          views={views}
-        />
+      <div className="hud" data-sheet={sheet?.id}>
+        <Sheet label="Sites" state={sheetState("sites")} onStateChange={onSheetState("sites")}>
+          <SitesPanel
+            ref={sidebarRef}
+            sites={sites}
+            loadError={loadError}
+            placeA={placeA}
+            placeB={placeB}
+            hoveredKey={hoveredKey}
+            onHover={setHoveredKey}
+            onChoose={choose}
+            scores={siteScores}
+            views={views}
+            mobile={mobile}
+          />
+        </Sheet>
 
         {views.length > 0 ? (
-          <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
-            <RiskBadge views={views} />
-            <Recommendations view={views[0]} nearby={nearby} />
-          </InspectorPanel>
+          <Sheet label="Details" state={sheetState("inspector")} onStateChange={onSheetState("inspector")}>
+            <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
+              <RiskBadge views={views} />
+              <Recommendations view={views[0]} nearby={nearby} />
+            </InspectorPanel>
+          </Sheet>
         ) : null}
 
-        <TimelineBar
-          ref={timelineRef}
-          a={a}
-          b={b}
-          macroExtra={views.length > 0 ? <RiskStrip view={views[0]} /> : null}
-          summary={views.length > 1 ? <CompareSummary views={views} /> : null}
-        />
+        <Sheet label="Timeline" fit state={sheetState("timeline")} onStateChange={onSheetState("timeline")}>
+          <TimelineBar
+            ref={timelineRef}
+            a={a}
+            b={b}
+            macroExtra={views.length > 0 ? <RiskStrip view={views[0]} /> : null}
+            summary={views.length > 1 ? <CompareSummary views={views} /> : null}
+          />
+        </Sheet>
+
+        <MobileDock ref={dockRef} placeA={placeA} onOpen={openSheet} />
         {tablesError ? (
           <p className="hud__error" role="alert">
             Sun and Earth tables could not be loaded ({tablesError}).

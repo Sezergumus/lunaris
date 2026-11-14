@@ -28,10 +28,13 @@ interface SitesPanelProps {
   scores: SiteScores;
   /** The scenarios on screen, for the mission parameters (the mast applies to them). */
   views: ScenarioView[];
+  /** Narrow screen: the panel lives in a bottom sheet and does not collapse. */
+  mobile: boolean;
 }
 
-export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, onHover, onChoose, scores, views }: SitesPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, onHover, onChoose, scores, views, mobile }: SitesPanelProps) {
+  const [collapsedWide, setCollapsed] = useState(false);
+  const collapsed = collapsedWide && !mobile;
   const rows: Pick<SiteRowProps, "place" | "subtitle" | "hoverKey" | "risk" | "best">[] = sites.map((site) => {
     const entry = scores.byKey.get(site.key);
     return {
@@ -59,6 +62,7 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
         <div className="brand__actions">
           <MissionParameters views={views} />
           <IconButton
+            className="sidebar__collapse"
             label={collapsed ? "Expand sites" : "Collapse sites"}
             variant="plain"
             size="sm"

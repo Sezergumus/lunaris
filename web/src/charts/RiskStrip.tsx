@@ -73,8 +73,12 @@ export function RiskStrip({ view }: { view: ScenarioView }) {
   return (
     <div className="risk-strip">
       <p className="risk-strip__caption">
-        <span>
-          Landing-date risk · {placeTitle(view.data.place)} · <b>{lowCount}</b> low-risk days
+        <span className="risk-strip__title">
+          <span>Landing-date risk ·&nbsp;</span>
+          <span className="risk-strip__place">{placeTitle(view.data.place)}</span>
+          <span>
+            &nbsp;· <b>{lowCount}</b> low-risk days
+          </span>
         </span>
         <span className="risk-strip__legend" aria-hidden="true">
           {LEVELS.map((level) => (
