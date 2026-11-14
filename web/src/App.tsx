@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
-import { MoonMap, type Insets, type MapPick, type MapPoint } from "./map/MoonMap.tsx";
+import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { Explainer } from "./panels/Explainer.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
 import { LimitsControl } from "./panels/LimitsControl.tsx";
 import { MastControl } from "./panels/MastControl.tsx";
+import { Recommendations } from "./panels/Recommendations.tsx";
 import { RiskBadge } from "./panels/RiskBadge.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
+import { betterSpot, neighbourPlace, offsetText, useNearby } from "./state/nearby.ts";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
+import { useSiteScores } from "./state/siteScores.ts";
 import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
 import type { LimitKey } from "./state/limits.ts";
 import { readUrl, syncUrl } from "./state/url.ts";
@@ -37,6 +40,8 @@ export default function App() {
   const a = usePlaceSeries(tables, placeA, mastM);
   const b = usePlaceSeries(tables, placeB, mastM);
   const views = useViews(a, b);
+  const siteScores = useSiteScores(tables, sites);
+  const nearby = useNearby(tables, a);
 
   // Start-up: the site list and the tables arrive separately; the scenario in the URL is
   // applied once both are known. The date range comes from the table, never from code.
@@ -116,6 +121,39 @@ export default function App() {
     if (place.lat <= MAP_NORTH_LIMIT_DEG) setFlyTarget({ lat: place.lat, lon: place.lon });
   }, []);
 
+  const siteRisk = useMemo(() => {
+    const map = new Map<string, PinRisk>();
+    siteScores.byKey.forEach((entry, key) => map.set(key, { overall: entry.score.overall, level: entry.score.level }));
+    return map;
+  }, [siteScores]);
+
+  // The scored grid around scenario A's place, as heat-map dots.
+  const nearbyResult = nearby.state.status === "ready" ? nearby.state.result : null;
+  const candidates = useMemo((): MapCandidate[] | null => {
+    if (!nearbyResult) return null;
+    const { scored, center, grid } = nearbyResult;
+    // Marked only when it is worth moving there (the same rule as the suggestion card).
+    const best = betterSpot(nearbyResult);
+    return scored.map((entry) => ({
+      lat: entry.point.lat,
+      lon: entry.point.lon,
+      level: entry.score.level,
+      stepM: grid.step_m,
+      best: entry === best,
+      center: entry === center,
+      label: `${entry === center ? "Here" : offsetText(entry.point)} · Risk ${entry.score.overall.toFixed(0)} · ${entry.score.level}${entry === best ? " · best nearby" : ""}`,
+    }));
+  }, [nearbyResult]);
+
+  const pickCandidate = useCallback(
+    (index: number) => {
+      const entry = nearbyResult?.scored[index];
+      const origin = getScenario().placeA;
+      if (entry && origin) actions.selectPlace(neighbourPlace(origin, entry.point, nearbyResult.grid));
+    },
+    [nearbyResult],
+  );
+
   // Custom points get their own marker; built-in sites already have a pin.
   const picks = useMemo(() => {
     const list: MapPick[] = [];
@@ -134,6 +172,10 @@ export default function App() {
         picks={picks}
         flyTarget={flyTarget}
         views={views}
+        siteRisk={siteRisk}
+        bestKey={siteScores.bestKey}
+        candidates={candidates}
+        onPickCandidate={pickCandidate}
         onSelectSite={(key) => {
           const site = sites.find((s) => s.key === key);
           if (site) choose(sitePlace(site));
@@ -153,11 +195,13 @@ export default function App() {
           hoveredKey={hoveredKey}
           onHover={setHoveredKey}
           onChoose={choose}
+          scores={siteScores}
         />
 
         {views.length > 0 ? (
           <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
             <RiskBadge views={views} />
+            <Recommendations view={views[0]} nearby={nearby} />
             <LimitsControl />
             <MastControl views={views} />
             <Explainer views={views} />

@@ -67,6 +67,47 @@ export function pointDistanceM(point: TerrainPoint): number {
   return Math.hypot(point.east_m, point.north_m);
 }
 
+/** Samples of one mission window on the vectors time axis, with the station column cut to match. */
+interface WindowSlice {
+  range: { first: number; count: number };
+  stations: StationElevation;
+}
+
+function windowSlice(vectors: VectorTable, stationMaxAlt: StationElevation, profile: Profile, landingMs: number): WindowSlice | null {
+  const first = sampleIndex(vectors, landingMs);
+  const count = Math.round((profile.duration_days * 24) / vectors.stepHours);
+  if (first < 0 || first + count > vectors.count) return null;
+  const stations = stationMaxAlt === null ? null : Array.prototype.slice.call(stationMaxAlt, first, first + count);
+  return { range: { first, count }, stations };
+}
+
+function scoreInSlice(slice: WindowSlice, vectors: VectorTable, lat: number, lon: number, horizon: Horizon | null, slopeDeg: number | null, profile: Profile) {
+  const sky = skyFromVectors(vectors, lat, lon, 0, slice.range);
+  const series = buildSeries(sky, horizon, slice.stations, profile);
+  const window = analyzeWindow(series, sky.startMs);
+  return window ? { window, score: scoreWindow(window, profile, slopeDeg) } : null;
+}
+
+/**
+ * Indicators and score of one place for the mission window starting at `landingMs`, computed
+ * over that window only (a few hundred samples instead of the whole table). Gives the same
+ * numbers as buildSeries over the whole table followed by analyzeWindow. `horizon` null =
+ * sphere model. Returns null if the window leaves the vectors table.
+ */
+export function scorePlace(
+  vectors: VectorTable,
+  stationMaxAlt: StationElevation,
+  lat: number,
+  lon: number,
+  horizon: Horizon | null,
+  slopeDeg: number | null,
+  profile: Profile,
+  landingMs: number,
+): { window: MissionWindow; score: Score } | null {
+  const slice = windowSlice(vectors, stationMaxAlt, profile, landingMs);
+  return slice ? scoreInSlice(slice, vectors, lat, lon, horizon, slopeDeg, profile) : null;
+}
+
 /**
  * Score every grid point for the mission window starting at `landingMs`.
  * `stationMaxAlt` must be on the time axis of `vectors` (null = always available).
@@ -79,20 +120,21 @@ export function scoreGrid(
   profile: Profile,
   landingMs: number,
 ): ScoredPoint[] | null {
-  const first = sampleIndex(vectors, landingMs);
-  const count = Math.round((profile.duration_days * 24) / vectors.stepHours);
-  if (first < 0 || first + count > vectors.count) return null;
-  const stations = stationMaxAlt === null ? null : Array.prototype.slice.call(stationMaxAlt, first, first + count);
-
+  const slice = windowSlice(vectors, stationMaxAlt, profile, landingMs);
+  if (!slice) return null;
   const scored: ScoredPoint[] = [];
   for (const point of grid.points) {
-    const sky = skyFromVectors(vectors, point.lat, point.lon, 0, { first, count });
-    const series = buildSeries(sky, pointHorizon(point), stations, profile);
-    const window = analyzeWindow(series, sky.startMs);
-    if (!window) return null;
-    scored.push({ point, window, score: scoreWindow(window, profile, point.slope_deg) });
+    const result = scoreInSlice(slice, vectors, point.lat, point.lon, pointHorizon(point), point.slope_deg, profile);
+    if (!result) return null;
+    scored.push({ point, ...result });
   }
   return scored;
+}
+
+/** Eight-point compass direction of a grid offset: "N", "NE", ... */
+export function compassDirection(eastM: number, northM: number): string {
+  const bearing = (Math.atan2(eastM, northM) * 180) / Math.PI;
+  return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][((Math.round(bearing / 45) % 8) + 8) % 8];
 }
 
 /**

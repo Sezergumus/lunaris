@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type Ref } from "react";
 import { DropdownMenu } from "radix-ui";
-import { CalendarCheck, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, Pencil, Plus, Trash2, X } from "lucide-react";
+import { CalendarCheck, Crosshair, EllipsisVertical, GitCompareArrows, MousePointerClick, Pencil, Plus, ShieldAlert, ShieldCheck, ShieldX, Trash2, X } from "lucide-react";
 import type { SiteInfo } from "../data/load.ts";
 import { insideTerrainCoverage } from "../data/terrain.ts";
 import { formatLat, formatLon } from "../geo/polar.ts";
 import { siteSubtitle, siteTitle } from "../sites.ts";
 import { MAX_SAVED_POINTS, getSavedPoint, savedPlace, savedPointActions, useSavedPoints, type SavedPoint } from "../state/savedPoints.ts";
+import type { SiteScores } from "../state/siteScores.ts";
 import { APOLLO_11, actions, customPlace, sitePlace, type Place } from "../state/scenario.ts";
+import type { RiskLevel } from "../engine/risk.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { NumberField } from "../ui/NumberField.tsx";
 import { formatDays, formatUtcDate, parseDecimal } from "../ui/format.ts";
@@ -21,12 +23,21 @@ interface SitesPanelProps {
   onHover: (key: string | null) => void;
   /** The user picked a place to assess (scenario A). */
   onChoose: (place: Place) => void;
+  /** Live risk of each built-in site for the mission on screen. */
+  scores: SiteScores;
 }
 
-export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, onHover, onChoose }: SitesPanelProps) {
-  const rows: { place: Place; subtitle: string | null; hoverKey: string | null }[] = [
-    ...sites.map((site) => ({ place: sitePlace(site), subtitle: siteSubtitle(site.name), hoverKey: site.key })),
-  ];
+export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, onHover, onChoose, scores }: SitesPanelProps) {
+  const rows: Pick<SiteRowProps, "place" | "subtitle" | "hoverKey" | "risk" | "best">[] = sites.map((site) => {
+    const entry = scores.byKey.get(site.key);
+    return {
+      place: sitePlace(site),
+      subtitle: siteSubtitle(site.name),
+      hoverKey: site.key,
+      risk: entry ? { overall: entry.score.overall, level: entry.score.level } : null,
+      best: scores.bestKey === site.key,
+    };
+  });
   const custom = placeA?.kind === "custom" ? placeA : placeB?.kind === "custom" ? placeB : null;
 
   return (
@@ -93,9 +104,17 @@ interface SiteRowProps {
   hovered: boolean;
   onHover: (key: string | null) => void;
   onChoose: (place: Place) => void;
+  /** Risk of the mission on screen at this site; null while unknown or for places without one. */
+  risk?: { overall: number; level: RiskLevel } | null;
+  /** Lowest risk among the sites. */
+  best?: boolean;
 }
 
-function SiteRow({ place, subtitle, hoverKey, placeA, placeB, hovered, onHover, onChoose }: SiteRowProps) {
+const LEVEL_ICON = { low: ShieldCheck, medium: ShieldAlert, high: ShieldX };
+const LEVEL_TEXT: Record<RiskLevel, string> = { low: "low", medium: "medium", high: "high" };
+
+function SiteRow({ place, subtitle, hoverKey, placeA, placeB, hovered, onHover, onChoose, risk, best }: SiteRowProps) {
+  const RiskIcon = risk ? LEVEL_ICON[risk.level] : null;
   const isA = placeA?.id === place.id;
   const isB = placeB?.id === place.id;
   const title = place.kind === "site" ? siteTitle(place.name) : place.name;
@@ -115,7 +134,18 @@ function SiteRow({ place, subtitle, hoverKey, placeA, placeB, hovered, onHover, 
         {placeB && (isA || isB) ? <span className={`tag tag--${isA ? "a" : "b"}`}>{isA ? "A" : "B"}</span> : <span className="site-row__dot" aria-hidden="true" />}
         <span className="site-row__text">
           <span className="site-row__title">{title}</span>
-          {subtitle ? <span className="site-row__subtitle">{subtitle}</span> : null}
+          {risk || subtitle ? (
+            <span className="site-row__meta">
+              {risk && RiskIcon ? (
+                <span className="site-row__risk" data-level={risk.level} aria-label={`Risk ${risk.overall.toFixed(0)}, ${LEVEL_TEXT[risk.level]}`}>
+                  <RiskIcon aria-hidden="true" />
+                  {risk.overall.toFixed(0)}
+                </span>
+              ) : null}
+              {best ? <span className="site-row__best">Best</span> : null}
+              {subtitle ? <span className="site-row__subtitle">{subtitle}</span> : null}
+            </span>
+          ) : null}
         </span>
         <span className="site-row__coords">
           <span>{formatLat(place.lat)}</span>

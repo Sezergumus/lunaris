@@ -482,3 +482,66 @@
     display: none;
   }
 }
+
+/* ---------- Live site risk on the pins ---------- */
+
+.site-pin__risk:not(:empty) {
+  margin-left: 6px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--pin-level, var(--text-2));
+}
+
+.site-pin[data-level="low"] {
+  --pin-level: #30d158;
+}
+
+.site-pin[data-level="medium"] {
+  --pin-level: #ffd60a;
+}
+
+.site-pin[data-level="high"] {
+  --pin-level: #ff6961;
+}
+
+/* The level shows as a ring around the white dot; selection colors still win. */
+.site-pin[data-level]:not(.is-selected, .is-compare) .site-pin__dot {
+  border-color: var(--pin-level);
+}
+
+.site-pin.is-best:not(.is-selected, .is-compare) .site-pin__dot {
+  box-shadow:
+    0 0 0 4px rgba(48, 209, 88, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.site-pin.is-best:not(.is-selected) .site-pin__label {
+  border-color: rgba(48, 209, 88, 0.55);
+}
+
+/* Selected labels sit on a colored pill: keep the score readable there. */
+.site-pin.is-selected .site-pin__risk,
+.site-pin.is-compare .site-pin__risk {
+  color: #fff;
+}
+
+/* ---------- Nearby-spot heat map ---------- */
+
+.candidate {
+  cursor: pointer;
+}
+
+.leaflet-tooltip.candidate-tip {
+  padding: 4px 8px 5px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  font: 510 12px/1.35 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: rgba(44, 44, 50, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.leaflet-tooltip.candidate-tip::before {
+  display: none;
+}

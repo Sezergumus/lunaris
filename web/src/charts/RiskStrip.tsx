@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { scanLandingDates, type RiskLevel, type ScanRow } from "../engine/risk.ts";
+import type { RiskLevel, ScanRow } from "../engine/risk.ts";
+import { landingScan } from "../state/placeData.ts";
 import { actions, placeTitle, startOfB, useScenario } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
 import { formatUtcDate } from "../ui/format.ts";
@@ -26,7 +27,7 @@ export function RiskStrip({ view }: { view: ScenarioView }) {
   const startB = useScenario(startOfB);
   const comparing = useScenario((s) => s.placeB !== null);
 
-  const rows = useMemo(() => scanLandingDates(view.data.series, view.data.slopeP95Deg), [view.data]);
+  const rows = useMemo(() => landingScan(view.data), [view.data]);
   const lowCount = useMemo(() => rows.filter((row) => row.level === "low").length, [rows]);
 
   // Draw on a canvas: about 1,500 cells, redrawn only when the data or the width changes.

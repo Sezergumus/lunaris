@@ -9,7 +9,19 @@ import { TerrainError, fetchHorizon, insideTerrainCoverage, terrainConfigured } 
 import { findTransitions, limbClearance, type Transitions } from "../engine/events.ts";
 import { pointHorizon, type TerrainGrid, type TerrainPoint } from "../engine/grid.ts";
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
-import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, raisedHorizon, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
+import {
+  DEFAULT_PROFILE,
+  EARTH_RADIUS_DEG,
+  SUN_RADIUS_DEG,
+  buildSeries,
+  raisedHorizon,
+  scanLandingDates,
+  type Horizon,
+  type Profile,
+  type ScanRow,
+  type Series,
+  type SkySeries,
+} from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
 import { useEffectiveProfile } from "./limits.ts";
 import { getSavedPoint } from "./savedPoints.ts";
@@ -228,6 +240,21 @@ export function buildPlaceData(
     mast,
     mapError,
   };
+}
+
+const scans = new WeakMap<Series, ScanRow[]>();
+
+/**
+ * Risk of every landing date in the data for a place, one row per day. Shared by the
+ * landing-date strip and the date suggestion, so the scan runs once per change.
+ */
+export function landingScan(data: PlaceData): ScanRow[] {
+  let rows = scans.get(data.series);
+  if (!rows) {
+    rows = scanLandingDates(data.series, data.slopeP95Deg);
+    scans.set(data.series, rows);
+  }
+  return rows;
 }
 
 /** How long the mast slider must rest before the terrain service is asked, milliseconds. */

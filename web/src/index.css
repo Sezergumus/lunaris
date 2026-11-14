@@ -309,6 +309,10 @@ svg {
 }
 
 .site-row__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 590;
   letter-spacing: -0.01em;
@@ -540,4 +544,60 @@ svg {
   .menu[data-state="open"] {
     animation: none;
   }
+}
+
+/* ---------- Live site risk ---------- */
+
+/* Second line of a site row: live risk, "Best", then the site's subtitle. */
+.site-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.site-row__best {
+  flex: none;
+  padding: 1px 6px 2px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  color: #0b2a14;
+  background: var(--success);
+}
+
+/* Score of the mission on screen; the shield's shape repeats the level for color-blind readers. */
+.site-row__risk {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 6px 0 4px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--level);
+  background: color-mix(in srgb, var(--level) 15%, transparent);
+}
+
+.site-row__risk svg {
+  width: 11px;
+  height: 11px;
+}
+
+.site-row__risk[data-level="low"] {
+  --level: #30d158;
+}
+
+.site-row__risk[data-level="medium"] {
+  --level: #ffd60a;
+}
+
+.site-row__risk[data-level="high"] {
+  --level: #ff6961;
 }

@@ -3,6 +3,7 @@ import L from "leaflet";
 import { Minus, Plus, Scan } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import type { SiteInfo } from "../data/load.ts";
+import type { RiskLevel } from "../engine/risk.ts";
 import { formatLat, formatLon, latLonToXY } from "../geo/polar.ts";
 import { sampleAt } from "../engine/events.ts";
 import { siteTitle } from "../sites.ts";
@@ -25,6 +26,25 @@ export interface MapPick extends MapPoint {
   tag: "A" | "B";
 }
 
+/** A scored point near scenario A's place, drawn as a dot of the nearby-spot heat map. */
+export interface MapCandidate extends MapPoint {
+  level: RiskLevel;
+  /** Distance between neighbouring grid points, meters. */
+  stepM: number;
+  /** The best point of the grid. */
+  best: boolean;
+  /** The grid's center: the place itself. */
+  center: boolean;
+  /** Tooltip text, e.g. "354 m NE · Risk 12 · Low". */
+  label: string;
+}
+
+/** Live risk of a built-in site for the mission on screen. */
+export interface PinRisk {
+  overall: number;
+  level: RiskLevel;
+}
+
 export interface Insets {
   top: number;
   right: number;
@@ -45,6 +65,13 @@ interface MoonMapProps {
   flyTarget: MapPoint | null;
   /** Scenarios on screen; each gets Sun and Earth direction arrows at its place. */
   views: ScenarioView[];
+  /** Live risk per site key, shown on the pins; the best site is highlighted. */
+  siteRisk: Map<string, PinRisk>;
+  bestKey: string | null;
+  /** Scored points around scenario A's place; null = none. */
+  candidates: MapCandidate[] | null;
+  /** A candidate dot was clicked (index into `candidates`). */
+  onPickCandidate: (index: number) => void;
   onSelectSite: (key: string) => void;
   onHoverSite: (key: string | null) => void;
   onPick: (point: MapPoint) => void;
@@ -73,10 +100,14 @@ const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: r
 function pinIcon(site: SiteInfo): L.DivIcon {
   return L.divIcon({
     className: "site-pin",
-    html: `<span class="site-pin__dot"></span><span class="site-pin__label">${siteTitle(site.name)}</span>`,
+    html: `<span class="site-pin__dot"></span><span class="site-pin__label">${siteTitle(site.name)}<span class="site-pin__risk"></span></span>`,
     iconSize: [0, 0],
   });
 }
+
+/** Heat-map colors of the nearby-spot dots; the same hues as the landing-date strip. */
+const CANDIDATE_COLOR: Record<RiskLevel, string> = { low: "#30d158", medium: "#ffd60a", high: "#a8403a" };
+const LEVEL_WORD: Record<RiskLevel, string> = { low: "low", medium: "medium", high: "high" };
 
 const pickIcon = (tag: "A" | "B") =>
   L.divIcon({ className: `pick-pin pick-pin--${tag.toLowerCase()}`, html: `<span class="pick-pin__ring"></span>`, iconSize: [0, 0] });
@@ -97,16 +128,32 @@ function zoomToFit(map: L.Map, halfWidthM: number, insets: Insets): number {
   return Math.floor(Math.log2((ZOOM0_M_PER_PX * free) / (2 * halfWidthM)) * 4) / 4;
 }
 
-export function MoonMap({ sites, selectedKey, compareKey, hoveredKey, picks, flyTarget, views, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
+export function MoonMap({
+  sites,
+  selectedKey,
+  compareKey,
+  hoveredKey,
+  picks,
+  flyTarget,
+  views,
+  siteRisk,
+  bestKey,
+  candidates,
+  onPickCandidate,
+  onSelectSite,
+  onHoverSite,
+  onPick,
+  getInsets,
+}: MoonMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
   const [tilesFailing, setTilesFailing] = useState(false);
   const markersRef = useRef(new Map<string, L.Marker>());
   // Leaflet handlers are bound once; they read the latest callbacks through this ref.
-  const callbacks = useRef({ onSelectSite, onHoverSite, onPick, getInsets });
+  const callbacks = useRef({ onSelectSite, onHoverSite, onPick, onPickCandidate, getInsets });
   useLayoutEffect(() => {
-    callbacks.current = { onSelectSite, onHoverSite, onPick, getInsets };
+    callbacks.current = { onSelectSite, onHoverSite, onPick, onPickCandidate, getInsets };
   });
 
   // Create the map once.
@@ -200,10 +247,22 @@ export function MoonMap({ sites, selectedKey, compareKey, hoveredKey, picks, fly
       element?.classList.toggle("is-selected", key === selectedKey);
       element?.classList.toggle("is-compare", key === compareKey && key !== selectedKey);
       element?.classList.toggle("is-hovered", key === hoveredKey);
-      marker.setZIndexOffset(key === selectedKey ? 2000 : key === compareKey ? 1800 : key === hoveredKey ? 1500 : 1000);
+      // Live risk for the mission on screen: level ring on the dot, score in the label.
+      const risk = siteRisk.get(key);
+      element?.classList.toggle("is-best", key === bestKey);
+      if (element) {
+        if (risk) element.dataset.level = risk.level;
+        else delete element.dataset.level;
+        const text = element.querySelector<HTMLElement>(".site-pin__risk");
+        if (text) {
+          text.textContent = risk ? `${key === bestKey ? "Best · " : ""}${risk.overall.toFixed(0)}` : "";
+          text.title = risk ? `Risk ${risk.overall.toFixed(0)}, ${LEVEL_WORD[risk.level]}` : "";
+        }
+      }
+      marker.setZIndexOffset(key === selectedKey ? 2000 : key === compareKey ? 1800 : key === hoveredKey ? 1500 : key === bestKey ? 1200 : 1000);
     });
 
-    const rank = (key: string) => (key === selectedKey ? 0 : key === compareKey ? 1 : key === hoveredKey ? 2 : 3);
+    const rank = (key: string) => (key === selectedKey ? 0 : key === compareKey ? 1 : key === hoveredKey ? 2 : key === bestKey ? 3 : 4);
     const layout = () => {
       const entries = sites
         .map((site, index) => ({ site, index, element: markers.get(site.key)?.getElement() }))
@@ -225,7 +284,70 @@ export function MoonMap({ sites, selectedKey, compareKey, hoveredKey, picks, fly
     return () => {
       map.off("zoom zoomend viewreset", layout);
     };
-  }, [selectedKey, compareKey, hoveredKey, sites, map]);
+  }, [selectedKey, compareKey, hoveredKey, sites, map, siteRisk, bestKey]);
+
+  // Nearby-spot heat map: one dot per scored grid point. The dots follow the ground spacing
+  // of the grid (a little under half a step in radius, at least 2 px) and are drawn once
+  // neighbours are a few pixels apart. The best point always gets a marker of fixed screen
+  // size, so it can be found from the whole-region view.
+  useEffect(() => {
+    if (!map || !candidates || candidates.length === 0) return;
+    const pick = (index: number) => () => callbacks.current.onPickCandidate(index);
+    const tooltip: L.TooltipOptions = { direction: "top", className: "candidate-tip", offset: [0, -6] };
+    const heat = L.layerGroup();
+    const dots = candidates.map((candidate, index) => {
+      const dot = L.circleMarker([candidate.lat, candidate.lon], {
+        radius: 2,
+        stroke: candidate.center,
+        color: "rgba(255, 255, 255, 0.8)",
+        weight: 1,
+        fillColor: CANDIDATE_COLOR[candidate.level],
+        fillOpacity: 0.6,
+        className: "candidate",
+        // A click on a dot must not also count as a click on the map.
+        bubblingMouseEvents: false,
+      });
+      dot.bindTooltip(candidate.label, tooltip);
+      if (!candidate.center) dot.on("click", pick(index));
+      dot.addTo(heat);
+      return dot;
+    });
+
+    const bestIndex = candidates.findIndex((candidate) => candidate.best && !candidate.center);
+    const best = bestIndex >= 0 ? candidates[bestIndex] : null;
+    const bestMarker = best
+      ? L.circleMarker([best.lat, best.lon], {
+          radius: 6,
+          color: "#fff",
+          weight: 2,
+          fillColor: CANDIDATE_COLOR[best.level],
+          fillOpacity: 1,
+          className: "candidate candidate--best",
+          bubblingMouseEvents: false,
+        })
+          .bindTooltip(best.label, tooltip)
+          .on("click", pick(bestIndex))
+      : null;
+
+    const stepM = candidates[0].stepM;
+    const update = () => {
+      const stepPx = stepM / (ZOOM0_M_PER_PX / 2 ** map.getZoom());
+      const legible = stepPx >= 2.5;
+      if (legible) {
+        const radius = Math.max(2, stepPx * 0.42);
+        dots.forEach((dot) => dot.setRadius(radius));
+        if (!map.hasLayer(heat)) heat.addTo(map);
+      } else if (map.hasLayer(heat)) heat.remove();
+    };
+    update();
+    bestMarker?.addTo(map);
+    map.on("zoomend", update);
+    return () => {
+      map.off("zoomend", update);
+      heat.remove();
+      bestMarker?.remove();
+    };
+  }, [map, candidates]);
 
   const flyToPoint = useCallback(
     (lat: number, lon: number, widthM: number) => {
