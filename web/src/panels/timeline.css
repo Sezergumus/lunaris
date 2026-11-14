@@ -138,6 +138,36 @@
   text-overflow: ellipsis;
 }
 
+.compare-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-summary__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.compare-summary b {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.compare-summary b[data-trend="up"] {
+  color: var(--success);
+}
+
+.compare-summary b[data-trend="down"] {
+  color: var(--danger);
+}
+
 /* ---------- Track ---------- */
 
 .track {

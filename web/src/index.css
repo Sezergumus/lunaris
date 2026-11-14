@@ -205,12 +205,17 @@ svg {
   color: var(--text-2);
 }
 
-.site-list {
+.sidebar__scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 10px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   border-top: 1px solid var(--separator);
+}
+
+.site-list {
+  padding: 4px 10px 6px;
 }
 
 .site-list .section-label {
@@ -223,8 +228,38 @@ svg {
   color: var(--warning);
 }
 
+.site-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* The compare button stays quiet until its row is pointed at or focused. */
+.site-item__compare {
+  opacity: 0.45;
+}
+
+.site-item:hover .site-item__compare:not(:disabled),
+.site-item__compare:focus-visible {
+  opacity: 1;
+}
+
+.site-item__compare:disabled {
+  opacity: 0.18;
+}
+
+.site-item[data-role="b"] .site-row {
+  background: rgba(142, 142, 147, 0.18);
+}
+
+.site-row .tag {
+  flex: none;
+  margin: 0 -3px;
+}
+
 .site-row {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -295,6 +330,39 @@ svg {
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
   white-space: nowrap;
+}
+
+/* ---------- Custom coordinates ---------- */
+
+.custom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 20px 16px;
+}
+
+.custom .section-label {
+  padding: 8px 0 0;
+}
+
+.custom__fields,
+.custom__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.custom__actions .btn {
+  flex: 1;
+}
+
+.custom__note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--warning);
+}
+
+.custom__note[data-tone="error"] {
+  color: var(--danger);
 }
 
 .sidebar__hint {

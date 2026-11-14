@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MousePointerClick } from "lucide-react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
-import { MoonMap, type Insets, type MapPoint } from "./map/MoonMap.tsx";
-import { formatLat, formatLon } from "./geo/polar.ts";
+import { MoonMap, type Insets, type MapPick, type MapPoint } from "./map/MoonMap.tsx";
+import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
+import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
-import { siteSubtitle, siteTitle } from "./sites.ts";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
-import { actions, customPlace, sitePlace, useScenario, type Place } from "./state/scenario.ts";
+import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
+import { readUrl, syncUrl } from "./state/url.ts";
 import { useViews } from "./state/view.ts";
 
 const PANEL_GAP = 16;
+/** The basemap ends near 55°S; places north of this are not flown to. */
+const MAP_NORTH_LIMIT_DEG = -56;
 
 export default function App() {
   const [sites, setSites] = useState<SiteInfo[]>([]);
@@ -24,50 +26,45 @@ export default function App() {
 
   const placeA = useScenario((s) => s.placeA);
   const placeB = useScenario((s) => s.placeB);
-  const ready = useScenario((s) => s.limits !== null);
   const { tables, error: tablesError } = useSkyTables();
   const a = usePlaceSeries(tables, placeA);
   const b = usePlaceSeries(tables, placeB);
   const views = useViews(a, b);
 
+  // Start-up: the site list and the tables arrive separately; the scenario in the URL is
+  // applied once both are known. The date range comes from the table, never from code.
   useEffect(() => {
-    loadSites()
-      .then((list) => {
-        setSites([...list].sort((x, y) => x.lat - y.lat));
-        const fromUrl = new URLSearchParams(window.location.search).get("site");
-        const initial = list.find((s) => s.key === fromUrl);
-        if (initial) actions.selectPlace(sitePlace(initial));
-      })
-      .catch((error: Error) => setLoadError(error.message));
+    loadSites().then(
+      (list) => setSites([...list].sort((x, y) => x.lat - y.lat)),
+      (error: Error) => setLoadError(error.message),
+    );
   }, []);
 
-  // The date range comes from the table, never from code.
   useEffect(() => {
-    if (!tables || ready) return;
-    const date = new URLSearchParams(window.location.search).get("date");
-    const parsed = date ? Date.parse(`${date}T00:00:00Z`) : NaN;
-    actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, Number.isNaN(parsed) ? null : parsed, null);
-  }, [tables, ready]);
-
-  // Keep the selected site in the URL so a view can be shared as a link.
-  useEffect(() => {
-    if (sites.length === 0) return;
-    const url = new URL(window.location.href);
-    if (placeA?.kind === "site") url.searchParams.set("site", placeA.key);
-    else url.searchParams.delete("site");
-    window.history.replaceState(null, "", url);
-  }, [placeA, sites.length]);
+    if (!tables || sites.length === 0) return;
+    if (!getScenario().limits) {
+      const url = readUrl(sites);
+      actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, url.startMs, url.windowHours);
+      if (url.placeA) actions.selectPlace(url.placeA);
+      if (url.placeA && url.placeB) actions.compareWith(url.placeB);
+      if (url.placeA && url.slipDays > 0) actions.slip(url.slipDays);
+    }
+    return syncUrl();
+  }, [tables, sites]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // Escape inside a popover closes the popover, not the panel.
-      if (event.key === "Escape" && !(event.target as HTMLElement).closest("[role='dialog']")) actions.selectPlace(null);
+      if (event.key !== "Escape" || (event.target as HTMLElement).closest("[role='dialog']")) return;
+      // One step back at a time: the comparison first, then the selection.
+      if (getScenario().placeB) actions.clearComparison();
+      else actions.selectPlace(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // The map's own chrome (scale, zoom buttons, attribution) sits just above the timeline.
+  // The map's own chrome (scale, zoom buttons, legend) sits just above the timeline.
   useLayoutEffect(() => {
     const app = appRef.current!;
     const timeline = timelineRef.current!;
@@ -106,19 +103,25 @@ export default function App() {
   /** A selection made by the user: assess the place and bring it into view. */
   const choose = useCallback((place: Place) => {
     actions.selectPlace(place);
-    if (place.kind !== "reference") setFlyTarget({ lat: place.lat, lon: place.lon });
+    if (place.lat <= MAP_NORTH_LIMIT_DEG) setFlyTarget({ lat: place.lat, lon: place.lon });
   }, []);
 
-  const picked = useMemo(() => (placeA?.kind === "custom" ? { lat: placeA.lat, lon: placeA.lon } : null), [placeA]);
-  const selectedKey = placeA?.kind === "site" ? placeA.key : null;
+  // Custom points get their own marker; built-in sites already have a pin.
+  const picks = useMemo(() => {
+    const list: MapPick[] = [];
+    if (placeA?.kind === "custom") list.push({ lat: placeA.lat, lon: placeA.lon, tag: "A" });
+    if (placeB?.kind === "custom" && placeB.id !== placeA?.id) list.push({ lat: placeB.lat, lon: placeB.lon, tag: "B" });
+    return list;
+  }, [placeA, placeB]);
 
   return (
     <div ref={appRef} className="app">
       <MoonMap
         sites={sites}
-        selectedKey={selectedKey}
+        selectedKey={placeA?.kind === "site" ? placeA.key : null}
+        compareKey={placeB?.kind === "site" ? placeB.key : null}
         hoveredKey={hoveredKey}
-        picked={picked}
+        picks={picks}
         flyTarget={flyTarget}
         views={views}
         onSelectSite={(key) => {
@@ -131,64 +134,20 @@ export default function App() {
       />
 
       <div className="hud">
-        <aside ref={sidebarRef} className="sidebar glass glass--thick">
-          <header className="brand">
-            <svg className="brand__mark" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 3a9 9 0 0 0 0 18" />
-            </svg>
-            <div>
-              <h1 className="brand__name">Lunaris</h1>
-              <p className="brand__tagline">Lunar south pole landing sites</p>
-            </div>
-          </header>
-
-          <section className="site-list" aria-labelledby="site-list-heading">
-            <h2 id="site-list-heading" className="section-label">
-              Sites
-            </h2>
-            {loadError ? <p className="site-list__error">Site list could not be loaded ({loadError}).</p> : null}
-            <ul>
-              {sites.map((site) => {
-                const subtitle = siteSubtitle(site.name);
-                return (
-                  <li key={site.key}>
-                    <button
-                      type="button"
-                      className="site-row"
-                      aria-pressed={selectedKey === site.key}
-                      data-hovered={hoveredKey === site.key}
-                      onClick={() => choose(sitePlace(site))}
-                      onPointerEnter={() => setHoveredKey(site.key)}
-                      onPointerLeave={() => setHoveredKey(null)}
-                      onFocus={() => setHoveredKey(site.key)}
-                      onBlur={() => setHoveredKey(null)}
-                    >
-                      <span className="site-row__dot" aria-hidden="true" />
-                      <span className="site-row__text">
-                        <span className="site-row__title">{siteTitle(site.name)}</span>
-                        {subtitle ? <span className="site-row__subtitle">{subtitle}</span> : null}
-                      </span>
-                      <span className="site-row__coords">
-                        <span>{formatLat(site.lat)}</span>
-                        <span>{formatLon(site.lon)}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-
-          <p className="sidebar__hint">
-            <MousePointerClick aria-hidden="true" />
-            Click anywhere on the map to inspect a location.
-          </p>
-        </aside>
+        <SitesPanel
+          ref={sidebarRef}
+          sites={sites}
+          loadError={loadError}
+          placeA={placeA}
+          placeB={placeB}
+          hoveredKey={hoveredKey}
+          onHover={setHoveredKey}
+          onChoose={choose}
+        />
 
         {views.length > 0 ? <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views} /> : null}
 
-        <TimelineBar ref={timelineRef} a={a} b={b} />
+        <TimelineBar ref={timelineRef} a={a} b={b} summary={views.length > 1 ? <CompareSummary views={views} /> : null} />
         {tablesError ? (
           <p className="hud__error" role="alert">
             Sun and Earth tables could not be loaded ({tablesError}).

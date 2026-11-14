@@ -20,6 +20,11 @@ export interface MapPoint {
   lon: number;
 }
 
+/** Marker of a custom point; the tag says which scenario it belongs to. */
+export interface MapPick extends MapPoint {
+  tag: "A" | "B";
+}
+
 export interface Insets {
   top: number;
   right: number;
@@ -29,9 +34,13 @@ export interface Insets {
 
 interface MoonMapProps {
   sites: SiteInfo[];
+  /** Site of scenario A. */
   selectedKey: string | null;
+  /** Site of scenario B while comparing. */
+  compareKey: string | null;
   hoveredKey: string | null;
-  picked: MapPoint | null;
+  /** Custom points on screen. */
+  picks: MapPick[];
   /** View request: the map flies there when the object changes. Null leaves the view alone. */
   flyTarget: MapPoint | null;
   /** Scenarios on screen; each gets Sun and Earth direction arrows at its place. */
@@ -69,7 +78,8 @@ function pinIcon(site: SiteInfo): L.DivIcon {
   });
 }
 
-const pickIcon = L.divIcon({ className: "pick-pin", html: `<span class="pick-pin__ring"></span>`, iconSize: [0, 0] });
+const pickIcon = (tag: "A" | "B") =>
+  L.divIcon({ className: `pick-pin pick-pin--${tag.toLowerCase()}`, html: `<span class="pick-pin__ring"></span>`, iconSize: [0, 0] });
 
 /** Map center that puts the projected point (x, y) in the middle of the uncovered area. */
 function centerFor(map: L.Map, x: number, y: number, zoom: number, insets: Insets): L.LatLng {
@@ -87,7 +97,7 @@ function zoomToFit(map: L.Map, halfWidthM: number, insets: Insets): number {
   return Math.floor(Math.log2((ZOOM0_M_PER_PX * free) / (2 * halfWidthM)) * 4) / 4;
 }
 
-export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, views, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
+export function MoonMap({ sites, selectedKey, compareKey, hoveredKey, picks, flyTarget, views, onSelectSite, onHoverSite, onPick, getInsets }: MoonMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
@@ -188,11 +198,12 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, vie
     markers.forEach((marker, key) => {
       const element = marker.getElement();
       element?.classList.toggle("is-selected", key === selectedKey);
+      element?.classList.toggle("is-compare", key === compareKey && key !== selectedKey);
       element?.classList.toggle("is-hovered", key === hoveredKey);
-      marker.setZIndexOffset(key === selectedKey ? 2000 : key === hoveredKey ? 1500 : 1000);
+      marker.setZIndexOffset(key === selectedKey ? 2000 : key === compareKey ? 1800 : key === hoveredKey ? 1500 : 1000);
     });
 
-    const rank = (key: string) => (key === selectedKey ? 0 : key === hoveredKey ? 1 : 2);
+    const rank = (key: string) => (key === selectedKey ? 0 : key === compareKey ? 1 : key === hoveredKey ? 2 : 3);
     const layout = () => {
       const entries = sites
         .map((site, index) => ({ site, index, element: markers.get(site.key)?.getElement() }))
@@ -214,7 +225,7 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, vie
     return () => {
       map.off("zoom zoomend viewreset", layout);
     };
-  }, [selectedKey, hoveredKey, sites, map]);
+  }, [selectedKey, compareKey, hoveredKey, sites, map]);
 
   const flyToPoint = useCallback(
     (lat: number, lon: number, widthM: number) => {
@@ -235,14 +246,14 @@ export function MoonMap({ sites, selectedKey, hoveredKey, picked, flyTarget, vie
     if (flyTarget) flyToPoint(flyTarget.lat, flyTarget.lon, SITE_VIEW_WIDTH_M);
   }, [flyTarget, flyToPoint]);
 
-  // Marker for a clicked point.
+  // Markers for custom points.
   useEffect(() => {
-    if (!map || !picked) return;
-    const marker = L.marker([picked.lat, picked.lon], { icon: pickIcon, interactive: false, keyboard: false, zIndexOffset: 3000 }).addTo(map);
-    return () => {
-      marker.remove();
-    };
-  }, [map, picked]);
+    if (!map) return;
+    const markers = picks.map((pick) =>
+      L.marker([pick.lat, pick.lon], { icon: pickIcon(pick.tag), interactive: false, keyboard: false, zIndexOffset: 3000 }).addTo(map),
+    );
+    return () => markers.forEach((marker) => marker.remove());
+  }, [map, picks]);
 
   // Sun and Earth arrows. They follow the timeline cursor through a direct store
   // subscription, so playback turns them without re-rendering React.
