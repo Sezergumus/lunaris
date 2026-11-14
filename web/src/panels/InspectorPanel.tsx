@@ -65,7 +65,7 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
         <Metric label="Solar elevation" views={views} cell={ElevationCell} />
         <Metric label="Time to sunset" views={views} cell={SunsetCell} />
         <Metric label="Time to Earthset" views={views} cell={EarthsetCell} />
-        <Metric label="Longest darkness" hint="this window" views={views} cell={DarknessCell} />
+        <Metric label="Longest darkness" views={views} cell={DarknessCell} />
       </div>
 
       {children}
@@ -208,7 +208,7 @@ function DarknessCell({ view }: { view: ScenarioView }) {
         {survives ? <BatteryFull aria-hidden="true" /> : <BatteryWarning aria-hidden="true" />}
         {survives ? "Within" : "Exceeds"} the {battery} h battery
       </p>
-      <p className="metric__sub">Usable Sun {formatPercent(window.power.sunlit_pct)}</p>
+      <p className="metric__sub">Usable Sun {formatPercent(window.power.sunlit_pct)} of this window</p>
     </>
   );
 }

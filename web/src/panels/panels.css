@@ -392,3 +392,155 @@
     transform-origin: top center;
   }
 }
+
+/* ---------- Risk badge ---------- */
+
+.risk {
+  --risk-low: #30d158;
+  --risk-medium: #ffd60a;
+  --risk-high: #ff453a;
+
+  padding: 10px 12px 11px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.risk__columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.risk__column {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.inspector[data-compare] .risk__column {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.risk__column[data-level="low"] {
+  --level: var(--risk-low);
+}
+
+.risk__column[data-level="medium"] {
+  --level: var(--risk-medium);
+}
+
+.risk__column[data-level="high"] {
+  --level: var(--risk-high);
+}
+
+.risk__overall {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk__number {
+  min-width: 1.2em;
+  font-size: 34px;
+  font-weight: 680;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.risk__level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--level);
+  background: color-mix(in srgb, var(--level) 16%, transparent);
+  transition:
+    color 200ms ease,
+    background-color 200ms ease;
+}
+
+.risk__level svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.2;
+}
+
+.risk__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.risk__bar {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.risk__bar dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk__bar[data-driver] dt {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.risk__track {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.risk__fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--text-2);
+  transform-origin: left center;
+  transition: transform 260ms var(--ease-out);
+}
+
+.risk__bar[data-driver] .risk__fill {
+  background: var(--level);
+}
+
+.risk__value {
+  width: 24px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.risk__foot,
+.risk__none {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .risk__fill {
+    transition: none;
+  }
+}

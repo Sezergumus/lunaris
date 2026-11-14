@@ -1,0 +1,80 @@
+import { useMemo } from "react";
+import { ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
+import { analyzeWindow, scoreWindow, type RiskLevel, type Score } from "../engine/risk.ts";
+import type { ScenarioView } from "../state/view.ts";
+
+const LEVEL_TEXT: Record<RiskLevel, string> = { low: "Low", medium: "Medium", high: "High" };
+const LEVEL_ICON = { low: ShieldCheck, medium: ShieldAlert, high: ShieldX };
+const CATEGORIES = [
+  { id: "power", label: "Power" },
+  { id: "comm", label: "Comm" },
+  { id: "surface", label: "Surface" },
+] as const;
+
+/** Risk of the mission that lands at the scenario's start date; null if it leaves the data. */
+function useScore(view: ScenarioView): Score | null {
+  return useMemo(() => {
+    const { series, slopeP95Deg } = view.data;
+    const window = analyzeWindow(series, view.startMs);
+    return window ? scoreWindow(window, series.profile, slopeP95Deg) : null;
+  }, [view]);
+}
+
+function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
+  const score = useScore(view);
+  if (!score) return <p className="risk__none">The mission would end after the last date in the data.</p>;
+  const Icon = LEVEL_ICON[score.level];
+  return (
+    <div className="risk__column" data-level={score.level}>
+      <p className="risk__overall">
+        {tagged ? <span className={`tag tag--${view.tag.toLowerCase()}`}>{view.tag}</span> : null}
+        <span className="risk__number">{score.overall.toFixed(0)}</span>
+        <span className="risk__level">
+          <Icon aria-hidden="true" />
+          {LEVEL_TEXT[score.level]}
+        </span>
+      </p>
+      <dl className="risk__bars">
+        {CATEGORIES.map(({ id, label }) => {
+          const value = score[id];
+          return (
+            <div key={id} className="risk__bar" data-driver={(score.driver === id && score.overall > 0) || undefined}>
+              <dt>{label}</dt>
+              <dd>
+                <span className="risk__track">
+                  {/* A share of the track, drawn with a transform so it never animates layout. */}
+                  <span className="risk__fill" style={{ transform: `scaleX(${(value ?? 0) / 100})` }} />
+                </span>
+                <span className="risk__value">{value === null ? "n/a" : value.toFixed(0)}</span>
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
+  );
+}
+
+/**
+ * Overall risk (the worst category) and the three categories behind it, for the mission
+ * that lands at the start date. A transparent heuristic with placeholder limits, as the
+ * footnote says; it is always shown with its level in words, never as a color alone.
+ */
+export function RiskBadge({ views }: { views: ScenarioView[] }) {
+  const profile = views[0].data.series.profile;
+  return (
+    <section className="risk" aria-label="Mission risk">
+      <h3 className="metric__label">
+        Mission risk<span className="metric__hint"> · {profile.duration_days}-day mission · 0 best, 100 worst</span>
+      </h3>
+      <div className="risk__columns">
+        {views.map((view) => (
+          <ScoreColumn key={view.tag} view={view} tagged={views.length > 1} />
+        ))}
+      </div>
+      <p className="risk__foot">
+        Worst category counts. Limits: {profile.battery_survival_h} h battery, {profile.max_comm_outage_h} h without contact, {profile.max_slope_deg}° slope.
+      </p>
+    </section>
+  );
+}

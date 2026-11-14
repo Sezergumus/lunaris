@@ -168,6 +168,117 @@
   color: var(--danger);
 }
 
+/* ---------- Landing-date risk strip ---------- */
+
+.risk-strip {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 6px;
+}
+
+.risk-strip__caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.risk-strip__caption b {
+  font-weight: 650;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-strip__legend {
+  display: flex;
+  gap: 10px;
+  color: var(--text-3);
+}
+
+.risk-strip i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+.risk-strip__plot {
+  position: relative;
+  height: 14px;
+  cursor: pointer;
+}
+
+.risk-strip__plot canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+}
+
+/* Landing date of scenario A (white) and B (gray). */
+.risk-strip__marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.risk-strip__marker--b {
+  background: #aeaeb2;
+}
+
+.risk-strip__hover {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+.risk-strip__card {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(44, 44, 50, 0.97);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-strip__card[data-side="left"] {
+  left: auto;
+  right: 6px;
+}
+
+.risk-strip__card b {
+  font-weight: 620;
+  color: var(--text);
+}
+
 /* ---------- Track ---------- */
 
 .track {

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
+import { RiskStrip } from "./charts/RiskStrip.tsx";
 import { MoonMap, type Insets, type MapPick, type MapPoint } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
+import { RiskBadge } from "./panels/RiskBadge.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
@@ -145,9 +147,19 @@ export default function App() {
           onChoose={choose}
         />
 
-        {views.length > 0 ? <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views} /> : null}
+        {views.length > 0 ? (
+          <InspectorPanel ref={inspectorRef} key={views[0].data.place.id} views={views}>
+            <RiskBadge views={views} />
+          </InspectorPanel>
+        ) : null}
 
-        <TimelineBar ref={timelineRef} a={a} b={b} summary={views.length > 1 ? <CompareSummary views={views} /> : null} />
+        <TimelineBar
+          ref={timelineRef}
+          a={a}
+          b={b}
+          macroExtra={views.length > 0 ? <RiskStrip view={views[0]} /> : null}
+          summary={views.length > 1 ? <CompareSummary views={views} /> : null}
+        />
         {tablesError ? (
           <p className="hud__error" role="alert">
             Sun and Earth tables could not be loaded ({tablesError}).
