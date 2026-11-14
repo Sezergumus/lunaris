@@ -27,8 +27,20 @@ function useScore(view: ScenarioView): Score | null {
   }, [view]);
 }
 
+/** The same mission scored with the horizon raised by the map's height error. */
+function useMapErrorScore(view: ScenarioView): Score | null {
+  return useMemo(() => {
+    const { mapError, slopeP95Deg } = view.data;
+    if (!mapError) return null;
+    const window = analyzeWindow(mapError.series, view.startMs);
+    return window ? scoreWindow(window, mapError.series.profile, slopeP95Deg) : null;
+  }, [view]);
+}
+
 function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
   const score = useScore(view);
+  const worse = useMapErrorScore(view);
+  const mapError = view.data.mapError;
   if (!score) return <p className="risk__none">The mission would end after the last date in the data.</p>;
   const Icon = LEVEL_ICON[score.level];
   return (
@@ -58,6 +70,14 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
           );
         })}
       </dl>
+      {worse && mapError ? (
+        <p className="risk__error" data-changed={worse.level !== score.level || undefined}>
+          With map height error ({mapError.heightErrorM.toFixed(1)} m, horizon up to {mapError.maxDeg.toFixed(2)}° higher):{" "}
+          <strong>
+            {worse.overall.toFixed(0)} · {LEVEL_TEXT[worse.level]}
+          </strong>
+        </p>
+      ) : null}
     </div>
   );
 }

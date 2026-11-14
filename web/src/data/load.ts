@@ -124,6 +124,8 @@ export interface SiteTerrain {
   /** 95th-percentile slope inside the landing ellipse, from the LOLA slope map. */
   slopeP95Deg: number | null;
   slopeRadiusM: number | null;
+  /** Largest LOLA height error inside the landing ellipse, meters; null when unknown. */
+  heightErrorM: number | null;
 }
 
 const terrainCache = new Map<string, Promise<SiteTerrain>>();
@@ -139,6 +141,7 @@ export function loadSiteTerrain(key: string): Promise<SiteTerrain> {
       groundHeightM: doc.ground_height_m,
       slopeP95Deg: doc.surface?.slope_lola_deg?.p95 ?? null,
       slopeRadiusM: doc.surface?.radius_m ?? null,
+      heightErrorM: doc.surface?.height_error_m?.max ?? null,
     }));
     terrainCache.set(key, pending);
     pending.catch(() => terrainCache.delete(key));

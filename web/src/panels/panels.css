@@ -531,6 +531,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+.risk__error {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+.risk__error strong {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.risk__error[data-changed] strong {
+  color: var(--risk-medium);
+}
+
 .risk__profile {
   margin-top: 8px;
 }

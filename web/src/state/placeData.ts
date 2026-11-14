@@ -9,7 +9,7 @@ import { TerrainError, fetchHorizon, insideTerrainCoverage, terrainConfigured } 
 import { findTransitions, limbClearance, type Transitions } from "../engine/events.ts";
 import { pointHorizon } from "../engine/grid.ts";
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
-import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, presetProfile, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
+import { DEFAULT_PROFILE, EARTH_RADIUS_DEG, SUN_RADIUS_DEG, buildSeries, presetProfile, raisedHorizon, type Horizon, type Profile, type Series, type SkySeries } from "../engine/risk.ts";
 import { skyFromVectors } from "../engine/sky.ts";
 import { useScenario, type Place } from "./scenario.ts";
 
@@ -87,6 +87,7 @@ function useTerrain(place: Place | null): TerrainState | null {
               groundHeightM: point.ground_height_m ?? 0,
               slopeP95Deg: point.slope_deg,
               slopeRadiusM: grid.precision_m,
+              heightErrorM: null,
             },
             center: grid.center,
             status: "terrain",
@@ -130,6 +131,12 @@ export interface PlaceData {
   /** Slope statistic for the surface score; null on the sphere model. */
   slopeP95Deg: number | null;
   mast: MastState;
+  /**
+   * The same place with the horizon raised by what the map's height error allows
+   * (engine/risk.ts, raisedHorizon); null where the error or the obstruction distances
+   * are not known (sphere model, custom points).
+   */
+  mapError: { series: Series; heightErrorM: number; maxDeg: number } | null;
 }
 
 export interface MastState {
@@ -172,6 +179,15 @@ export function buildPlaceData(
   const lon = center?.lon ?? place.lon;
   const sky = skyFor(tables, lat, lon);
   const series = buildSeries(sky, horizon, tables.stationMaxAlt, profile);
+  let mapError: PlaceData["mapError"] = null;
+  if (horizon && terrain && terrain.heightErrorM !== null && terrain.horizonRangeKm.length === horizon.horizonDeg.length) {
+    const raised = raisedHorizon(horizon, terrain.horizonRangeKm, terrain.heightErrorM);
+    mapError = {
+      series: buildSeries(sky, raised.horizon, tables.stationMaxAlt, profile),
+      heightErrorM: terrain.heightErrorM,
+      maxDeg: raised.maxDeg,
+    };
+  }
   return {
     place,
     lat,
@@ -186,6 +202,7 @@ export function buildPlaceData(
     earthEvents: findTransitions(limbClearance(series.earthAboveTerrain, EARTH_RADIUS_DEG)),
     slopeP95Deg: terrain?.slopeP95Deg ?? null,
     mast,
+    mapError,
   };
 }
 

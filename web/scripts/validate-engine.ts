@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   analyzeWindow,
   buildSeries,
+  raisedHorizon,
   scanLandingDates,
   scoreWindow,
   type MissionWindow,
@@ -82,6 +83,23 @@ for (const site of manifest.sites) {
   const window = analyzeWindow(series, landingMs);
   checkWindow("window", window, expected.window);
   if (window) checkScore("window", scoreWindow(window, profile, slope), expected.score);
+
+  // The same window with the horizon raised by the map's height error.
+  const uncertain = expected.horizon_uncertainty;
+  if (uncertain) {
+    const raised = raisedHorizon({ stepDeg: horizonDoc.azimuth_step_deg, horizonDeg: horizonDoc.horizon_deg }, horizonDoc.horizon_range_km, uncertain.height_error_m);
+    check("map error max margin", raised.maxDeg, uncertain.margin_deg.max);
+    const worse = buildSeries(
+      { startMs: Date.parse(manifest.start), stepHours: manifest.stepMinutes / 60, count, sunAz, sunAlt, earthAz, earthAlt },
+      raised.horizon,
+      stationMaxAlt,
+      profile,
+    );
+    const w = analyzeWindow(worse, landingMs);
+    checkWindow("map error", w, uncertain.window);
+    if (w) checkScore("map error", scoreWindow(w, profile, slope), uncertain.score);
+    check("map error low-risk dates", scanLandingDates(worse, slope).filter((row) => row.level === "low").length, uncertain.low_risk_dates);
+  }
 
   for (const slip of expected.slips) {
     const w = analyzeWindow(series, landingMs + slip.slip_days * 86400000);

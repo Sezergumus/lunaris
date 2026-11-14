@@ -233,6 +233,24 @@ export function terrainDiskFraction(centerAlt: number, horizon: number, radius: 
  * Per-sample state of power and communication.
  * `horizon` null = ideal sphere; `stationMaxAlt` null = a ground station is always available.
  */
+/**
+ * Angle by which a height error can raise the horizon, per azimuth (degrees): a terrain
+ * point `heightErrorM` too low in the map, at the distance of the obstruction that sets
+ * the horizon, raises it by atan(error / distance). Port of horizon_uncertainty_deg.
+ */
+export function horizonUncertaintyDeg(rangeKm: ArrayLike<number>, heightErrorM: number, minRangeM = 60): number[] {
+  return Array.from(rangeKm, (km) => (Math.atan2(heightErrorM, Math.max(km * 1000, minRangeM)) * 180) / Math.PI);
+}
+
+/** The horizon raised by its height-error angle, and the largest angle added. */
+export function raisedHorizon(horizon: Horizon, rangeKm: ArrayLike<number>, heightErrorM: number): { horizon: Horizon; maxDeg: number } {
+  const margin = horizonUncertaintyDeg(rangeKm, heightErrorM);
+  return {
+    horizon: { stepDeg: horizon.stepDeg, horizonDeg: Array.from(horizon.horizonDeg, (v, i) => v + margin[i]) },
+    maxDeg: Math.max(...margin),
+  };
+}
+
 export function buildSeries(
   sky: SkySeries,
   horizon: Horizon | null,
