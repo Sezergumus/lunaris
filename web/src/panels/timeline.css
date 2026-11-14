@@ -112,8 +112,14 @@
 /*
  * A fixed 16px square wherever it sits: it never shrinks in a crowded flex row, never
  * stretches in a grid, and ignores the letter-spacing and case of its surroundings. The
- * letter is centered on its cap height (text-box trim), not on the font's line box, so it
- * stays centered whatever system font renders it.
+ * line is trimmed to the cap height (text-box), so the baseline sits exactly 1cap below the
+ * padding. The padding puts that baseline at a whole 12px from the top, not at the ideal
+ * ~11.7px: a fractional offset makes the square and the letter round to different device
+ * pixels, and the letter jumps 1px up or down depending on where the tag lands (DPR 1).
+ * 12px leaves the cap centered within a third of a pixel for Inter, Segoe and SF.
+ *
+ * In running text it sits on the baseline (12px above, 4px below), which centers it on the
+ * cap height of the 12-13px text around it.
  */
 .tag {
   display: inline-block;
@@ -123,7 +129,7 @@
   width: 16px;
   min-width: 16px;
   height: 16px;
-  padding: calc((16px - 1cap) / 2) 0 0;
+  padding: calc(12px - 1cap) 0 0;
   border-radius: 5px;
   font-size: 10.5px;
   font-weight: 700;
@@ -137,7 +143,7 @@
   white-space: nowrap;
   color: #fff;
   background: var(--accent);
-  vertical-align: -3px;
+  vertical-align: baseline;
 }
 
 @supports not (text-box: trim-both cap alphabetic) {
