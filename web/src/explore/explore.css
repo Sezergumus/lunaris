@@ -280,3 +280,40 @@
 .hud[hidden] {
   display: none;
 }
+
+/* Phones, tour navigation: the A / B switch on its own row, then Back, the step dots, the
+   Planner (icon only) and Next on one row. */
+@media (max-width: 759px) {
+  .explorer__actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+    align-items: center;
+  }
+
+  .explorer__actions > .seg {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .explorer__actions > .explorer__back {
+    order: 1;
+  }
+
+  .explorer__actions > .explorer__dots {
+    order: 2;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .explorer__actions > .explorer__planner {
+    order: 3;
+  }
+
+  .explorer__actions > .explorer__next {
+    order: 4;
+  }
+
+  .explorer__planner-text {
+    display: none;
+  }
+}

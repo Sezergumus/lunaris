@@ -103,14 +103,15 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
         />
       ) : null}
       <Dots count={TOUR.length + 1} current={step!} />
-      <Button size="sm" onClick={() => modeActions.setStep(step! > 0 ? step! - 1 : null)}>
+      <Button size="sm" className="explorer__back" onClick={() => modeActions.setStep(step! > 0 ? step! - 1 : null)}>
         <ArrowLeft aria-hidden="true" /> Back
       </Button>
-      <Button size="sm" variant="accent" onClick={() => modeActions.setStep(step! + 1)}>
+      <Button size="sm" variant="accent" className="explorer__next" onClick={() => modeActions.setStep(step! + 1)}>
         {step! < TOUR.length - 1 ? "Next" : "Play: keep a lander alive"} <ArrowRight aria-hidden="true" />
       </Button>
-      <Button size="sm" onClick={() => modeActions.setMode("plan")}>
-        <MapIcon aria-hidden="true" /> Open in Planner
+      {/* Phones: the map icon alone, so Back, the dots, this and Next share one row. */}
+      <Button size="sm" className="explorer__planner" aria-label="Open in Planner" onClick={() => modeActions.setMode("plan")}>
+        <MapIcon aria-hidden="true" /> <span className="explorer__planner-text">Open in Planner</span>
       </Button>
     </>
   ) : (
