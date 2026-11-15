@@ -157,6 +157,12 @@
   cursor: pointer;
 }
 
+/* `display` above would otherwise win over the `hidden` attribute: a label whose pole left
+   the view would stay frozen at its last position on screen. */
+.surface__beacon[hidden] {
+  display: none;
+}
+
 .surface__beacon:hover,
 .surface__beacon:focus-visible {
   background: rgba(40, 40, 48, 0.9);
