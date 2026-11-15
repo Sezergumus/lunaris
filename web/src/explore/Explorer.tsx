@@ -109,9 +109,9 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
       <Button size="sm" variant="accent" className="explorer__next" onClick={() => modeActions.setStep(step! + 1)}>
         {step! < TOUR.length - 1 ? "Next" : "Play: keep a lander alive"} <ArrowRight aria-hidden="true" />
       </Button>
-      {/* Phones: the map icon alone, so Back, the dots, this and Next share one row. */}
-      <Button size="sm" className="explorer__planner" aria-label="Open in Planner" onClick={() => modeActions.setMode("plan")}>
-        <MapIcon aria-hidden="true" /> <span className="explorer__planner-text">Open in Planner</span>
+      {/* Hidden on phones: the header's mode switch does the same. */}
+      <Button size="sm" className="explorer__planner" onClick={() => modeActions.setMode("plan")}>
+        <MapIcon aria-hidden="true" /> Open in Planner
       </Button>
     </>
   ) : (

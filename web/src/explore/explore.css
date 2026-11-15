@@ -284,8 +284,8 @@
   display: none;
 }
 
-/* Phones, tour navigation: the A / B switch on its own row, then Back, the step dots, the
-   Planner (icon only) and Next on one row. */
+/* Phones, tour navigation: the A / B switch on its own row, then Back, the step dots and
+   Next on one row. */
 @media (max-width: 759px) {
   .explorer__actions {
     flex: 1 1 100%;
@@ -321,15 +321,13 @@
     justify-content: center;
   }
 
+  /* The header's Planner / Explorer switch does the same. */
   .explorer__actions > .explorer__planner {
-    order: 3;
+    display: none;
   }
 
   .explorer__actions > .explorer__next {
     order: 4;
   }
 
-  .explorer__planner-text {
-    display: none;
-  }
 }
