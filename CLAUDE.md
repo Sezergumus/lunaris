@@ -157,7 +157,8 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   both modes, wherever the terrain mesh is loaded. **Drone view** (button in the tools;
   `camera` / `droneDistanceM` in `state/mode.ts`, not in the URL): the camera circles the
   place from above and looks at it (drag = circle and tilt, wheel / pinch / plus, minus =
-  distance 80 m to 5 km, kept at least 20 m above the ground under it). The 5 km limit keeps
+  distance 25 m to 5 km, kept at least 6 m above the ground under it; 80 m and 20 m
+  before the lander model). The 5 km limit keeps
   the camera inside the innermost terrain level, which the draw order needs. The skyline
   curtain and the blocker highlight are hidden there (they belong to the place); Sun / Earth
   labels, scores and the lit ground under the place stay those of the place, and the caption
@@ -190,6 +191,22 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   frames); forced SwiftShader at 2108 px wide goes to level 3 (frames 300 -> 165 ms,
   buffer 1054 px while dragging, 2108 px at rest), no page errors. Still not measured on
   real integrated graphics; playback (as opposed to dragging) was not driven in the test.
+
+- 2026-11-15 evening (frontend, Sezer's machine): two more additions to the surface view.
+  **Tracks** (Planner only, as before): the Sun's and the Earth's path over the mission is
+  a solid line while the place sees the body and a faint dashed line, drawn over the
+  terrain, while the skyline hides it (`TrackPoint`, `SkyLayer.setTracks` / `overlay` in
+  `surface/sky.ts`; visibility from the engine's series, not recomputed). Day labels under
+  the Sun's track ("Landing", "Day 1", ...; at most 14, every n-th day on a long mission;
+  dimmed where the Sun is hidden; `DayMark` in `SurfaceView.tsx`). Hidden in the drone view.
+  **Lander model** (drone view only, `surface/lander.ts`): a generic low-polygon lander at
+  true size (about 4 m across the footpads, deck at 1.95 m), its mast ending at the
+  observer's height, so the mast slider changes it; lit from the Sun's direction times the
+  engine's sunlit share. The pole marker now shows only beyond 300 m. The caption names
+  the model as generic. Checked in headless Edge (real GPU) at Mons Mouton: landings
+  2026-12-16, 12-26 and 12-29 (hidden stretch and dimmed labels), drone at 25 m with a 2 m
+  and a 6 m mast; no page errors. Not checked: Explorer, a phone-sized screen, the lander
+  at a site in darkness.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.

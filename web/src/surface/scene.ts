@@ -15,8 +15,9 @@ import type { TerrainPatch } from "../data/load.ts";
 import type { Horizon } from "../engine/risk.ts";
 import { horizonAt } from "../engine/risk.ts";
 import { destination, directionToScene, latLonToProjected, siteFrame, type SiteFrame } from "./geometry.ts";
+import { Lander } from "./lander.ts";
 import { ShadowPass } from "./shadow.ts";
-import { SKY_DISTANCE, SkyLayer, type BodyState } from "./sky.ts";
+import { SKY_DISTANCE, SkyLayer, type BodyState, type TrackPoint } from "./sky.ts";
 import { buildLevels, type LevelMesh } from "./terrain.ts";
 
 const DEG = Math.PI / 180;
@@ -45,8 +46,10 @@ const OBSERVER_ZONE_M = [60, 150] as const;
 /** The lander's shadow is drawn up to this length; the label gives the true one. */
 const LANDER_SHADOW_CAP_M = 90;
 const LANDER_SHADOW_WIDTH_M = 1.6;
+/** Drone view: from farther away than this a pole marks the place (the lander is a few pixels). */
+const MARKER_BEYOND_M = 300;
 /** The drone camera stays at least this far above the ground under it, meters. */
-const DRONE_CLEARANCE_M = 20;
+const DRONE_CLEARANCE_M = 6;
 
 export interface ViewState {
   sun: BodyState;
@@ -316,6 +319,8 @@ export class SurfaceScene {
   private heatTexture: THREE.DataTexture | null = null;
   /** Drone view: a pole at the observer's position, sized with the camera's distance. */
   private readonly marker: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  /** Drone view: a generic lander at the place, true size (illustrative). */
+  private readonly lander = new Lander();
   private readonly beacons = new THREE.Group();
   private beaconTops: THREE.Vector3[] = [];
   private patch: TerrainPatch | null = null;
@@ -365,6 +370,7 @@ export class SurfaceScene {
     this.marker = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 10).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
     this.marker.frustumCulled = false;
     this.marker.visible = false;
+    this.lander.group.visible = false;
   }
 
   /** The engine's skyline for the curtain; null = flat. */
@@ -395,7 +401,7 @@ export class SurfaceScene {
         this.levelScenes.push(scene);
       }
       // Beacons stand on the innermost level and are hidden by terrain in front of them.
-      this.levelScenes[0]?.add(this.beacons, this.marker);
+      this.levelScenes[0]?.add(this.beacons, this.marker, this.lander.group);
       try {
         this.shadows = new ShadowPass(patch, this.levels, latDeg, lonDeg, groundHeightM);
         this.levels.forEach((level, k) => {
@@ -511,7 +517,7 @@ export class SurfaceScene {
     this.requestRender();
   }
 
-  setTracks(sun: [number, number][], earth: [number, number][]) {
+  setTracks(sun: TrackPoint[], earth: TrackPoint[]) {
     this.sky.setTracks(sun, earth);
     this.requestRender();
   }
@@ -805,10 +811,14 @@ export class SurfaceScene {
     // The skyline curtain and the blocking stretches belong to the place itself, not to a
     // camera above it.
     this.sky.setCurtainVisible(!drone);
-    this.marker.visible = drone && !s.eye;
-    if (this.marker.visible) {
-      const d = this.camera.position.distanceTo(this.observerPosition());
-      this.marker.scale.set(d * 0.003, d * 0.06, d * 0.003);
+    const droneDistance = this.camera.position.distanceTo(this.observerPosition());
+    this.marker.visible = drone && !s.eye && droneDistance > MARKER_BEYOND_M;
+    if (this.marker.visible) this.marker.scale.set(droneDistance * 0.003, droneDistance * 0.06, droneDistance * 0.003);
+    this.lander.group.visible = drone && !s.eye;
+    if (this.lander.group.visible) {
+      this.lander.group.position.set(0, this.groundYAt(0, 0) ?? 0, 0);
+      this.lander.setMast(s.eyeHeightM);
+      this.lander.setLight(sunDir, s.observerLit);
     }
     // Distance of the camera from the center of the nested levels.
     const offset = this.camera.position.length();
@@ -839,10 +849,12 @@ export class SurfaceScene {
       this.setPlanes(0.05, 1e3);
       r.render(this.landerScene, this.camera);
     }
-    if (!drone && this.blockerScene.visible && this.blockerScene.children.length > 0) {
+    if (!drone && this.blockerScene.visible) {
+      // Over the terrain: the blocking skyline, and the tracks where the terrain hides the body.
       this.blockerScene.position.copy(this.camera.position);
       this.setPlanes(SKY_DISTANCE * 0.01, SKY_DISTANCE * 3);
-      r.render(this.blockerScene, this.camera);
+      if (this.blockerScene.children.length > 0) r.render(this.blockerScene, this.camera);
+      r.render(this.sky.overlay, this.camera);
     }
   }
 
@@ -874,6 +886,7 @@ export class SurfaceScene {
     this.landerShadow.material.dispose();
     this.marker.geometry.dispose();
     this.marker.material.dispose();
+    this.lander.dispose();
     this.heatTexture?.dispose();
     this.renderer.dispose();
   }

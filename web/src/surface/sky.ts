@@ -21,6 +21,13 @@ export interface BodyState {
   radiusDeg: number;
 }
 
+/** One sample of a body's path: its direction, and whether the place sees it there. */
+export interface TrackPoint {
+  azimuthDeg: number;
+  elevationDeg: number;
+  visible: boolean;
+}
+
 function glareTexture(): THREE.Texture {
   const size = 128;
   const canvas = document.createElement("canvas");
@@ -182,6 +189,12 @@ export class SkyLayer {
   private curtain: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null = null;
   private readonly guides: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   private readonly tracks = new THREE.Group();
+  /**
+   * Drawn after the terrain (by the scene): the stretches of the tracks where the terrain
+   * hides the body, so one can follow it behind the skyline.
+   */
+  readonly overlay = new THREE.Scene();
+  private readonly hiddenTracks = new THREE.Group();
   private readonly sunDirection = new THREE.Vector3();
 
   constructor() {
@@ -218,35 +231,54 @@ export class SkyLayer {
     this.tracks.renderOrder = 2.6;
     this.tracks.visible = false;
     this.anchor.add(this.guides, this.tracks);
+    this.hiddenTracks.visible = false;
+    this.overlay.add(this.hiddenTracks);
   }
 
   /** Planner labels: guide lines and the tracks of the Sun and the Earth. */
   setGuides(visible: boolean) {
     this.guides.visible = visible;
     this.tracks.visible = visible;
+    this.hiddenTracks.visible = visible;
   }
 
-  /** The Sun's and the Earth's path over the mission window (directions as azimuth, elevation). */
-  setTracks(sun: [number, number][], earth: [number, number][]) {
-    for (const child of [...this.tracks.children]) {
-      const line = child as THREE.Line;
-      line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
-      this.tracks.remove(line);
+  /**
+   * The Sun's and the Earth's path over the mission window: a solid line while the place
+   * sees the body, a faint dashed one (over the terrain) while the skyline hides it.
+   */
+  setTracks(sun: TrackPoint[], earth: TrackPoint[]) {
+    for (const group of [this.tracks, this.hiddenTracks]) {
+      for (const child of [...group.children]) {
+        const line = child as THREE.Line;
+        line.geometry.dispose();
+        (line.material as THREE.Material).dispose();
+        group.remove(line);
+      }
     }
     for (const [path, color] of [
       [sun, 0xffb340],
       [earth, 0x64d2ff],
     ] as const) {
-      if (path.length < 2) continue;
-      const positions = path.flatMap(([az, el]) => directionToScene(az, el).map((v) => v * SKY_DISTANCE * 0.96));
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-      const line = new THREE.Line(geometry, new THREE.LineDashedMaterial({ color, transparent: true, opacity: 0.6, dashSize: SKY_DISTANCE * 0.004, gapSize: SKY_DISTANCE * 0.004, depthTest: false, depthWrite: false }));
-      line.computeLineDistances();
-      line.renderOrder = 2.6;
-      line.frustumCulled = false;
-      this.tracks.add(line);
+      // Runs of samples with the same visibility; neighbouring runs share their end point.
+      let from = 0;
+      for (let k = 1; k <= path.length; k++) {
+        if (k < path.length && path[k].visible === path[from].visible) continue;
+        const run = path.slice(from, Math.min(path.length, k + 1));
+        const shown = path[from].visible;
+        from = k;
+        if (run.length < 2) continue;
+        const positions = run.flatMap((p) => directionToScene(p.azimuthDeg, p.elevationDeg).map((v) => v * SKY_DISTANCE * 0.96));
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        const material = shown
+          ? new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85, depthTest: false, depthWrite: false })
+          : new THREE.LineDashedMaterial({ color, transparent: true, opacity: 0.4, dashSize: SKY_DISTANCE * 0.003, gapSize: SKY_DISTANCE * 0.005, depthTest: false, depthWrite: false });
+        const line = new THREE.Line(geometry, material);
+        if (!shown) line.computeLineDistances();
+        line.renderOrder = 2.6;
+        line.frustumCulled = false;
+        (shown ? this.tracks : this.hiddenTracks).add(line);
+      }
     }
   }
 
@@ -290,6 +322,7 @@ export class SkyLayer {
   /** Moves the sky with the observer and places the bodies. */
   update(eye: THREE.Vector3, sun: BodyState, earth: BodyState, starOpacity: number, glare: number, latDeg: number, timeMs: number) {
     this.anchor.position.copy(eye);
+    this.hiddenTracks.position.copy(eye);
     const sunDir = directionToScene(sun.azimuthDeg, sun.elevationDeg);
     this.sunDirection.set(...sunDir);
     this.place(this.sun, sunDir, sun.radiusDeg);
@@ -318,7 +351,7 @@ export class SkyLayer {
   }
 
   dispose() {
-    this.scene.traverse((object) => {
+    for (const scene of [this.scene, this.overlay]) scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
       mesh.geometry?.dispose();
       const material = mesh.material as THREE.Material | THREE.Material[] | undefined;

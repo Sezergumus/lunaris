@@ -25,6 +25,7 @@ import { formatAngle } from "../ui/format.ts";
 import { useMediaQuery } from "../ui/useMediaQuery.ts";
 import { destination } from "./geometry.ts";
 import { SurfaceScene, webgl2Available, type BeaconSpec, type HeatSpec } from "./scene.ts";
+import type { TrackPoint } from "./sky.ts";
 import "./surface.css";
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -130,6 +131,18 @@ const BEST_COLOR = "#0a84ff";
 const FLIGHT_MS = 900;
 const NEAREST_BEACONS = 8;
 
+/** At most this many day labels along the Sun's track (a long mission labels every n-th day). */
+const MAX_DAY_MARKS = 14;
+
+interface DayMark {
+  /** Days after the landing. */
+  day: number;
+  azimuthDeg: number;
+  elevationDeg: number;
+  /** The place sees the Sun at that moment. */
+  visible: boolean;
+}
+
 interface Beacon extends BeaconSpec {
   label: string;
   /** Hop target. */
@@ -170,6 +183,10 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
   /** The drone camera needs a terrain mesh; without one the view stays first person. */
   const droneRef = useRef(false);
   const [overlay, setOverlay] = useState<GroundOverlay>("off");
+  /** Planner: where the Sun stands at the start of each mission day, along its track. */
+  const [dayMarks, setDayMarks] = useState<DayMark[]>([]);
+  const dayMarksRef = useRef<DayMark[]>([]);
+  const daysRef = useRef<HTMLDivElement>(null);
   const { tables } = useSkyTables();
   const tablesRef = useRef<SkyTables | null>(null);
   const modeRef = useRef(beaconMode);
@@ -187,6 +204,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     viewRef.current = view;
     tablesRef.current = tables;
     modeRef.current = beaconMode;
+    dayMarksRef.current = dayMarks;
   });
 
   // Renderer, store subscriptions and the per-frame overlay.
@@ -229,6 +247,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       // From far away the labels of neighbours 125 m apart pile up: only the best spot keeps its own.
       placeBeaconLabels(beaconsRef.current, scene.beaconProjections(), drone && scene.cameraDistanceM > DRONE_LABELS_WITHIN_M);
       placeHere(hereRef.current, drone && !flightRef.current ? scene.observerProjection() : null);
+      placeDayMarks(daysRef.current, drone || modeRef.current !== "plan" ? null : dayMarksRef.current.map((mark) => scene.project(mark.azimuthDeg, mark.elevationDeg)));
       if (readoutRef.current && drone) {
         readoutRef.current.textContent = `Drone · ${formatDistance(scene.cameraDistanceM)} away · looking ${COMPASS[Math.round(m.headingDeg / 45) % 8]}`;
       } else if (readoutRef.current) {
@@ -371,16 +390,28 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     if (!scene) return;
     const { sky } = data;
     const first = sampleIndex(sky, view.startMs);
-    const sun: [number, number][] = [];
-    const earth: [number, number][] = [];
+    const { series } = data;
+    const sun: TrackPoint[] = [];
+    const earth: TrackPoint[] = [];
+    const days: DayMark[] = [];
+    const perDay = Math.round(24 / sky.stepHours);
+    const totalDays = Math.floor(windowHours / 24);
+    const every = Math.max(1, Math.ceil(totalDays / MAX_DAY_MARKS));
     for (let k = 0; k <= windowHours / sky.stepHours; k++) {
       const i = first + k;
       if (i < 0 || i >= sky.count) continue;
-      sun.push([sky.sunAz[i], sky.sunAlt[i]]);
-      earth.push([sky.earthAz[i], sky.earthAlt[i]]);
+      // Visible as the risk model counts it: the upper limb above the skyline.
+      const sunVisible = i < series.count ? series.sunAboveTerrain[i] + series.sunRadius[i] > 0 : true;
+      const earthVisible = i < series.count ? series.earthVisible[i] === 1 : true;
+      sun.push({ azimuthDeg: sky.sunAz[i], elevationDeg: sky.sunAlt[i], visible: sunVisible });
+      earth.push({ azimuthDeg: sky.earthAz[i], elevationDeg: sky.earthAlt[i], visible: earthVisible });
+      const day = k / perDay;
+      if (k % perDay === 0 && day % every === 0) days.push({ day, azimuthDeg: sky.sunAz[i], elevationDeg: sky.sunAlt[i], visible: sunVisible });
     }
     scene.setTracks(sun, earth);
+    setDayMarks(days);
   }, [data, view.startMs, windowHours]);
+  useEffect(() => updateRef.current(), [dayMarks]);
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -576,6 +607,13 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
           <p ref={whyRef} className="surface__why" aria-live="polite" />
         </>
       ) : null}
+      <div ref={daysRef} className="surface__days" aria-hidden="true">
+        {dayMarks.map((mark, i) => (
+          <span key={mark.day} className="surface__day" data-i={i} data-hidden={mark.visible ? undefined : true} hidden>
+            {mark.day === 0 ? "Landing" : `Day ${mark.day}`}
+          </span>
+        ))}
+      </div>
       <div ref={beaconsRef} className="surface__beacons" key={data.place.id}>
         {terrainReady
           ? beaconList.map((beacon, i) => (
@@ -641,7 +679,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       )}
       <div ref={readoutRef} className="surface__readout" aria-hidden="true" />
       <p className="surface__caption">
-        {drone ? "Drone view: from up here the camera can see a Sun or an Earth that the terrain hides from the lander; labels and scores are those of the place itself. " : ""}
+        {drone ? "Drone view: from up here the camera can see a Sun or an Earth that the terrain hides from the lander; labels and scores are those of the place itself. The lander is a generic model at true size, not a specific vehicle. " : ""}
         {terrain === "mesh"
           ? "Measured: terrain (LOLA, 60 m pixels), Sun and Earth (JPL ephemeris), the risk model's skyline. Illustrative: light, glare, stars, the Earth's map, and the fine ground texture (the terrain data has no rocks or craters smaller than about 60 m)."
           : terrain === "loading"
@@ -709,6 +747,19 @@ function placeBeaconLabels(el: HTMLDivElement | null, projections: { x: number; 
     if (p && p.inView) {
       button.style.left = `${(p.x * 100).toFixed(2)}%`;
       button.style.top = `${(p.y * 100).toFixed(2)}%`;
+    }
+  });
+}
+
+/** Planner: the day labels along the Sun's track; null hides them all. */
+function placeDayMarks(el: HTMLDivElement | null, projections: { x: number; y: number; inView: boolean }[] | null) {
+  if (!el) return;
+  el.querySelectorAll<HTMLElement>(".surface__day").forEach((label) => {
+    const p = projections?.[Number(label.dataset.i)];
+    label.hidden = !p || !p.inView;
+    if (p && p.inView) {
+      label.style.left = `${(p.x * 100).toFixed(2)}%`;
+      label.style.top = `${(p.y * 100).toFixed(2)}%`;
     }
   });
 }

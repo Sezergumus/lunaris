@@ -175,6 +175,37 @@
   border-radius: 50%;
 }
 
+/* Planner: day labels under the Sun's track (the Sun's own label sits above it). */
+.surface__day {
+  position: absolute;
+  transform: translate(-50%, 7px);
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(10, 10, 14, 0.6);
+  color: #ffb340;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.surface__day::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -9.5px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* The terrain hides the Sun at that moment. */
+.surface__day[data-hidden] {
+  opacity: 0.55;
+}
+
 /* Explorer labels. */
 .surface__earth-card {
   position: absolute;

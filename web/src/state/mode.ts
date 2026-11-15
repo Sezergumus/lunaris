@@ -39,7 +39,7 @@ export const DRONE_PITCH_DEG = { min: -85, max: -6, start: -28 } as const;
  * The far limit keeps the camera inside the innermost terrain level (15 km wide), which the
  * draw order of the surface view relies on.
  */
-export const DRONE_DISTANCE_M = { min: 80, max: 5000, start: 700 } as const;
+export const DRONE_DISTANCE_M = { min: 25, max: 5000, start: 700 } as const;
 
 let state: ModeState = { mode: "plan", view: "map", step: null, headingDeg: 0, pitchDeg: 2, fovDeg: 60, camera: "eye", droneDistanceM: DRONE_DISTANCE_M.start };
 
