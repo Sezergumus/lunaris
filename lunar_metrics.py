@@ -143,12 +143,14 @@ def _track(times, margin, rise_name, set_name):
 
 
 def analyze(times, sun_alt, earth_alt, dip_deg=0.0, mask_deg=0.0,
-            sun_horizon=None, earth_horizon=None):
+            sun_horizon=None, earth_horizon=None, sun_radius=None, earth_radius=None):
     """Compute all metrics. Returns a dict with keys sun, earth, both.
 
     `sun_horizon` / `earth_horizon` are optional per-sample terrain horizon
     elevations (deg) in the direction of each body; when given they replace
-    the ideal-sphere horizon (and `dip_deg` is ignored).
+    the ideal-sphere horizon (and `dip_deg` is ignored). `sun_radius` /
+    `earth_radius` are optional per-sample apparent disk radii (deg); without
+    them the fixed mean radii are used.
 
     Times inside the result are datetime objects; use `to_json` to serialize.
     """
@@ -156,22 +158,29 @@ def analyze(times, sun_alt, earth_alt, dip_deg=0.0, mask_deg=0.0,
     if not terrain:
         sun_horizon = [-dip_deg] * len(times)
         earth_horizon = [-dip_deg] * len(times)
-    sun_margin = [a + SUN_RADIUS_DEG - h - mask_deg for a, h in zip(sun_alt, sun_horizon)]
-    earth_margin = [a + EARTH_RADIUS_DEG - h - mask_deg for a, h in zip(earth_alt, earth_horizon)]
+    variable = sun_radius is not None and earth_radius is not None
+    if not variable:
+        sun_radius = [SUN_RADIUS_DEG] * len(times)
+        earth_radius = [EARTH_RADIUS_DEG] * len(times)
+    sun_margin = [a + r - h - mask_deg for a, r, h in zip(sun_alt, sun_radius, sun_horizon)]
+    earth_margin = [a + r - h - mask_deg for a, r, h in zip(earth_alt, earth_radius, earth_horizon)]
     both_margin = [min(s, e) for s, e in zip(sun_margin, earth_margin)]
 
     result = {
         "period": {"start": times[0], "end": times[-1],
                    "days": (times[-1] - times[0]).total_seconds() / 86400.0},
         "horizon_model": "terrain" if terrain else "sphere",
-        "thresholds_deg": {"sun_radius": SUN_RADIUS_DEG, "earth_radius": EARTH_RADIUS_DEG,
+        "thresholds_deg": {"sun_radius": [float(min(sun_radius)), float(max(sun_radius))] if variable
+                           else SUN_RADIUS_DEG,
+                           "earth_radius": [float(min(earth_radius)), float(max(earth_radius))] if variable
+                           else EARTH_RADIUS_DEG,
                            "horizon_dip": 0.0 if terrain else dip_deg, "mask": mask_deg},
         "sun": _track(times, sun_margin, "sunrise", "sunset"),
         "earth": _track(times, earth_margin, "earthrise", "earthset"),
         "both": _track(times, both_margin, "both_start", "both_end"),
     }
-    fractions = [disk_fraction(a, SUN_RADIUS_DEG, h + mask_deg)
-                 for a, h in zip(sun_alt, sun_horizon)]
+    fractions = [disk_fraction(a, r, h + mask_deg)
+                 for a, r, h in zip(sun_alt, sun_radius, sun_horizon)]
     result["sun"]["summary"]["mean_disk_fraction_pct"] = 100.0 * sum(fractions) / len(fractions)
     result["sun"]["summary"]["elevation_range_deg"] = [min(sun_alt), max(sun_alt)]
     result["earth"]["summary"]["elevation_range_deg"] = [min(earth_alt), max(earth_alt)]

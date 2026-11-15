@@ -7,6 +7,7 @@
 // The port is checked against the backend's risk_<site>.json files by scripts/validate-engine.ts.
 // Keep the two implementations in step: any change here must still pass that check.
 
+/** Mean apparent disk radii; used only when a sky series carries no per-sample radii. */
 export const SUN_RADIUS_DEG = 0.27;
 export const EARTH_RADIUS_DEG = 0.95;
 /** Up to this share of a limit counts as no risk. */
@@ -26,7 +27,7 @@ export interface Profile {
   /** Required contact in every 24 h of the mission, hours. */
   min_daily_contact_h: number;
   station_min_elevation_deg: number;
-  /** Sun-Earth separation below which solar radio noise jams the link. */
+  /** Sun-Earth separation (seen from the lander) or Sun-Moon separation (seen from the Earth) that jams the link. */
   conjunction_deg: number;
   /** Earth center this close to the terrain counts as a degraded link. */
   low_elevation_deg: number;
@@ -107,6 +108,11 @@ export interface SkySeries {
   sunAlt: ArrayLike<number>;
   earthAz: ArrayLike<number>;
   earthAlt: ArrayLike<number>;
+  /** Apparent disk radii from the distances, degrees; absent = the fixed mean radii. */
+  sunRadiusDeg?: ArrayLike<number>;
+  earthRadiusDeg?: ArrayLike<number>;
+  /** Sun-Earth-probe angle: Sun and lander seen from the Earth, degrees; absent = not checked. */
+  sunMoonFromEarthDeg?: ArrayLike<number>;
 }
 
 /** Highest Moon elevation over the ground stations per sample; null = always available. */
@@ -117,6 +123,9 @@ export interface Series {
   stepHours: number;
   count: number;
   profile: Profile;
+  /** Apparent disk radii per sample, degrees. */
+  sunRadius: Float64Array;
+  earthRadius: Float64Array;
   sunAboveTerrain: Float64Array;
   earthAboveTerrain: Float64Array;
   terrainFraction: Float64Array;
@@ -265,6 +274,8 @@ export function buildSeries(
     stepHours: sky.stepHours,
     count: n,
     profile,
+    sunRadius: new Float64Array(n),
+    earthRadius: new Float64Array(n),
     sunAboveTerrain: new Float64Array(n),
     earthAboveTerrain: new Float64Array(n),
     terrainFraction: new Float64Array(n),
@@ -284,17 +295,27 @@ export function buildSeries(
     const sunHor = (horizon ? horizonAt(horizon, sky.sunAz[i]) : 0) + profile.mask_deg;
     const earthHor = (horizon ? horizonAt(horizon, sky.earthAz[i]) : 0) + profile.mask_deg;
 
+    const sunR = sky.sunRadiusDeg ? sky.sunRadiusDeg[i] : SUN_RADIUS_DEG;
+    const earthR = sky.earthRadiusDeg ? sky.earthRadiusDeg[i] : EARTH_RADIUS_DEG;
+
     const separation = angularSeparationDeg(sky.sunAz[i], sunAlt, sky.earthAz[i], earthAlt);
-    const earthVisible = earthAlt + EARTH_RADIUS_DEG > earthHor;
-    const terrainFraction = terrainDiskFraction(sunAlt, sunHor, SUN_RADIUS_DEG);
+    const earthVisible = earthAlt + earthR > earthHor;
+    const terrainFraction = terrainDiskFraction(sunAlt, sunHor, sunR);
     // The Earth only blocks sunlight if it is itself above the terrain.
-    const earthCover = earthVisible ? coveredFraction(separation) : 0;
+    const earthCover = earthVisible ? coveredFraction(separation, sunR, earthR) : 0;
     const solarFraction = terrainFraction * (1 - earthCover);
 
     const stationOk = stationMaxAlt === null || stationMaxAlt[i] > profile.station_min_elevation_deg;
-    const conjunction = earthVisible && separation < profile.conjunction_deg;
+    // Lander side (Sun next to the Earth, near full Moon) or ground side (Sun next to the
+    // Moon seen from the Earth, near new Moon).
+    const nearSun =
+      separation < profile.conjunction_deg ||
+      (sky.sunMoonFromEarthDeg !== undefined && sky.sunMoonFromEarthDeg[i] < profile.conjunction_deg);
+    const conjunction = earthVisible && nearSun;
     const comm = earthVisible && stationOk && !conjunction;
 
+    s.sunRadius[i] = sunR;
+    s.earthRadius[i] = earthR;
     s.sunAboveTerrain[i] = sunAlt - sunHor;
     s.earthAboveTerrain[i] = earthAlt - earthHor;
     s.terrainFraction[i] = terrainFraction;

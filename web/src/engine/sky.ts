@@ -8,6 +8,9 @@
 import type { SkySeries } from "./risk.ts";
 
 export const MOON_RADIUS_KM = 1737.4;
+/** IAU 2015 nominal solar radius and the Earth's equatorial radius, km (as in lunar_sky.py). */
+const SUN_RADIUS_KM = 696000;
+const EARTH_RADIUS_KM = 6378.137;
 const DEG = Math.PI / 180;
 
 export interface VectorTable {
@@ -66,12 +69,15 @@ export function skyFromVectors(
     sunAlt: new Float64Array(count),
     earthAz: new Float64Array(count),
     earthAlt: new Float64Array(count),
+    sunRadiusDeg: new Float64Array(count),
+    earthRadiusDeg: new Float64Array(count),
+    sunMoonFromEarthDeg: new Float64Array(count),
   };
   const bodies = [
-    [table.sun, sky.sunAz, sky.sunAlt],
-    [table.earth, sky.earthAz, sky.earthAlt],
+    [table.sun, sky.sunAz, sky.sunAlt, sky.sunRadiusDeg, SUN_RADIUS_KM],
+    [table.earth, sky.earthAz, sky.earthAlt, sky.earthRadiusDeg, EARTH_RADIUS_KM],
   ] as const;
-  for (const [[xs, ys, zs], az, alt] of bodies) {
+  for (const [[xs, ys, zs], az, alt, disk, bodyKm] of bodies) {
     for (let i = 0; i < count; i++) {
       const x = xs[first + i] - radius * up[0];
       const y = ys[first + i] - radius * up[1];
@@ -81,7 +87,18 @@ export function skyFromVectors(
       const u = up[0] * x + up[1] * y + up[2] * z;
       az[i] = ((Math.atan2(e, n) / DEG) % 360 + 360) % 360;
       alt[i] = Math.atan2(u, Math.hypot(e, n)) / DEG;
+      disk[i] = Math.asin(bodyKm / Math.hypot(x, y, z)) / DEG;
     }
+  }
+  // Sun-Earth-probe angle: from the Earth, the lander and the Sun.
+  const [sx, sy, sz] = table.sun;
+  const [ex, ey, ez] = table.earth;
+  for (let i = 0; i < count; i++) {
+    const j = first + i;
+    const px = radius * up[0] - ex[j], py = radius * up[1] - ey[j], pz = radius * up[2] - ez[j];
+    const qx = sx[j] - ex[j], qy = sy[j] - ey[j], qz = sz[j] - ez[j];
+    const cos = (px * qx + py * qy + pz * qz) / (Math.hypot(px, py, pz) * Math.hypot(qx, qy, qz));
+    sky.sunMoonFromEarthDeg[i] = Math.acos(Math.min(1, Math.max(-1, cos))) / DEG;
   }
   return sky;
 }

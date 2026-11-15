@@ -18,8 +18,11 @@ Power
 Communication (direct-to-Earth)
 - Earth occultation by terrain;
 - ground-station gap: no DSN complex has the Moon above its elevation mask;
-- solar conjunction: Sun too close to the Earth as seen from the lander, so
-  the Earth-pointing antenna picks up solar radio noise;
+- solar conjunction, two geometries: the Sun close to the Earth as seen from
+  the lander (near full Moon; the lander's Earth-pointing antenna sees the
+  Sun) or close to the Moon as seen from the Earth (near new Moon, the
+  Sun-Earth-probe angle; the ground antenna pointing at the Moon sees the
+  Sun). Both raise the receiver noise;
 - low elevation: Earth close to the local horizon (multipath-prone); counted
   as degraded, not as an outage.
 
@@ -47,7 +50,7 @@ DEFAULT_PROFILE = {
     "max_comm_outage_h": 24.0,      # longest tolerable loss of contact
     "min_daily_contact_h": 8.0,     # required contact in every 24 h of the mission
     "station_min_elevation_deg": 10.0,
-    "conjunction_deg": 2.0,         # Sun-Earth separation that jams the link
+    "conjunction_deg": 2.0,         # Sun-Earth (lander) or Sun-Moon (ground) separation that jams the link
     "low_elevation_deg": 2.0,       # Earth center this close to terrain = degraded
     "max_slope_deg": 10.0,          # tip-over / landing limit
     "landing_precision_m": 100.0,   # radius in which slope is judged when comparing nearby spots
@@ -95,12 +98,14 @@ def angular_separation_deg(az1, alt1, az2, alt2):
 
 
 def covered_fraction(separation_deg, r_small=lm.SUN_RADIUS_DEG, r_big=lm.EARTH_RADIUS_DEG):
-    """Fraction of the small disk's area covered by the big disk."""
-    d = np.asarray(separation_deg, dtype=float)
+    """Fraction of the small disk's area covered by the big disk (radii may be per sample)."""
+    d, r_small, r_big = np.broadcast_arrays(np.asarray(separation_deg, dtype=float),
+                                            np.asarray(r_small, dtype=float),
+                                            np.asarray(r_big, dtype=float))
     out = np.zeros_like(d)
     out[d <= r_big - r_small] = 1.0
     partial = (d > r_big - r_small) & (d < r_big + r_small)
-    dp = d[partial]
+    dp, r_small, r_big = d[partial], r_small[partial], r_big[partial]
     a1 = r_small ** 2 * np.arccos((dp ** 2 + r_small ** 2 - r_big ** 2) / (2 * dp * r_small))
     a2 = r_big ** 2 * np.arccos((dp ** 2 + r_big ** 2 - r_small ** 2) / (2 * dp * r_big))
     a3 = 0.5 * np.sqrt((-dp + r_small + r_big) * (dp + r_small - r_big)
@@ -145,14 +150,27 @@ def load_station_table(path):
 
 
 def build_series(times, sun_alt, earth_alt, sun_az, earth_az,
-                 horizon=None, stations=None, profile=None):
+                 horizon=None, stations=None, profile=None, geometry=None):
     """Per-sample state of power and communication.
 
     `horizon` is a dict from `lunar_terrain.load_horizon` (None = ideal
     sphere); `stations` is the table from `load_station_table` (None = a
-    ground station is assumed to be always available).
+    ground station is assumed to be always available). `geometry` holds
+    per-sample arrays `sun_radius_deg`, `earth_radius_deg` (apparent disk
+    radii from the distances) and `sun_moon_from_earth_deg` (Sun-Earth-probe
+    angle), see `lunar_sky.body_geometry`; without it the disk radii are the
+    fixed mean values and the ground-side conjunction is not checked.
     """
     p = {**DEFAULT_PROFILE, **(profile or {})}
+    n = len(times)
+    if geometry is not None:
+        sun_r = np.asarray(geometry["sun_radius_deg"], dtype=float)
+        earth_r = np.asarray(geometry["earth_radius_deg"], dtype=float)
+        sep_ground = np.asarray(geometry["sun_moon_from_earth_deg"], dtype=float)
+    else:
+        sun_r = np.full(n, lm.SUN_RADIUS_DEG)
+        earth_r = np.full(n, lm.EARTH_RADIUS_DEG)
+        sep_ground = None
     sun_alt, earth_alt = np.asarray(sun_alt), np.asarray(earth_alt)
     sun_az, earth_az = np.asarray(sun_az), np.asarray(earth_az)
     if horizon is not None:
@@ -165,13 +183,13 @@ def build_series(times, sun_alt, earth_alt, sun_az, earth_az,
         earth_hor = np.full(earth_alt.shape, p["mask_deg"])
 
     separation = angular_separation_deg(sun_az, sun_alt, earth_az, earth_alt)
-    terrain_fraction = terrain_disk_fraction(sun_alt, sun_hor, lm.SUN_RADIUS_DEG)
-    earth_cover = covered_fraction(separation)
+    terrain_fraction = terrain_disk_fraction(sun_alt, sun_hor, sun_r)
+    earth_cover = covered_fraction(separation, sun_r, earth_r)
     # The Earth only blocks sunlight if it is itself above the terrain.
-    earth_cover = np.where(earth_alt + lm.EARTH_RADIUS_DEG > earth_hor, earth_cover, 0.0)
+    earth_cover = np.where(earth_alt + earth_r > earth_hor, earth_cover, 0.0)
     solar_fraction = terrain_fraction * (1.0 - earth_cover)
 
-    earth_visible = earth_alt + lm.EARTH_RADIUS_DEG > earth_hor
+    earth_visible = earth_alt + earth_r > earth_hor
     if stations is not None:
         key = [lm.format_time(t) for t in times]
         missing = [k for k in key if k not in stations]
@@ -182,7 +200,10 @@ def build_series(times, sun_alt, earth_alt, sun_az, earth_az,
         station_ok = (station_alt > p["station_min_elevation_deg"]).any(axis=1)
     else:
         station_ok = np.ones(sun_alt.shape, dtype=bool)
-    conjunction = earth_visible & (separation < p["conjunction_deg"])
+    near_sun = separation < p["conjunction_deg"]
+    if sep_ground is not None:
+        near_sun = near_sun | (sep_ground < p["conjunction_deg"])
+    conjunction = earth_visible & near_sun
     comm = earth_visible & station_ok & ~conjunction
     low_elevation = comm & (earth_alt - earth_hor < p["low_elevation_deg"])
 
@@ -193,6 +214,8 @@ def build_series(times, sun_alt, earth_alt, sun_az, earth_az,
         "profile": p,
         "terrain": horizon is not None,
         "stations": stations is not None,
+        "sun_radius_deg": sun_r,
+        "earth_radius_deg": earth_r,
         "sun_above_terrain_deg": sun_alt - sun_hor,
         "earth_above_terrain_deg": earth_alt - earth_hor,
         "sun_earth_separation_deg": separation,
@@ -338,12 +361,20 @@ def score_window(window, profile, surface=None):
     }
 
 
-def scan_landing_dates(series, surface=None, step_days=1.0, duration_days=None):
-    """Score every possible landing date in the data. Returns a list of rows."""
+def scan_landing_dates(series, surface=None, step_days=1.0, duration_days=None, anchor=None):
+    """Score every possible landing date in the data. Returns a list of rows.
+
+    Rows are `step_days` apart from the first sample, or, with `anchor`, at the
+    anchor's time of day, so the requested landing itself is one of the rows.
+    """
     p = series["profile"]
     duration = p["duration_days"] if duration_days is None else duration_days
     times = series["times"]
-    rows, landing = [], times[0]
+    landing = times[0]
+    if anchor is not None:
+        step = timedelta(days=step_days)
+        landing = times[0] + (anchor - times[0]) % step
+    rows = []
     while landing + timedelta(days=duration) <= times[-1]:
         window = analyze_window(series, landing, duration)
         score = score_window(window, p, surface)
@@ -407,7 +438,7 @@ def evaluate(series, surface, landing):
     """Window indicators, score, scan and date alternatives for one point."""
     profile = series["profile"]
     window = analyze_window(series, landing)
-    scan = scan_landing_dates(series, surface)
+    scan = scan_landing_dates(series, surface, anchor=landing)
     return {
         "window": window,
         "score": score_window(window, profile, surface),

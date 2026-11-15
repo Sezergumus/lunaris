@@ -13,8 +13,9 @@ import {
   type MissionWindow,
   type Profile,
   type Score,
+  type SkySeries,
 } from "../src/engine/risk.ts";
-import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, DEFAULT_PROFILE } from "../src/engine/risk.ts";
+import { DEFAULT_PROFILE } from "../src/engine/risk.ts";
 import { findTransitions, limbClearance, nextTransition } from "../src/engine/events.ts";
 import { bestPoint, scoreGrid, type TerrainGrid } from "../src/engine/grid.ts";
 import { estimateMastHorizon } from "../src/engine/mast.ts";
@@ -38,6 +39,35 @@ function int32Columns(file: string, columns: number, scale: number): Float64Arra
 const dsn = int32Columns("dsn.bin", 3, manifest.dsnScale);
 const stationMaxAlt = Float64Array.from({ length: count }, (_, i) => Math.max(dsn[0][i], dsn[1][i], dsn[2][i]));
 const parseUtc = (text: string) => Date.parse(text.replace(/Z$/, ":00Z"));
+
+function loadVectors(): VectorTable | null {
+  const v = manifest.vectors;
+  if (!v) return null;
+  const bytes = readFileSync(join(publicData, "vectors.bin"));
+  const raw = new Float32Array(bytes.buffer, bytes.byteOffset, 6 * v.count);
+  const column = (c: number) => raw.subarray(c * v.count, (c + 1) * v.count);
+  return {
+    startMs: Date.parse(v.start),
+    stepHours: v.stepMinutes / 60,
+    count: v.count,
+    sun: [column(0), column(1), column(2)],
+    earth: [column(3), column(4), column(5)],
+  };
+}
+
+/**
+ * Per-site angles from the site's own table, plus the distance-dependent quantities (disk
+ * radii, Sun-Earth-probe angle) from the vectors table, as the backend does.
+ */
+function siteSky(site: { lat: number; lon: number }, angles: Float64Array[]): SkySeries {
+  const [sunAz, sunAlt, earthAz, earthAlt] = angles;
+  const sky: SkySeries = { startMs: Date.parse(manifest.start), stepHours: manifest.stepMinutes / 60, count, sunAz, sunAlt, earthAz, earthAlt };
+  const table = loadVectors();
+  if (!table) return sky;
+  const first = sampleIndex(table, sky.startMs);
+  const geometry = skyFromVectors(table, site.lat, site.lon, 0, { first, count });
+  return { ...sky, sunRadiusDeg: geometry.sunRadiusDeg, earthRadiusDeg: geometry.earthRadiusDeg, sunMoonFromEarthDeg: geometry.sunMoonFromEarthDeg };
+}
 
 let failures = 0;
 function check(label: string, actual: unknown, expected: unknown) {
@@ -67,12 +97,12 @@ function checkScore(label: string, score: Score, expected: any) {
 for (const site of manifest.sites) {
   const expected = JSON.parse(readFileSync(join(backendData, `risk_${site.key}.json`), "utf8"));
   const horizonDoc = JSON.parse(readFileSync(join(publicData, `horizon_${site.key}.json`), "utf8"));
-  const [sunAz, sunAlt, earthAz, earthAlt] = int32Columns(`sky_${site.key}.bin`, 4, manifest.skyScale);
+  const sky = siteSky(site, int32Columns(`sky_${site.key}.bin`, 4, manifest.skyScale));
   const profile: Profile = expected.profile;
   const slope: number | null = horizonDoc.surface?.slope_landing_deg?.p95 ?? horizonDoc.surface?.slope_lola_deg?.p95 ?? null;
 
   const series = buildSeries(
-    { startMs: Date.parse(manifest.start), stepHours: manifest.stepMinutes / 60, count, sunAz, sunAlt, earthAz, earthAlt },
+    sky,
     { stepDeg: horizonDoc.azimuth_step_deg, horizonDeg: horizonDoc.horizon_deg },
     stationMaxAlt,
     profile,
@@ -90,7 +120,7 @@ for (const site of manifest.sites) {
     const raised = raisedHorizon({ stepDeg: horizonDoc.azimuth_step_deg, horizonDeg: horizonDoc.horizon_deg }, horizonDoc.horizon_range_km, uncertain.height_error_m);
     check("map error max margin", raised.maxDeg, uncertain.margin_deg.max);
     const worse = buildSeries(
-      { startMs: Date.parse(manifest.start), stepHours: manifest.stepMinutes / 60, count, sunAz, sunAlt, earthAz, earthAlt },
+      sky,
       raised.horizon,
       stationMaxAlt,
       profile,
@@ -128,16 +158,7 @@ const ANGLE_TOLERANCE = 0.01;
 
 if (manifest.vectors) {
   const v = manifest.vectors;
-  const bytes = readFileSync(join(publicData, "vectors.bin"));
-  const raw = new Float32Array(bytes.buffer, bytes.byteOffset, 6 * v.count);
-  const column = (c: number) => raw.subarray(c * v.count, (c + 1) * v.count);
-  const vectors: VectorTable = {
-    startMs: Date.parse(v.start),
-    stepHours: v.stepMinutes / 60,
-    count: v.count,
-    sun: [column(0), column(1), column(2)],
-    earth: [column(3), column(4), column(5)],
-  };
+  const vectors = loadVectors()!;
   const stationBytes = readFileSync(join(publicData, "stations.bin"));
   const stationRaw = new Int32Array(stationBytes.buffer, stationBytes.byteOffset, 3 * v.count);
   const stationsLong = Float64Array.from({ length: v.count }, (_, i) =>
@@ -212,8 +233,8 @@ if (manifest.vectors) {
     let siteWorst = 0;
     let compared = 0;
     const tracks = [
-      ["sun", series.sunAboveTerrain, SUN_RADIUS_DEG, "sunrise"],
-      ["earth", series.earthAboveTerrain, EARTH_RADIUS_DEG, "earthrise"],
+      ["sun", series.sunAboveTerrain, series.sunRadius, "sunrise"],
+      ["earth", series.earthAboveTerrain, series.earthRadius, "earthrise"],
     ] as const;
     for (const [track, above, radius, riseType] of tracks) {
       const transitions = findTransitions(limbClearance(above, radius));
@@ -261,7 +282,7 @@ if (manifest.vectors) {
       const horizon = row.mast_m === horizonDoc.mast_m ? base : estimateMastHorizon(base, horizonDoc.horizon_range_km, horizonDoc.mast_m, row.mast_m);
       const series = buildSeries(sky, horizon, null, DEFAULT_PROFILE);
       let visible = 0;
-      for (let i = 0; i < samples; i++) if (series.sunAboveTerrain[i] + SUN_RADIUS_DEG > 0) visible++;
+      for (let i = 0; i < samples; i++) if (series.sunAboveTerrain[i] + series.sunRadius[i] > 0) visible++;
       const pct = (100 * visible) / samples;
       if (row.mast_m !== horizonDoc.mast_m) worstMastPts = Math.max(worstMastPts, Math.abs(pct - row.sun_visible_pct));
       parts.push(`${row.mast_m} m ${pct.toFixed(1)}% (backend ${row.sun_visible_pct.toFixed(1)}%)`);

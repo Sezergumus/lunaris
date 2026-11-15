@@ -5,14 +5,16 @@
 // interpolate linearly between two samples. A body counts as visible while its upper limb is
 // above the horizon in its direction (the convention of the backend's `metrics` command), so
 // the quantity that changes sign at an event is `clearance = center above terrain + radius`.
-import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, type Series, type SkySeries } from "./risk.ts";
+import type { Series, SkySeries } from "./risk.ts";
 
 const DEG = Math.PI / 180;
 
 /** Upper-limb clearance per sample; positive = visible. */
-export function limbClearance(centerAboveTerrain: ArrayLike<number>, radiusDeg: number): Float64Array {
+export function limbClearance(centerAboveTerrain: ArrayLike<number>, radiusDeg: number | ArrayLike<number>): Float64Array {
   const out = new Float64Array(centerAboveTerrain.length);
-  for (let i = 0; i < out.length; i++) out[i] = centerAboveTerrain[i] + radiusDeg;
+  for (let i = 0; i < out.length; i++) {
+    out[i] = centerAboveTerrain[i] + (typeof radiusDeg === "number" ? radiusDeg : radiusDeg[i]);
+  }
   return out;
 }
 
@@ -128,7 +130,7 @@ export function sampleAt(series: Series, sky: SkySeries, timeMs: number): Instan
 
   const sunAboveTerrain = lerp(series.sunAboveTerrain[i], series.sunAboveTerrain[i + 1], t);
   const earthAboveTerrain = lerp(series.earthAboveTerrain[i], series.earthAboveTerrain[i + 1], t);
-  const earthVisible = earthAboveTerrain + EARTH_RADIUS_DEG > 0;
+  const earthVisible = earthAboveTerrain + lerp(series.earthRadius[i], series.earthRadius[i + 1], t) > 0;
   const linkBlock: LinkBlock | null = !earthVisible
     ? "terrain"
     : !series.stationOk[near]
@@ -147,7 +149,7 @@ export function sampleAt(series: Series, sky: SkySeries, timeMs: number): Instan
     sunAboveTerrain,
     earthAboveTerrain,
     solarFraction: lerp(series.solarFraction[i], series.solarFraction[i + 1], t),
-    sunVisible: sunAboveTerrain + SUN_RADIUS_DEG > 0,
+    sunVisible: sunAboveTerrain + lerp(series.sunRadius[i], series.sunRadius[i + 1], t) > 0,
     earthVisible,
     link: linkBlock === null,
     linkBlock,

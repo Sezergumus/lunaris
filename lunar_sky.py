@@ -180,6 +180,49 @@ def vectors_to_altaz(vector_km, lat, lon, height_m=0.0):
     return np.degrees(np.arctan2(e, n)) % 360.0, np.degrees(np.arctan2(u, np.hypot(e, n)))
 
 
+SUN_RADIUS_KM = 696_000.0        # IAU 2015 nominal solar radius
+EARTH_RADIUS_KM = 6_378.137      # equatorial; the Earth's flattening (0.3 %) is ignored
+_GEOMETRY_CACHE = {}
+
+
+def body_geometry(times, lat, lon, kernel_dir, height_m=0.0):
+    """Per-sample quantities that depend on the distances, not only on the directions.
+
+    - `sun_radius_deg`, `earth_radius_deg`: apparent radius of each disk seen from
+      the site, asin(body radius / distance). Over a year the Sun's varies
+      0.262-0.272 deg and the Earth's 0.90-1.02 deg; near the pole 0.05 deg of
+      disk radius moves a rise or set by up to an hour or two.
+    - `sun_moon_from_earth_deg`: the Sun-Earth-probe angle, the separation of the
+      Sun and the lander as seen from the Earth (small near new Moon), which is
+      what puts the Sun in a ground antenna's beam.
+    """
+    import numpy as np
+
+    key = (times[0], times[-1], len(times))
+    if key not in _GEOMETRY_CACHE:          # the vectors do not depend on the site
+        _GEOMETRY_CACHE.clear()
+        _GEOMETRY_CACHE[key] = moon_centered_vectors(times, kernel_dir)
+    vec = _GEOMETRY_CACHE[key]
+    la, lo = math.radians(lat), math.radians(lon)
+    site = (MOON_RADIUS_KM + height_m / 1000.0) * np.array(
+        [math.cos(la) * math.cos(lo), math.cos(la) * math.sin(lo), math.sin(la)])[:, None]
+    sun, earth = np.asarray(vec["sun"]) - site, np.asarray(vec["earth"]) - site
+    sun_d, earth_d = np.linalg.norm(sun, axis=0), np.linalg.norm(earth, axis=0)
+    to_site, to_sun = -earth, sun - earth            # both seen from the Earth
+    cos_sep = (to_site * to_sun).sum(axis=0) / (earth_d * np.linalg.norm(to_sun, axis=0))
+    return {
+        "sun_radius_deg": np.degrees(np.arcsin(SUN_RADIUS_KM / sun_d)),
+        "earth_radius_deg": np.degrees(np.arcsin(EARTH_RADIUS_KM / earth_d)),
+        "sun_moon_from_earth_deg": np.degrees(np.arccos(np.clip(cos_sep, -1.0, 1.0))),
+    }
+
+
+def disk_radii(geometry):
+    """Keyword arguments for `lunar_metrics.analyze` from `body_geometry`."""
+    return {"sun_radius": geometry["sun_radius_deg"].tolist(),
+            "earth_radius": geometry["earth_radius_deg"].tolist()}
+
+
 VECTOR_HEADER = ["utc", "sun_x_km", "sun_y_km", "sun_z_km", "earth_x_km", "earth_y_km", "earth_z_km"]
 
 
@@ -506,8 +549,10 @@ def load_site_series(a, key, profile, stations):
         horizon = lt.load_horizon(hor_path)
         with open(hor_path) as f:
             surface = json.load(f).get("surface")
+    _, lat, lon = SITES[key]
     series = lr.build_series(times, sun_alt, earth_alt, sun_az, earth_az,
-                             horizon=horizon, stations=stations, profile=profile)
+                             horizon=horizon, stations=stations, profile=profile,
+                             geometry=body_geometry(times, lat, lon, a.kernels))
     return series, surface
 
 
@@ -600,7 +645,8 @@ def run_nearby(a, key, label, lat, lon, sky_path):
         slope = lt.value_within(slope_map, cx, cy, precision)
         surface = {"slope_landing_deg": {"radius_m": precision, "source": slope_source, "p95": slope}}
         series = lr.build_series(times, ang["sun_alt"], ang["earth_alt"], ang["sun_az"],
-                                 ang["earth_az"], horizon=horizon, stations=stations, profile=profile)
+                                 ang["earth_az"], horizon=horizon, stations=stations, profile=profile,
+                                 geometry=body_geometry(times, c["lat"], c["lon"], a.kernels))
         ev = lr.evaluate(series, surface, landing)
         w, sc, d = ev["window"], ev["score"], ev["dates"]
         c.update({
@@ -697,7 +743,8 @@ def run_grid(a, key, label, lat, lon, sky_path):
         horizon = {"azimuth_deg": pt["azimuth_step_deg"] * np.arange(len(pt["horizon_deg"])),
                    "horizon_deg": pt["horizon_deg"]}
         series = lr.build_series(times, ang["sun_alt"], ang["earth_alt"], ang["sun_az"],
-                                 ang["earth_az"], horizon=horizon, stations=stations, profile=profile)
+                                 ang["earth_az"], horizon=horizon, stations=stations, profile=profile,
+                                 geometry=body_geometry(times, pt["lat"], pt["lon"], a.kernels))
         window = lr.analyze_window(series, landing)
         score = lr.score_window(window, profile, {"slope_lola_deg": {"p95": pt["slope_deg"]}})
         rows.append((pt, window, score))
@@ -748,7 +795,7 @@ def run_risk(a, key, label, lat, lon, sky_path):
         except ValueError:
             continue
         slips.append({"slip_days": days, "window": w, "score": lr.score_window(w, profile, surface)})
-    scan = lr.scan_landing_dates(series, surface)
+    scan = lr.scan_landing_dates(series, surface, anchor=landing)
     dates = lr.date_alternatives(scan, landing)
 
     # Same mission with the horizon raised by what the map's height error allows.
@@ -763,7 +810,8 @@ def run_risk(a, key, label, lat, lon, sky_path):
                                            height_error)
         sky = lm.load_series(sky_path)
         worse = lr.build_series(sky[0], sky[1], sky[2], sky[3], sky[4],
-                                horizon=raised, stations=stations, profile=profile)
+                                horizon=raised, stations=stations, profile=profile,
+                                geometry=body_geometry(sky[0], lat, lon, a.kernels))
         worse_window = lr.analyze_window(worse, landing)
         uncertainty = {
             "height_error_m": height_error,
@@ -772,7 +820,7 @@ def run_risk(a, key, label, lat, lon, sky_path):
             "margin_deg": {"median": float(np.median(margin)), "max": float(np.max(margin))},
             "window": worse_window,
             "score": lr.score_window(worse_window, profile, surface),
-            "low_risk_dates": sum(1 for r in lr.scan_landing_dates(worse, surface) if r["level"] == "low"),
+            "low_risk_dates": sum(1 for r in lr.scan_landing_dates(worse, surface, anchor=landing) if r["level"] == "low"),
         }
 
     result = {
@@ -904,19 +952,21 @@ def run_backtest(a):
 
     profile = build_profile(a)
     profile["duration_days"] = a.duration or bt["duration_days"]
+    geometry = body_geometry(times, lat, lon, a.kernels)
     series = lr.build_series(times, sky["sun_alt"], sky["earth_alt"], sky["sun_az"], sky["earth_az"],
-                             horizon=horizon, stations=stations, profile=profile)
+                             horizon=horizon, stations=stations, profile=profile, geometry=geometry)
     landing = parse_instant(bt["landing"])
     slips = []
     for days in (0, 7, 14, 21, 28):
         w = lr.analyze_window(series, landing + timedelta(days=days))
         slips.append({"slip_days": days, "window": w, "score": lr.score_window(w, profile, surface)})
-    scan = lr.scan_landing_dates(series, surface)
+    scan = lr.scan_landing_dates(series, surface, anchor=landing)
     dates = lr.date_alternatives(scan, landing)
 
     track = lm.analyze(times, sky["sun_alt"], sky["earth_alt"],
                        sun_horizon=lt.horizon_at(horizon, sky["sun_az"]).tolist(),
-                       earth_horizon=lt.horizon_at(horizon, sky["earth_az"]).tolist())
+                       earth_horizon=lt.horizon_at(horizon, sky["earth_az"]).tolist(),
+                       **disk_radii(geometry))
     sun_events = track["sun"]["events"]
     sunset = next(e["utc"] for e in sun_events if e["type"] == "sunset" and e["utc"] > landing)
     sunrise = next(e["utc"] for e in sun_events if e["type"] == "sunrise" and e["utc"] > sunset)
@@ -980,12 +1030,13 @@ def run_mast(a, key, label, lat, lon, sky_path):
     near = lt.read_window("height_m", x, y, lt.NEAR_RADIUS_M)
     far = lt.read_window("height_m", x, y, lt.FAR_RADIUS_M, lt.FAR_DECIMATION)
     times, sun_alt, earth_alt, sun_az, earth_az = lm.load_series(sky_path)
+    radii = disk_radii(body_geometry(times, lat, lon, a.kernels))
     rows = []
     for mast in [float(v) for v in a.masts.split(",")]:
         horizon = lt.compute_horizon(lat, lon, mast_m=mast, near=near, far=far)
         m = lm.analyze(times, sun_alt, earth_alt,
                        sun_horizon=lt.horizon_at(horizon, sun_az).tolist(),
-                       earth_horizon=lt.horizon_at(horizon, earth_az).tolist())
+                       earth_horizon=lt.horizon_at(horizon, earth_az).tolist(), **radii)
         rows.append({
             "mast_m": mast,
             "mean_horizon_deg": float(horizon["horizon_deg"].mean()),
@@ -1014,8 +1065,10 @@ def run_events(a, key, label, lat, lon, sky_path):
     table. Here every event is located again in a one-minute Horizons table
     around it, with the same visibility rule (upper limb against the sphere
     or, with --terrain, against the terrain horizon in the body's direction).
-    A second time uses the disk radius Horizons reports for that instant
-    instead of the fixed 0.27 / 0.95 deg, to show what the fixed radius costs.
+    Both sides use the apparent disk radius of the instant (the model from the
+    distances in `body_geometry`, Horizons its reported angular diameter). A
+    second search with the old fixed 0.27 / 0.95 deg in Horizons shows what a
+    fixed radius would cost.
     """
     import time
 
@@ -1029,7 +1082,8 @@ def run_events(a, key, label, lat, lon, sky_path):
         horizon = lt.load_horizon(os.path.join(a.out, f"horizon_{key}.json"))
         sun_horizon = lt.horizon_at(horizon, sun_az).tolist()
         earth_horizon = lt.horizon_at(horizon, earth_az).tolist()
-    result = lm.analyze(times, sun_alt, earth_alt, sun_horizon=sun_horizon, earth_horizon=earth_horizon)
+    result = lm.analyze(times, sun_alt, earth_alt, sun_horizon=sun_horizon, earth_horizon=earth_horizon,
+                        **disk_radii(body_geometry(times, lat, lon, a.kernels, a.height)))
     events = sorted(result["sun"]["events"] + result["earth"]["events"], key=lambda e: e["utc"])
     # An event on the first or last hour of the table has no room for a search window.
     events = [e for e in events if times[0] + timedelta(hours=6) < e["utc"] < times[-1] - timedelta(hours=6)]
@@ -1061,18 +1115,18 @@ def run_events(a, key, label, lat, lon, sky_path):
                     if attempt == 3:
                         raise
                     time.sleep(5 * (attempt + 1))
-            found = crossings(table, lambda d: fixed, rising)
+            found = crossings(table, lambda d: d / 7200.0, rising)
             if found:
                 break
         if found:
             nearest = min(found, key=lambda t: abs(t - event["utc"]))
             row["horizons_utc"] = nearest
             row["difference_min"] = (event["utc"] - nearest).total_seconds() / 60.0
-            true_disk = crossings(table, lambda d: d / 7200.0, rising)
-            if true_disk:
-                best = min(true_disk, key=lambda t: abs(t - event["utc"]))
-                row["horizons_true_disk_utc"] = best
-                row["difference_true_disk_min"] = (event["utc"] - best).total_seconds() / 60.0
+            fixed_disk = crossings(table, lambda d: fixed, rising)
+            if fixed_disk:
+                best = min(fixed_disk, key=lambda t: abs(t - event["utc"]))
+                row["horizons_fixed_disk_utc"] = best
+                row["difference_fixed_disk_min"] = (event["utc"] - best).total_seconds() / 60.0
             middle = table[sorted(table)[len(table) // 2]]
             row["disk_radius_deg"] = middle[2] / 7200.0
         rows.append(row)
@@ -1093,10 +1147,10 @@ def run_events(a, key, label, lat, lon, sky_path):
     model = "terrain" if a.terrain else "sphere"
     print(f"{label}  ({lat}, {lon}), {model} horizon: |metrics - Horizons| over {len(rows)} events")
     summary = {
-        "sun_same_radius": stats("Sun, same disk radius", "difference_min", "sun"),
-        "earth_same_radius": stats("Earth, same disk radius", "difference_min", "earth"),
-        "sun_true_disk": stats("Sun, Horizons disk radius", "difference_true_disk_min", "sun"),
-        "earth_true_disk": stats("Earth, Horizons disk radius", "difference_true_disk_min", "earth"),
+        "sun": stats("Sun, disk radius of the instant", "difference_min", "sun"),
+        "earth": stats("Earth, disk radius of the instant", "difference_min", "earth"),
+        "sun_horizons_fixed_disk": stats("Sun, Horizons with fixed 0.27 deg", "difference_fixed_disk_min", "sun"),
+        "earth_horizons_fixed_disk": stats("Earth, Horizons with fixed 0.95 deg", "difference_fixed_disk_min", "earth"),
         "unmatched": sum(1 for r in rows if "difference_min" not in r),
     }
     print(f"  Events without a crossing in Horizons within 12 h: {summary['unmatched']}")
@@ -1202,7 +1256,8 @@ def run_metrics(a, key, label, lat, lon, sky_path):
         suffix = "_terrain"
     result = lm.analyze(times, sun_alt, earth_alt,
                         dip_deg=horizon_dip_deg(a.height), mask_deg=a.mask,
-                        sun_horizon=sun_horizon, earth_horizon=earth_horizon)
+                        sun_horizon=sun_horizon, earth_horizon=earth_horizon,
+                        **disk_radii(body_geometry(times, lat, lon, a.kernels, a.height)))
     result = {"site": {"key": key, "name": label, "lat": lat, "lon": lon,
                        "height_m": a.height}, **result}
     if a.at:

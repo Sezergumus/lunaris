@@ -11,8 +11,6 @@ import { pointHorizon, type TerrainGrid, type TerrainPoint } from "../engine/gri
 import { horizonForMast, mastAdjustable } from "../engine/mast.ts";
 import {
   DEFAULT_PROFILE,
-  EARTH_RADIUS_DEG,
-  SUN_RADIUS_DEG,
   buildSeries,
   raisedHorizon,
   scanLandingDates,
@@ -234,8 +232,8 @@ export function buildPlaceData(
     terrain,
     status,
     sphereReason: reason,
-    sunEvents: findTransitions(limbClearance(series.sunAboveTerrain, SUN_RADIUS_DEG)),
-    earthEvents: findTransitions(limbClearance(series.earthAboveTerrain, EARTH_RADIUS_DEG)),
+    sunEvents: findTransitions(limbClearance(series.sunAboveTerrain, series.sunRadius)),
+    earthEvents: findTransitions(limbClearance(series.earthAboveTerrain, series.earthRadius)),
     slopeP95Deg: terrain?.slopeP95Deg ?? null,
     mast,
     mapError,
