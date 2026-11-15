@@ -254,7 +254,17 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
 
 - Host: Google Cloud Run, Kerem's account (free trial), project
   `project-df92223b-059a-42b1-82a`, region `europe-west1`, service `lunaris-terrain`, public,
-  2 GiB / 2 CPU, at most 2 instances, scales to zero. Redeploy:
+  2 GiB / 2 CPU, at most 5 instances, scales to zero. Request concurrency per instance is 2,
+  equal to `LUNARIS_MAX_JOBS` (`deploy_cloud_run.sh` keeps them equal). Until 2026-11-15 it
+  was 8 per instance and 2 instances: one instance took 8 requests, refused 6 at once with
+  429, and the second instance rarely started. Since revision `lunaris-terrain-00015-sxv`
+  the service also no longer refuses at once: a request above `LUNARIS_MAX_JOBS` waits up to
+  `LUNARIS_JOB_WAIT_S` (30 s) for a slot, and a cached answer never waits.
+  Measured on Cloud Run (1 instance, same 12 new points per burst): 2, 4, 6 or 8 jobs per
+  instance all give about 2 requests/s; more jobs only lengthen the wait (the instance is
+  probably CPU-bound; with the local DEM a job is 0.28 s of CPU on the Mac). So capacity
+  grows with instances, not with jobs per instance. 20 simultaneous new points on
+  5 x 2: all 200, 1.9 req/s cold, 3.6-3.7 req/s warm (median 2.7 s). Redeploy:
   `sh api/deploy_cloud_run.sh project-df92223b-059a-42b1-82a` (needs `gcloud auth login` as
   Kerem; gcloud 593 is installed with Homebrew). Logs:
   `gcloud run services logs read lunaris-terrain --project <id> --region europe-west1`.
@@ -480,8 +490,8 @@ owner as proposed and built.** Differences from the table below are additions on
   With a per-site Sun/Earth table the command also prints the best neighbour for `--landing`.
 - `GET /horizon` in `api/main.py` (`uvicorn api.main:app` from the repository root): the same
   document without `site`. Parameters `lat, lon, mast=2, grid=1 (odd, max 5), step=125,
-precision=100, snap=true`. 422 outside coverage or for a bad grid, 429 above 2 concurrent
-  computations, `Cache-Control: immutable`, CORS from `LUNARIS_CORS_ORIGINS` (default `*`),
+precision=100, snap=true`. 422 outside coverage or for a bad grid, 429 when no computation slot frees
+  within `LUNARIS_JOB_WAIT_S` (`LUNARIS_MAX_JOBS` run at once, default 2), `Cache-Control: immutable`, CORS from `LUNARIS_CORS_ORIGINS` (default `*`),
   in-memory cache of 256 answers. `GET /health` reports which terrain files are in use.
   Measured on the Mac with local files: grid=1 0.3 s, grid=5 1.8 s, cached 1 ms.
   `api/Dockerfile` and `api/start.sh` (fetches files listed in `LUNARIS_TERRAIN_URLS`) are
