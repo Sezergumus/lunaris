@@ -1,6 +1,8 @@
 import { memo, useMemo } from "react";
-import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, horizonAt } from "../engine/risk.ts";
+import type { Instant } from "../engine/events.ts";
+import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, horizonAt, terrainDiskFraction } from "../engine/risk.ts";
 import { sampleIndex } from "../engine/sky.ts";
+import { formatDistance } from "../geo/polar.ts";
 import type { PlaceData } from "../state/placeData.ts";
 import { useScenario } from "../state/scenario.ts";
 import { useInstant, type ScenarioView } from "../state/view.ts";
@@ -176,6 +178,102 @@ function Bodies({ view, frame, layer }: { view: ScenarioView; frame: Frame; laye
   );
 }
 
+// ------------------------------------------------------------- why it is dark
+
+/** Below this visible share of the solar disk, a cut by the terrain is worth a sentence. */
+const CUT_WORTH_NAMING = 0.99;
+/** Half-width of the ridge stretch marked behind a hidden body, degrees of azimuth. */
+const BLOCKER_SPAN_DEG = 7;
+
+/** What the terrain does to one body right now, if anything worth explaining. */
+interface Obstruction {
+  kind: "sun" | "earth";
+  az: number;
+  /** The terrain hides or cuts the body although it would be up on flat ground. */
+  byTerrain: boolean;
+  /** Fully hidden (else the Sun's disk is partly cut). */
+  hidden: boolean;
+  horizonDeg: number;
+  alt: number;
+  /** Distance of the terrain that sets the horizon there; null where it is not known. */
+  rangeKm: number | null;
+  /** Visible share of the Sun's disk, for a partial cut. */
+  visibleShare: number;
+}
+
+function rangeAt(data: PlaceData, az: number): number | null {
+  const ranges = data.terrain?.horizonRangeKm;
+  const horizon = data.horizon;
+  if (!ranges || !horizon || ranges.length !== horizon.horizonDeg.length) return null;
+  const i = Math.round((((az % 360) + 360) % 360) / horizon.stepDeg) % ranges.length;
+  return ranges[i];
+}
+
+function obstruction(data: PlaceData, kind: "sun" | "earth", at: Instant): Obstruction | null {
+  if (!data.horizon) return null;
+  const sun = kind === "sun";
+  const az = sun ? at.sunAz : at.earthAz;
+  const alt = sun ? at.sunAlt : at.earthAlt;
+  const radius = sun ? SUN_RADIUS_DEG : EARTH_RADIUS_DEG;
+  const hidden = !(sun ? at.sunVisible : at.earthVisible);
+  const horizonDeg = horizonAt(data.horizon, az);
+  const visibleShare = sun ? terrainDiskFraction(alt, horizonDeg, radius) : 1;
+  if (!hidden && visibleShare >= CUT_WORTH_NAMING) return null;
+  // The flat-ground horizon of the sphere model is 0 deg: above it, the terrain is to blame.
+  return { kind, az, byTerrain: alt + radius > 0, hidden, horizonDeg, alt, rangeKm: rangeAt(data, az), visibleShare };
+}
+
+function sentence(o: Obstruction): string {
+  const name = o.kind === "sun" ? "Sun" : "Earth";
+  const where = o.rangeKm !== null ? ` ${formatDistance(o.rangeKm * 1000)} away` : "";
+  if (!o.byTerrain) return o.kind === "sun" ? "The Sun is below the horizon." : "The Earth is below the horizon: no direct link.";
+  if (!o.hidden) return `Terrain${where} covers ${Math.round((1 - o.visibleShare) * 100)}% of the Sun's disk.`;
+  const consequence = o.kind === "sun" ? "on flat ground it would be up" : "no direct link, though on flat ground it would be up";
+  return `Terrain${where} rises to ${formatAngle(o.horizonDeg, 1)} and hides the ${name} at ${formatAngle(o.alt, 1)}: ${consequence}.`;
+}
+
+function useObstructions(view: ScenarioView): Obstruction[] {
+  const at = useInstant(view);
+  return [obstruction(view.data, "sun", at), obstruction(view.data, "earth", at)].filter((o): o is Obstruction => o !== null);
+}
+
+/** The stretch of skyline that blocks a body, drawn over the ridge line. */
+function BlockerMarks({ view, frame, id }: { view: ScenarioView; frame: Frame; id: string }) {
+  const marks = useObstructions(view).filter((o) => o.byTerrain);
+  const horizon = view.data.horizon;
+  if (!horizon || marks.length === 0) return null;
+  return (
+    <g clipPath={`url(#${id}-plot)`} aria-hidden="true">
+      {marks.map((mark) => {
+        // Sampled in azimuth; a jump in x means the stretch wraps around the chart's edge.
+        let d = "";
+        let lastX = Infinity;
+        for (let off = -BLOCKER_SPAN_DEG; off <= BLOCKER_SPAN_DEG; off += 0.5) {
+          const az = mark.az + off;
+          const x = frame.x(az);
+          const y = frame.y(horizonAt(horizon, az)).toFixed(2);
+          d += `${Math.abs(x - lastX) > W / 2 ? "M" : d ? "L" : "M"}${x.toFixed(2)},${y}`;
+          lastX = x;
+        }
+        return <path key={mark.kind} className={`hv__blocker hv__blocker--${mark.kind}`} d={d} />;
+      })}
+    </g>
+  );
+}
+
+/** One line per body the terrain or the horizon keeps from view, updated with the timeline. */
+function WhyCaption({ view }: { view: ScenarioView }) {
+  const lines = useObstructions(view).map(sentence);
+  if (lines.length === 0) return null;
+  return (
+    <figcaption className="hv__why" aria-live="polite">
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </figcaption>
+  );
+}
+
 /**
  * The whole horizon unrolled: azimuth across (north in the middle), elevation up. The second
  * view of the site-Sun-Earth geometry next to the map.
@@ -196,8 +294,10 @@ export function HorizonView({ view, compact = false }: { view: ScenarioView; com
           <Bodies view={view} frame={frame} layer="behind" />
         </g>
         <TerrainOverlay data={view.data} frame={frame} id={id} />
+        <BlockerMarks view={view} frame={frame} id={id} />
         <Bodies view={view} frame={frame} layer="front" />
       </svg>
+      <WhyCaption view={view} />
     </figure>
   );
 }
