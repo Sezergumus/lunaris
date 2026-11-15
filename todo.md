@@ -1,5 +1,10 @@
 # TODO: Explorer mode and the 3D surface view
 
+> **AI agent: this file is your task.** Read it to the end, read `CLAUDE.md`, then start
+> phase 0 at once and work through every phase without stopping or asking for approval,
+> following "Instructions for the AI agent" below. Finish by writing the "Summary" at the
+> end of this file.
+
 Plan for an educational "Explorer" mode and a first-person 3D surface view ("Lunar Street
 View") in the Lunaris web UI (`web/`). Written 2026-11-15 ~05:45 local from a review of the
 code and the data files. A new session must be able to implement it from this file and
