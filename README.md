@@ -5,7 +5,7 @@ the public how the Sun and the Earth move around the horizon at a lunar south po
 site. It tells them in seconds what a slipped date or a nearby spot does to power and to
 direct-to-Earth communication.
 
-**Live site:** https://lunaris-lovat.vercel.app/
+**Live site:** https://lunaris.sezergumus.dev/
 
 ![Planner: Mons Mouton on 16 December 2026 (A) against the same site one week later (B)](docs/screenshots/planner-comparison.png)
 
