@@ -129,6 +129,16 @@
   transform: rotate(90deg);
 }
 
+.surface__lander {
+  position: absolute;
+  transform: translate(-50%, 8px);
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
 .surface__tools {
   position: absolute;
   top: 34px;

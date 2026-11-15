@@ -252,9 +252,9 @@ Estimates are for one developer working with Claude.
 
 ### Phase 2: light and shadow (about 2 h)
 
-- [ ] Shadow pass per level, cached, recomputed when the Sun moves.
-- [ ] Surface brightness as above; night look when the Sun is hidden; stars then.
-- [ ] Shadow of the lander at the observer's feet, opposite the Sun, length = height /
+- [x] Shadow pass per level, cached, recomputed when the Sun moves.
+- [x] Surface brightness as above; night look when the Sun is hidden; stars then.
+- [x] Shadow of the lander at the observer's feet, opposite the Sun, length = height /
       tan(elevation), capped; label with the length.
 - [ ] Check on a laptop with integrated graphics; lower the update rate if playback stutters.
 

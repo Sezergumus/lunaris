@@ -50,13 +50,19 @@ export function buildLevels(patch: TerrainPatch, frame: SiteFrame, material: (in
         const b = a + 1;
         const c = a + n;
         const d = c + 1;
-        // Columns run east (+x), rows south (+z): (a, c, b) is counter-clockwise seen from above.
+        // (a, c, b) faces up: the projected grid is rotated against the local axes by the
+        // site's longitude, but checked numerically, column step x row step points up.
         indices.push(a, c, b, b, c, d);
       }
     }
 
+    // Where each vertex reads its own texel of the shadow texture (shadow.ts).
+    const shadowUv = new Float32Array(n * n * 2);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) shadowUv.set([(i + 0.5) / n, (j + 0.5) / n], (j * n + i) * 2);
+
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("shadowUv", new THREE.BufferAttribute(shadowUv, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     geometry.computeBoundingSphere();

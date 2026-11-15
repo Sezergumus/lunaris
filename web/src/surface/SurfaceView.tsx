@@ -51,6 +51,7 @@ function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
   const sunMarkRef = useRef<HTMLDivElement>(null);
   const earthMarkRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
+  const landerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<SurfaceScene | null>(null);
   const viewRef = useRef(view);
   const updateRef = useRef<() => void>(() => {});
@@ -83,6 +84,7 @@ function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
       scene.setState({
         sun: { azimuthDeg: at.sunAz, elevationDeg: at.sunAlt, radiusDeg: v.data.series.sunRadius[i] ?? SUN_RADIUS_DEG },
         earth: { azimuthDeg: at.earthAz, elevationDeg: at.earthAlt, radiusDeg: v.data.series.earthRadius[i] ?? EARTH_RADIUS_DEG },
+        observerLit: at.solarFraction,
         eyeHeightM: v.data.mast.heightM,
         headingDeg: m.headingDeg,
         pitchDeg: m.pitchDeg,
@@ -91,6 +93,7 @@ function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
       drawCompass(compassRef.current, m.headingDeg, scene.horizontalFovDeg);
       placeMark(sunMarkRef.current, scene.project(at.sunAz, at.sunAlt), at.sunVisible, m.headingDeg, at.sunAz);
       placeMark(earthMarkRef.current, scene.project(at.earthAz, at.earthAlt), at.earthVisible, m.headingDeg, at.earthAz);
+      placeLanderLabel(landerRef.current, scene.landerShadowInfo());
       if (readoutRef.current) {
         readoutRef.current.textContent = `Looking ${COMPASS[Math.round(m.headingDeg / 45) % 8]} ${m.headingDeg.toFixed(0)}°, ${formatAngle(m.pitchDeg, 0)}`;
       }
@@ -246,6 +249,7 @@ function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
         <span className="surface__mark-arrow">➤</span>
         <span className="surface__mark-label">Earth</span>
       </div>
+      <div ref={landerRef} className="surface__lander" aria-hidden="true" />
       <div className="surface__tools">
         <Button size="sm" onClick={() => lookAt("sun")}>
           <Sun aria-hidden="true" /> Look at Sun
@@ -269,6 +273,20 @@ function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
       </p>
     </div>
   );
+}
+
+/** Label at the tip of the lander's shadow: its true length on flat ground. */
+function placeLanderLabel(el: HTMLDivElement | null, info: { lengthM: number; tip: { x: number; y: number; inView: boolean } } | null) {
+  if (!el) return;
+  if (!info || !info.tip.inView) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.style.left = `${(info.tip.x * 100).toFixed(2)}%`;
+  el.style.top = `${(info.tip.y * 100).toFixed(2)}%`;
+  const length = info.lengthM;
+  el.textContent = !Number.isFinite(length) ? "Lander shadow: endless" : length >= 1000 ? `Lander shadow ${(length / 1000).toFixed(1)} km long` : `Lander shadow ${Math.round(length)} m long`;
 }
 
 function spread(pointers: Map<number, { x: number; y: number }>): number {
