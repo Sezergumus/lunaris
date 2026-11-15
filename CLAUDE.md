@@ -172,6 +172,12 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   errors. One screenshot right after a very large wheel step came back blank and could not
   be reproduced. Not checked: real GPU frame rate, a custom point with a live 5x5 grid.
 
+- 2026-11-15 afternoon (frontend, Sezer's machine): Planner's 3D view below 1400px. The
+  overlay also covers the sites panel's column (sidebar hidden while it is open; details and
+  timeline stay), and the mast + ground controls move into a settings popover left of the
+  close button (`COMPACT_QUERY` in `SurfaceView.tsx`); the tint legend stays on the view.
+  Explorer unchanged. Checked in headless Edge at 1600, 1280, 1100 and 390 px wide.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
