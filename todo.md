@@ -235,18 +235,18 @@ Estimates are for one developer working with Claude.
 
 ### Phase 1: surface view with real terrain (about 3 h)
 
-- [ ] Add `three`; lazy chunk; WebGL 2 check with the `HorizonView` fallback.
-- [ ] Camera at eye height (`mastM` above the ground); drag to look (mouse, touch), arrow
+- [x] Add `three`; lazy chunk; WebGL 2 check with the `HorizonView` fallback.
+- [x] Camera at eye height (`mastM` above the ground); drag to look (mouse, touch), arrow
       keys, wheel or pinch for the field of view; pitch limited to −85°..+85°.
-- [ ] Sun, Earth and skyline curtain from the engine (works before phase B is done).
-- [ ] `loadSiteTerrainPatch`; four levels as meshes with normals; draw order as above.
-- [ ] Follows the timeline cursor and playback without React renders.
-- [ ] `Look at Sun` and `Look at Earth`; compass strip along the top edge; marker at the
+- [x] Sun, Earth and skyline curtain from the engine (works before phase B is done).
+- [x] `loadSiteTerrainPatch`; four levels as meshes with normals; draw order as above.
+- [x] Follows the timeline cursor and playback without React renders.
+- [x] `Look at Sun` and `Look at Earth`; compass strip along the top edge; marker at the
       edge when a body is outside the view.
-- [ ] Entry from the Planner: expand button on the horizon chart in the inspector; opens
+- [x] Entry from the Planner: expand button on the horizon chart in the inspector; opens
       over the map; `view=surface` in the URL.
-- [ ] `prefers-reduced-motion`: no eased camera moves, stepped playback (as `usePlayback`).
-- [ ] Caption: what is measured (terrain, Sun, Earth) and what is illustrative.
+- [x] `prefers-reduced-motion`: no eased camera moves, stepped playback (as `usePlayback`).
+- [x] Caption: what is measured (terrain, Sun, Earth) and what is illustrative.
 
 `feat(web): add a first-person 3D surface view`
 

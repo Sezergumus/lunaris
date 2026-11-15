@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { fetchTerrainHealth, terrainConfigured } from "./data/terrain.ts";
-import { HorizonView } from "./charts/HorizonView.tsx";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
 import { ExplorerShell } from "./explore/ExplorerShell.tsx";
+import { SurfaceStage } from "./surface/SurfaceStage.tsx";
 import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type MapSavedPin, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
@@ -82,6 +82,7 @@ export default function App() {
   const siteScores = useSiteScores(tables, sites);
   const nearby = useNearby(tables, a);
   const mode = useMode((m) => m.mode);
+  const surfaceOpen = useMode((m) => m.view === "surface");
   // Mounted here, not in the timeline: the Explorer plays the window without the Planner's panels.
   usePlayback();
 
@@ -357,8 +358,14 @@ export default function App() {
 
       {mode === "explore" ? (
         <ExplorerShell title={placeA ? placeTitle(placeA) : null}>
-          {views.length > 0 ? <HorizonView view={views[0]} /> : <p className="explorer__empty">Loading the Moon…</p>}
+          {views.length > 0 ? <SurfaceStage view={views[0]} /> : <p className="explorer__empty">Loading the Moon…</p>}
         </ExplorerShell>
+      ) : null}
+
+      {mode === "plan" && surfaceOpen && views.length > 0 ? (
+        <div className="surface-overlay">
+          <SurfaceStage view={views[0]} onClose={leaveLevel} />
+        </div>
       ) : null}
 
       <div className="hud" data-sheet={sheet?.id} hidden={mode === "explore"}>

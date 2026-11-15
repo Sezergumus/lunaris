@@ -1,10 +1,11 @@
 import { Fragment, createContext, useContext, useMemo, type ReactNode, type Ref } from "react";
-import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Radio, RectangleHorizontal, RectangleVertical, X } from "lucide-react";
+import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Maximize2, Radio, RectangleHorizontal, RectangleVertical, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { nextTransition, panelYield, type Transitions } from "../engine/events.ts";
 import { analyzeWindow } from "../engine/risk.ts";
 import { formatDistance, formatLat, formatLon, surfaceDistanceM } from "../geo/polar.ts";
 import { siteSubtitle } from "../sites.ts";
+import { modeActions } from "../state/mode.ts";
 import { MAX_SAVED_POINTS, savedPlace, savedPointActions, useSavedPoints } from "../state/savedPoints.ts";
 import { actions, customPlace, placeTitle, useScenario } from "../state/scenario.ts";
 import { useInstant, type ScenarioView } from "../state/view.ts";
@@ -65,7 +66,14 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
       {views.map((view) => (
         <section key={view.tag} className="inspector__scene">
           <Summary view={view} tagged={comparing} />
-          <HorizonView view={view} compact={comparing} />
+          <div className="hv-wrap">
+            <HorizonView view={view} compact={comparing} />
+            {view.tag === "A" ? (
+              <IconButton className="hv-wrap__expand" label="Stand here: open the 3D surface view" size="sm" tipSide="left" onClick={() => modeActions.setView("surface")}>
+                <Maximize2 aria-hidden="true" />
+              </IconButton>
+            ) : null}
+          </div>
         </section>
       ))}
 

@@ -10,6 +10,8 @@ export interface SiteInfo {
   lon: number;
   /** True if a precomputed grid of nearby points exists (see loadSiteGrid). */
   grid?: boolean;
+  /** True if nested height patches for the surface view exist (see loadSiteTerrainPatch). */
+  terrain?: boolean;
 }
 
 interface Manifest {
@@ -155,6 +157,54 @@ export function loadSiteGrid(key: string): Promise<TerrainGrid> {
 }
 
 /** Site list only (one small file), so the map can show pins before the tables arrive. */
+/** One square window of LOLA heights around a site, in south polar stereographic meters. */
+export interface PatchLevel {
+  pixelM: number;
+  size: number;
+  /** Left and top edge of the window, projected meters. */
+  x0: number;
+  y0: number;
+  /** Height above the 1737.4 km reference sphere, meters; row 0 at the top (largest y). */
+  heights: Float32Array;
+}
+
+export interface TerrainPatch {
+  key: string;
+  groundHeightM: number;
+  /** Finest first: 60, 240, 960 and 3840 m pixels; each covers the middle of the next. */
+  levels: PatchLevel[];
+}
+
+const patches = new Map<string, Promise<TerrainPatch>>();
+
+/** Nested height patches of a built-in site (about 850 kB); fetched once, on demand. */
+export function loadSiteTerrainPatch(key: string): Promise<TerrainPatch> {
+  let pending = patches.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const [doc, response] = await Promise.all([
+        fetchJson<{ ground_height_m: number; levels: { pixel_m: number; size: number; x0: number; y0: number }[] }>(`terrain_${key}.json`),
+        fetch(`${base}terrain_${key}.bin`),
+      ]);
+      if (!response.ok) throw new Error(`terrain_${key}.bin: HTTP ${response.status}`);
+      const all = new Float32Array(await response.arrayBuffer());
+      let offset = 0;
+      const levels = doc.levels.map((level) => {
+        const count = level.size * level.size;
+        const heights = all.subarray(offset, offset + count);
+        offset += count;
+        return { pixelM: level.pixel_m, size: level.size, x0: level.x0, y0: level.y0, heights };
+      });
+      if (offset !== all.length) throw new Error(`terrain_${key}.bin: ${all.length} values, ${offset} expected`);
+      return { key, groundHeightM: doc.ground_height_m, levels };
+    })();
+    // A failed download may be retried later.
+    pending.catch(() => patches.delete(key));
+    patches.set(key, pending);
+  }
+  return pending;
+}
+
 export async function loadSites(): Promise<SiteInfo[]> {
   return (await fetchJson<Manifest>("manifest.json")).sites;
 }
