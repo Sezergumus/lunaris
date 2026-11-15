@@ -50,7 +50,17 @@
   color: var(--accent);
 }
 
+/* A long name ("Shackleton-de Gerlache ridge") ends in an ellipsis instead of pushing the
+   header's buttons out of the panel. */
+.inspector__heading {
+  flex: 1;
+  min-width: 0;
+}
+
 .inspector__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-top: 4px;
   font-size: 22px;
   font-weight: 650;

@@ -41,15 +41,19 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
             {views.map((view) => (
               <h2 key={view.tag} className="inspector__vs-row">
                 <span className={`tag tag--${view.tag.toLowerCase()}`}>{view.tag}</span>
-                <span className="inspector__vs-name">{placeTitle(view.data.place)}</span>
+                <span className="inspector__vs-name" title={placeTitle(view.data.place)}>
+                  {placeTitle(view.data.place)}
+                </span>
                 <span className="inspector__vs-date">{formatUtcDate(view.startMs)}</span>
               </h2>
             ))}
           </div>
         ) : (
-          <div>
+          <div className="inspector__heading">
             <p className="inspector__kicker">{KICKER[place.kind]}</p>
-            <h2 className="inspector__title">{placeTitle(place)}</h2>
+            <h2 className="inspector__title" title={placeTitle(place)}>
+              {placeTitle(place)}
+            </h2>
             {subtitle ? <p className="inspector__subtitle">{subtitle}</p> : null}
           </div>
         )}
