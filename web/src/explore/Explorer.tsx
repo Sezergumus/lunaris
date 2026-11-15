@@ -97,9 +97,9 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
           value={tag}
           onChange={(next) => setStage({ step, tag: next })}
           options={[
-            { value: "A", label: `A · ${short(a?.data.place)}` },
-            { value: "B", label: `B · ${b.data.place.id === a?.data.place.id ? "a week later" : short(b.data.place)}` },
-          ]}
+            { value: "A" as const, label: `A · ${short(a?.data.place)}` },
+            { value: "B" as const, label: `B · ${b.data.place.id === a?.data.place.id ? "a week later" : short(b.data.place)}` },
+          ].map((option) => ({ ...option, ariaLabel: option.label, label: <span className="explorer__seg-label">{option.label}</span> }))}
         />
       ) : null}
       <Dots count={TOUR.length + 1} current={step!} />

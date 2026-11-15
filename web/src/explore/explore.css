@@ -7,6 +7,8 @@
   z-index: 1100;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  /* A long place name must not widen the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 16px;
   background: var(--bg);
@@ -35,6 +37,7 @@
 }
 
 .explorer__place {
+  min-width: 0;
   color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -293,6 +296,19 @@
   .explorer__actions > .seg {
     flex: 1 1 100%;
     min-width: 0;
+  }
+
+  /* A and B take half each; a long name ends in an ellipsis. */
+  .explorer__actions > .seg .seg__item {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .explorer__seg-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .explorer__actions > .explorer__back {
