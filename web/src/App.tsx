@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
+import { fetchTerrainHealth, terrainConfigured } from "./data/terrain.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
 import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type MapSavedPin, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
@@ -79,6 +80,15 @@ export default function App() {
 
   // Start-up: the site list and the tables arrive separately; the scenario in the URL is
   // applied once both are known. The date range comes from the table, never from code.
+  // The terrain service sleeps when idle and takes a few seconds to start. Wake it now, so
+  // the first custom point does not wait for that. The answer itself is not needed.
+  useEffect(() => {
+    if (!terrainConfigured()) return;
+    const controller = new AbortController();
+    fetchTerrainHealth(controller.signal).catch(() => {});
+    return () => controller.abort();
+  }, []);
+
   useEffect(() => {
     loadSites().then(
       (list) => setSites([...list].sort((x, y) => x.lat - y.lat)),
