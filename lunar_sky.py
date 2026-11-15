@@ -904,7 +904,7 @@ def run_risk(a, key, label, lat, lon, sky_path):
 
 
 # Flown mission used to check the model against what happened. Dates from ISRO statements
-# as reported in the press (see CLAUDE.md, "Validation").
+# as reported in the press; the official sunset time was not found.
 BACKTEST = {
     "site": "chandrayaan3",
     "mission": "Chandrayaan-3 (Vikram lander, Pragyan rover)",
