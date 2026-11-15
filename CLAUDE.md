@@ -208,6 +208,26 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   and a 6 m mast; no page errors. Not checked: Explorer, a phone-sized screen, the lander
   at a site in darkness.
 
+- 2026-11-15 evening (frontend, Sezer's machine): Explorer filled and the game reworked
+  (Sezer: "too much empty space, the game is boring"). Sun/Earth tracks and day labels now
+  show in the Explorer too (`SkyLayer.setGuides(guides, tracks)`). **Live cards**
+  (`explore/LiveCards.tsx`) next to every tour / intro caption: Sun (shining / behind a hill
+  N km away, gone or back in ...), Earth (which DSN complex listens), battery (darkness
+  left vs `battery_survival_h`, `batteryAt` in `explore/game.ts`), Sun height in thumb
+  widths (2 deg, rule of thumb). `nextChange` moved to `engine/events.ts`. **Game**
+  (`game.ts` rules, `useGame.ts` state, `Game.tsx` views, `SunStrip.tsx`, `game.css`):
+  three missions with fixed dates (Mons Mouton 18 Dec: 52 of 81 survive, none steep;
+  Malapert A 16 Dec: 65 too steep, 8 of the other 16 survive; ridge 16 Dec: 26 steep, 24
+  survive), briefing card, landing map on the stage (steep spots hatched, landings
+  coloured), 3 scout flights per mission (Sun band against a battery ruler), **tip-over rule**
+  (grid `slope_deg` > `max_slope_deg`), live battery HUD, dimmed / shaken stage on failure,
+  stars (survived; within 3 landings; longest dark within 2 h of the best flat spot) kept in
+  localStorage `lunaris.game.stars`, debrief band with a direction-only hint, flight log.
+  Mast slider hidden in the game. Checked in headless Edge at 1440x900 and 390x800 (lose,
+  win with 3 stars, tip-over), no page errors. Headless Edge needs
+  `--disable-renderer-backgrounding` etc., or `requestAnimationFrame` stops and playback
+  freezes. Not checked: real GPU frame rate during the game, mission 3 played to the end.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
