@@ -1,73 +1,158 @@
-# TODO: Explorer mode and the surface view
+# TODO: Explorer mode and the 3D surface view
 
-Plan for an educational "Explorer" mode and a first-person 360° surface view ("Lunar Street
-View") in the Lunaris web UI (`web/`). Written 2026-11-15 ~05:00 local from a review of the
+Plan for an educational "Explorer" mode and a first-person 3D surface view ("Lunar Street
+View") in the Lunaris web UI (`web/`). Written 2026-11-15 ~05:45 local from a review of the
 code and the data files. A new session must be able to implement it from this file and
 `CLAUDE.md` alone.
 
-**Status:** proposed, not started. One commit per phase (Conventional Commits, English, no AI
-attribution, no push unless asked). Tick the boxes as the work lands.
+**Status:** approved by Sezer and Kerem, not started. One commit per phase (Conventional
+Commits, English, no AI attribution, no push unless asked). Tick the boxes as the work lands.
+
+**Who does what:** phase B is backend (Kerem, needs the local DEM). Everything else is
+frontend (Sezer). Phase 0 and the first half of phase 1 do not wait for phase B.
 
 ## Why
 
 The challenge text names "an educational game" as an accepted format and asks for
 accessibility across skill levels, for the Moon/Earth contrast to be apparent, and for an
 explanation of why a small change of place or date has a large effect. The Planner answers a
-mission planner; nothing on screen yet answers a first-time visitor. Both features run in the
-browser on files the page already loads: no backend work, no new data, no API call.
+mission planner; nothing on screen yet answers a first-time visitor.
 
-## Is the surface view feasible? Yes, as a data-driven panorama
+## Approach: real terrain, engine-decided visibility
 
-Street View itself is not a 3D model: it is a 360° panorama per position plus hops between
-positions. The data supports exactly that.
+Three ways were weighed:
 
-| Needed | Available | Where |
+| Way | Result | Verdict |
 |---|---|---|
-| Skyline in every direction | 720 azimuths (0.5° step), elevation of the terrain | `horizon_<site>.json`, and every point of `grid_<site>.json` |
-| Distance of the skyline | per azimuth, 0.09 to 159 km | `horizon_<site>.json` only (site centre) |
-| Ground near the observer | 81 heights and slopes, 125 m apart, ±500 m | `grid_<site>.json` |
-| Sun and Earth direction at any instant | interpolated between hourly samples | `sampleAt` in `engine/events.ts` |
-| Positions to hop between | the same 81 points, each with its own skyline | `grid_<site>.json` |
-| Earth distance, light delay | Earth vector in km | `vectors.bin` |
-| Nearest permanently shadowed region | distance, bearing, slope on the way | `surface.psr` in `horizon_<site>.json` (ridge, Mons Mouton, Shackleton; null elsewhere) |
+| Layers built from `horizon_range_km` plus the 9 × 9 grid | One obstruction per direction: flat cut-outs, no shadows, coarse ground | Rejected: does not look real and invents depth |
+| Skyline panorama only (no new data) | Honest and quick, but a flat silhouette | Kept as the fallback |
+| **Real LOLA height patches, drawn with three.js, shadows computed on the GPU** | Real mountains, crater rims and slopes; shadows that move with the Sun | **Chosen** |
 
-Limits that shape the design (do not hide them, the jury reads the code):
+three.js is the drawing library in every case; the choice is about the data. The chosen way
+needs one new backend output (phase B): height patches cut from the same 60 m DEM
+(`LDEM_60S_60MPP_ADJ.TIF`) the horizon code already reads. No new source file is needed:
 
-1. **One skyline value per direction.** The files give the first obstruction, not the
-   terrain behind it or between 500 m and the skyline. Mountains cannot be drawn as true
-   layered 3D. The skyline is drawn as one silhouette; distance may tint it, nothing more.
-2. **Grid points have no obstruction distance** (`horizon_range_km` is in the centre file
-   only). After a hop the skyline is exact, but distance labels and the mast estimate are not
-   available there (`mast.mode === "fixed"`, as in the Planner today).
-3. **The ground is 125 m coarse.** Slope and tilt are real; rocks, small craters and surface
-   texture are not in the data. Any texture is decoration and is labelled so.
-4. **From 2 m eye height, a point 125 m away is 0.9° below the horizontal, 500 m away 0.2°.**
-   Neighbouring points do not spread over the ground like Street View arrows; they bunch at
-   the horizon. They are drawn as upright beacons, nearest ring and best spot only.
-5. **True angular sizes are small.** The Sun's disk is 0.53° wide (about 8 px at a 75° field
-   of view), the Earth 1.9°. Disks stay true to scale; a glow makes the Sun findable.
+- LDSM (slope map) is not needed: slopes and surface normals follow from the heights.
+- Moon Trek hillshade tiles are not used as a texture: their lighting is baked in and would
+  contradict the moving Sun.
+- The 20 m DEM (80° S to the pole) could sharpen the nearest few hundred meters later. It
+  does not cover Chandrayaan-3 and differs from what the engine uses. Not in this plan.
 
-## Decisions
+Rules that keep the view honest:
 
-- **The view shows what the engine uses.** The skyline drawn is always `PlaceData.horizon`
-  (base, mast estimate or exact from the terrain service), and the Sun and the Earth are
-  hidden by drawing the skyline over them. A disk visible in the view while the metric card
-  says "In shadow" must be impossible by construction. No second horizon model in the view.
-- **Rendering: three.js, loaded lazily.** Real perspective is needed for looking down (shadow,
-  ground) and for the mast lift; hand-written projection on a 2D canvas costs more time than
-  it saves. `three` goes into its own chunk through `import()` so the Planner's first load
-  does not grow. Check the current version with `npm view three version` when installing.
-  Labels and pins are HTML positioned over the canvas (existing CSS, real buttons), not
-  sprites.
-- **Fallback.** No WebGL, or the chunk fails to load: the existing `HorizonView`, enlarged.
-  The same fallback is the escape route if phase 1 is not on screen in time (see "Cut rules").
-- **One component for both ideas.** The Explorer intro ("Stand on the Moon") is the surface
-  view in full screen with scripted playback. Do not build a separate 2D panorama.
-- **Render on demand.** Draw when the cursor, the camera or a tween changes; no idle 60 fps
-  loop. Playback updates the scene imperatively from the scenario store (the `SkyArrows`
-  pattern), not through React renders.
-- **Numbers in the copy come from the engine at run time** (risk 18 → 100, share of sunlight,
-  highest Sun elevation). Never type a result into a sentence.
+1. **The engine decides what is visible.** The Sun and the Earth are clipped by
+   `PlaceData.horizon` (the profile the risk model uses) and are also covered by the terrain
+   mesh. A disk shown while the metric card says "In shadow" must not happen.
+2. **Shadows are required, not decoration.** With the Sun 1–2° high the picture is made of
+   shadows cast by distant ridges. Without them the inner wall of Shackleton would be drawn
+   sunlit, which is false.
+3. **What the data cannot show is said on screen.** A 60 m pixel has no rocks or small
+   craters; the ground at the observer's feet is smooth. Stars, the Sun's glare and the fill
+   light in shadow are illustrative.
+
+## Phase B (backend, Kerem): terrain patches
+
+New command `patch` in `lunar_sky.py` (function in `lunar_terrain.py`), one run per built-in
+site: `python lunar_sky.py patch --site mons_mouton` → `data/terrain_<site>.json` and
+`data/terrain_<site>.bin`.
+
+- [ ] Four nested square windows of `height_m`, all through
+      `read_window("height_m", x_site, y_site, radius_m, decimation)` so they share one
+      center (the 60 m pixel corner nearest the site) and average resampling:
+
+      | Level | Decimation | Pixel | `radius_m` | Size |
+      |---|---|---|---|---|
+      | 0 | 1 | 60 m | 7 680 | 256 × 256 |
+      | 1 | 4 | 240 m | 30 720 | 256 × 256 |
+      | 2 | 16 | 960 m | 122 880 | 256 × 256 |
+      | 3 | 64 | 3 840 m | 245 760 | 128 × 128 |
+
+      Each level covers exactly the middle quarter (per side) of the next one. Level 1 has
+      the pixels of the far window `compute_horizon` already uses.
+- [ ] `terrain_<site>.bin`: Float32, little-endian, levels 0 to 3 one after the other, each
+      row by row with row 0 at the top (largest projected y), as `Grid.data`. 852 kB per
+      site. Float32 on purpose: height steps of 0.1 m would show as bands under a 1–2° Sun.
+- [ ] `terrain_<site>.json`: `site` (key, name, lat, lon), `source`, `ground_height_m`
+      (bilinear at the site, the value in `horizon_<site>.json`), and per level `pixel_m`,
+      `size`, `x0` (left edge) and `y0` (top edge) in projected meters (`Grid.x0`, `Grid.y0`).
+- [ ] Fail with a message if a window is cut by the edge of the DEM or holds a NaN. (All five
+      sites fit: the farthest, Chandrayaan-3, is 632 km from the pole; the DEM reaches 931 km.)
+- [ ] `web/scripts/build-data.mjs` copies both files and sets `terrain: true` on the site in
+      `manifest.json`.
+- [ ] Run for the five sites and commit the outputs in `data/` (about 4.3 MB in total).
+- [ ] Optional, only if time allows: `horizon_range_km` for every point of
+      `grid_<site>.json`. It enables the mast estimate after a hop (phase 6).
+
+`feat(backend): export nested terrain patches for the surface view`
+
+## Frontend architecture
+
+New code in `web/src/`:
+
+- `state/mode.ts`: `"plan" | "explore"`, surface view open or closed, heading and pitch; a
+  small external store like `state/scenario.ts`. `state/url.ts` reads and writes `mode`,
+  `view` and `step`.
+- `data/load.ts` (addition): `loadSiteTerrainPatch(key)`, cached, fetched only when the
+  surface view opens.
+- `surface/SurfaceView.tsx`: canvas, HTML overlay, look controls; the lazy entry point.
+- `surface/scene.ts`: renderer, camera, draw order, on-demand drawing, resize, dispose.
+- `surface/terrain.ts`: patch → vertex positions, normals, index buffers, height textures.
+- `surface/shadow.ts`: the shadow pass. `surface/sky.ts`: Sun, Earth, stars, skyline curtain.
+- `surface/beacons.ts`: neighbouring points and hops. `surface/hud.tsx`: labels per mode.
+- `explore/ExplorerShell.tsx`, `explore/Intro.tsx`, `explore/Tour.tsx`, `explore/Game.tsx`,
+  `explore/steps.ts` (extends `STORIES`).
+
+Reuse, do not rewrite: `sampleAt`, `useInstant`, `usePlayback`, `horizonAt`,
+`SUN_RADIUS_DEG` / `EARTH_RADIUS_DEG`, `terrainDiskFraction`, `obstruction` and `sentence`
+(move them out of `charts/HorizonView.tsx` into a shared module), `STORIES` / `applyStory`,
+`loadSiteGrid`, `scoreGrid`, `bestPoint`, `betterSpot`, `neighbourPlace`, `offsetText`,
+`scanLandingDates`, `verdict`, `CopyLink`, `Segmented`, `Sheet`.
+
+Technical decisions (so nobody has to work them out again):
+
+- **`three` in its own chunk** through `import()`; the Planner's first load must not grow.
+  Check the version with `npm view three version` when installing. Labels, pins and buttons
+  are HTML over the canvas, not sprites.
+- **Scene frame:** x = east, y = up, z = −north, meters, origin on the ground at the site.
+  A direction (azimuth clockwise from north, elevation) is
+  `(sin az · cos el, sin el, −cos az · cos el)`.
+- **Vertices on the sphere.** A pixel center (x, y) of the projection becomes a Moon-fixed
+  unit vector `m = (4R·y, 4R·x, s − 4R²) / (s + 4R²)` with `s = x² + y²`, R = 1 737 400 m
+  (the inverse of `latlon_to_xy`). The vertex is `(R + h) · m`, expressed in the site's
+  east / up / north axes (as in `engine/sky.ts`), minus the site's own position. Curvature
+  and the projection's scale are then exact. Compute in Float64, store Float32.
+- **Draw order instead of a deep depth buffer.** Stars, Sun, Earth, skyline curtain, then
+  the levels from 3 to 0 with the depth buffer cleared before each. The levels are nested
+  squares around the observer, so an outer level is always behind an inner one along every
+  line of sight. Near and far planes are set per level. An outer level skips the cells that
+  lie fully inside the next inner level and keeps one cell of overlap, so no gap opens.
+- **Sun and Earth:** true angular radius; the fragment is discarded below the engine's
+  horizon at its azimuth (the 720 values as a small texture). The Earth is a shaded sphere,
+  so its phase follows from the Sun's direction.
+- **Skyline curtain:** the engine's horizon as a dark band behind the mesh. It fills the
+  sliver where a coarse far level sits lower than the engine's skyline, and it is the whole
+  terrain where no patch exists (custom points, a failed download).
+- **Shadow pass:** one small render target per level (same size as the level). For every
+  texel, march from the surface point toward the Sun over the height textures. Height of a
+  sample point Q above the reference sphere without cancellation:
+  `(2·R0·Q.y + |Q|²) / (|Q − C| + R0) + ground`, with `R0 = R + ground` and the Moon's center
+  `C = (0, −R0, 0)`. Its projected position: `x = 2R·m.y / (1 − m.z)`,
+  `y = 2R·m.x / (1 − m.z)` with `m` the unit vector of Q − C in Moon-fixed axes. Keep the
+  smallest angular clearance along the ray; the lit share is a smooth step over ± the Sun's
+  radius (the idea of `terrainDiskFraction`). Steps start at one pixel and grow with distance;
+  stop when the ray is above the highest terrain. Read heights with four `texelFetch` calls
+  (bilinear by hand; float textures cannot be filtered everywhere). Take surface points from
+  a position texture written on the CPU, not from float math in the shader.
+- **Recompute shadows only when the Sun moves**, at most about 20 times a second during
+  playback. Looking around costs nothing.
+- **Surface brightness:** mix of Lambert and Lommel–Seeliger (`μ0 / (μ0 + μ)`), one grey
+  albedo, a small fill light, exposure that follows the Sun's elevation. Tune by eye.
+- **Draw on demand:** when the cursor, the camera or a tween changes. Playback updates the
+  scene from the scenario store (the `SkyArrows` pattern), not through React renders.
+- **Fallbacks:** no WebGL 2 or the chunk fails → the enlarged `HorizonView`. No patch →
+  curtain only.
+- **Numbers in the copy come from the engine at run time** (risk 18 → 100, share of
+  sunlight, highest Sun elevation). Never type a result into a sentence.
 - **Planner stays as it is.** A header control switches the mode; the URL carries
   `mode=explore`. Explorer steps link back with "Open in Planner".
 
@@ -77,81 +162,64 @@ Limits that shape the design (do not hide them, the jury reads the code):
 - "~10 min walk": no sourced walking speed. Give distance and the slope on the way.
 - "Higher than Mont Blanc": lunar heights are measured from the 1737.4 km reference sphere,
   not from a sea level. Write "5,321 m above the Moon's mean radius".
-- Layered 3D mountains, real surface texture, real star positions: not in the data.
-- Mast lift at a hopped-to point: no obstruction distances there.
+- Rocks, small craters, surface texture, real star positions: not in the data.
+- Free walking: positions are the 81 grid points, because only they have an engine horizon.
 
-## Architecture
+## Frontend phases
 
-New code in `web/src/`:
-
-- `state/mode.ts`: `"plan" | "explore"`, surface view open/closed, heading and pitch; small
-  external store like `state/scenario.ts`. `state/url.ts` reads and writes `mode` and `view`.
-- `surface/SurfaceView.tsx`: canvas, HTML overlay, look controls; lazy entry point.
-- `surface/scene.ts`: renderer, camera, on-demand draw, resize, dispose.
-- `surface/skyline.ts`: curtain from the skyline down, rebuilt or tweened when the horizon
-  changes. `surface/bodies.ts`: Sun, Earth (with phase), glow, stars.
-- `surface/ground.ts`: 9 × 9 mesh, shading, shadow, compass rose.
-- `surface/beacons.ts`: neighbouring points, hop. `surface/hud.tsx`: labels per mode.
-- `explore/ExplorerShell.tsx`, `explore/Intro.tsx`, `explore/Tour.tsx`, `explore/Game.tsx`,
-  `explore/steps.ts` (extends `STORIES`).
-
-Reuse, do not rewrite: `sampleAt`, `useInstant`, `usePlayback`, `horizonAt`,
-`SUN_RADIUS_DEG` / `EARTH_RADIUS_DEG`, `obstruction` and `sentence` (move them out of
-`charts/HorizonView.tsx` into a shared module), `STORIES` / `applyStory`, `loadSiteGrid`,
-`scoreGrid`, `bestPoint`, `betterSpot`, `neighbourPlace`, `offsetText`, `scanLandingDates`,
-`verdict`, `CopyLink`, `Segmented`, `Sheet`.
-
-Coordinates: x = east, y = up, z = −north, meters, origin on the ground under the observer.
-A direction (azimuth clockwise from north, elevation) is
-`(sin az · cos el, sin el, −cos az · cos el)`.
-
-## Phases
-
-Estimates are for one developer working with Claude. Phases 0 to 3 are the product; 4 to 8
-are each optional and independent.
+Estimates are for one developer working with Claude.
 
 ### Phase 0: mode switch (about 45 min)
 
-- [ ] `state/mode.ts` and the `mode` / `view` parameters in `state/url.ts`.
+- [ ] `state/mode.ts` and the `mode` / `view` / `step` parameters in `state/url.ts`.
 - [ ] `Planner | Explorer` control in the sites panel header and in the mobile dock.
 - [ ] `EXPLORER_ENABLED` constant that hides the control (the cut rule needs one line).
-- [ ] Explorer shell: the Planner panels step aside, a single stage with a caption area and
-      a transport (play, pause, restart).
+- [ ] Explorer shell: the Planner panels step aside; one stage, a caption area, a transport
+      (play, pause, restart).
 - [ ] Escape and the browser's back button leave the mode.
 
 `feat(web): add the Explorer mode switch`
 
-### Phase 1: surface view core (about 3 h)
+### Phase 1: surface view with real terrain (about 3 h)
 
-- [ ] Add `three`; lazy chunk; WebGL check with the `HorizonView` fallback.
-- [ ] Camera at eye height; drag to look (mouse, touch), arrow keys, wheel or pinch for the
-      field of view; pitch limited to −85°..+85°.
-- [ ] Skyline curtain from `PlaceData.horizon`; sphere model (no terrain) draws a flat horizon.
-- [ ] Sun and Earth at true angular radius from `sampleAt`, drawn before the curtain so the
-      terrain covers them; glow behind the curtain (gives the halo over a ridge for free).
+- [ ] Add `three`; lazy chunk; WebGL 2 check with the `HorizonView` fallback.
+- [ ] Camera at eye height (`mastM` above the ground); drag to look (mouse, touch), arrow
+      keys, wheel or pinch for the field of view; pitch limited to −85°..+85°.
+- [ ] Sun, Earth and skyline curtain from the engine (works before phase B is done).
+- [ ] `loadSiteTerrainPatch`; four levels as meshes with normals; draw order as above.
 - [ ] Follows the timeline cursor and playback without React renders.
-- [ ] `Look at Sun` and `Look at Earth` buttons; compass strip along the top edge; marker at
-      the edge when a body is outside the view.
-- [ ] Entry from the Planner: expand button on the horizon chart in the inspector; opens as
-      an overlay over the map; `view=surface` in the URL.
+- [ ] `Look at Sun` and `Look at Earth`; compass strip along the top edge; marker at the
+      edge when a body is outside the view.
+- [ ] Entry from the Planner: expand button on the horizon chart in the inspector; opens
+      over the map; `view=surface` in the URL.
 - [ ] `prefers-reduced-motion`: no eased camera moves, stepped playback (as `usePlayback`).
-- [ ] Caption under the view: what is measured (skyline, slope, Sun, Earth) and what is not.
+- [ ] Caption: what is measured (terrain, Sun, Earth) and what is illustrative.
 
-`feat(web): add a first-person surface view of the skyline, Sun and Earth`
+`feat(web): add a first-person 3D surface view`
 
-### Phase 2: Explorer intro, "Stand on the Moon" (about 1.5 h)
+### Phase 2: light and shadow (about 2 h)
+
+- [ ] Shadow pass per level, cached, recomputed when the Sun moves.
+- [ ] Surface brightness as above; night look when the Sun is hidden; stars then.
+- [ ] Shadow of the lander at the observer's feet, opposite the Sun, length = height /
+      tan(elevation), capped; label with the length.
+- [ ] Check on a laptop with integrated graphics; lower the update rate if playback stutters.
+
+`feat(web): light the surface view with terrain shadows`
+
+### Phase 3: Explorer intro, "Stand on the Moon" (about 1.5 h)
 
 - [ ] Opens the surface view full screen at the opening site and plays one lunar day (708 h).
 - [ ] Captions tied to the cursor, values from the data: highest Sun elevation in the window,
-      hours of the day, Earth's position.
-- [ ] Contrast with the equator from the existing Apollo 11 reference (sphere model): highest
-      Sun elevation there against here; one day here = 29.5 Earth days.
+      length of the day, where the Earth hangs.
+- [ ] Contrast with the equator from the Apollo 11 reference (sphere model): highest Sun
+      elevation there against here; one day here = 29.5 Earth days.
 - [ ] Small inset: the Sun's path over the day, pole against equator, on one elevation axis.
 - [ ] `Start the tour` and `Skip to Planner`.
 
 `feat(web): add the Explorer introduction`
 
-### Phase 3: guided tour (about 1.5 h)
+### Phase 4: guided tour (about 1.5 h)
 
 - [ ] `explore/steps.ts`: each step = a story (place, date, comparison), one sentence, where
       to look, how much of the window to play.
@@ -167,35 +235,25 @@ are each optional and independent.
 
 **Cut line A. Explorer can ship here.**
 
-### Phase 4: ground, light and shadow (about 1.5 h)
-
-- [ ] 9 × 9 mesh from `grid_<site>.json` under the observer; a flat plane where no grid
-      exists (custom points, reference).
-- [ ] Faces shaded by the Sun's direction and `solarFraction`; fades into the curtain within
-      about 200 m so the coarse mesh never rises above the measured skyline.
-- [ ] Shadow of the lander on the ground, opposite the Sun, length = height / tan(elevation),
-      capped; hidden while the Sun is hidden. Label with the length.
-- [ ] Night: ground and curtain go dark when `sunVisible` is false; stars appear (decorative).
-- [ ] Compass rose on the ground at the observer's feet.
-
-`feat(web): add terrain, lighting and the lander's shadow to the surface view`
-
 ### Phase 5: hopping between grid points (about 2 h)
 
 - [ ] Registry of which grid a hopped-to place came from, so `useNearby` keeps the 81 points
       after a hop (today the grid is lost once the place is no longer the site itself).
-- [ ] Beacons for the eight nearest points and the best spot; label `125 m NE · Risk 18`.
-- [ ] Click: short fade and zoom, then the skyline and the scores of the new point.
-- [ ] `Back to the site centre`; the map pin follows the hop.
+- [ ] Beacons (upright markers) for the eight nearest points and the best spot; label
+      `125 m NE · Risk 18`. From 2 m eye height a point 125 m away is only 0.9° below the
+      horizontal, so flat ground markers would not be readable.
+- [ ] Click: the camera moves over the mesh to the point; the engine horizon and the scores
+      of that point take over.
+- [ ] `Back to the site center`; the map pin follows the hop.
 - [ ] Planner: beacons coloured by risk level. Explorer: only the best spot is marked.
 
 `feat(web): hop between nearby points in the surface view`
 
-### Phase 6: mast lift (about 45 min)
+### Phase 6: mast lift (about 30 min)
 
-- [ ] Camera height follows `mastM`; the skyline tweens between the two profiles.
-- [ ] Planner: thin line of the 2 m skyline for comparison.
-- [ ] `Estimate` label from `mast.mode`; control disabled with a reason where it is `fixed`.
+- [ ] The camera rises with `mastM`; the near terrain drops by real geometry.
+- [ ] `Estimate` label from `mast.mode`; disabled with a reason where it is `fixed`
+      (hopped-to points, unless phase B's optional item is done).
 
 `feat(web): show the mast height in the surface view`
 
@@ -204,11 +262,11 @@ are each optional and independent.
 - [ ] Explorer, Earth card: distance and one-way light delay from `vectors.bin`; ground
       station in view (keep the per-station columns of `stations.bin` in `loadSkyTables`).
 - [ ] Explorer: permanently shadowed region pin from `surface.psr` (distance, bearing, slope
-      on the way), only where the file has it.
+      on the way), only where the file has it (ridge, Mons Mouton, Shackleton).
 - [ ] Explorer: the "why" sentence of the horizon chart as a caption.
 - [ ] Planner: elevation lines at 0°, 5°, 10° and azimuth lines every 30°; the Sun's and the
       Earth's track over the window; the stretch of skyline that blocks a body.
-- [ ] Readout at the centre of the view: azimuth, elevation, skyline height and its distance.
+- [ ] Readout at the center of the view: azimuth, elevation, skyline height and its distance.
 
 `feat(web): add Explorer and Planner labels to the surface view`
 
@@ -226,34 +284,43 @@ are each optional and independent.
 
 ### Phase 9: wrap-up (about 1 h, always done, also after a cut)
 
-- [ ] Phone-sized screen: touch look, sheet layout, captions readable.
+- [ ] Phone-sized screen: touch look, sheet layout, captions readable, frame rate acceptable.
 - [ ] Keyboard: every control reachable, visible focus, Escape closes.
-- [ ] Bundle: `three` only in the lazy chunk; Planner first load unchanged.
+- [ ] Bundle: `three` and the patches only on demand; Planner first load unchanged.
 - [ ] `npm run validate`, `npm run lint`, `npm run build`.
 - [ ] Two Explorer screenshots for the slides.
 - [ ] `CLAUDE.md` handoff: what was built, what was cut, known limits.
 
 `docs: record the Explorer mode in the session handoff`
 
-## Cut rules
+## Order and cut rules
 
-- Phase 1 not showing the skyline, the Sun and the Earth correctly after 3 h: drop three.js,
-  use the enlarged `HorizonView` as the stage for phases 2 and 3, and go on.
+- Start phase B (Kerem) and phase 0 (Sezer) at the same time. Phase 1 begins with the Sun,
+  the Earth and the curtain, and takes the mesh in when the first patch file arrives.
+- Phase B not delivered, or the mesh not right 3 h into phase 1: ship the curtain-only view
+  (skyline silhouette) and go on to phases 3 and 4. The intro and the tour work on it.
+- Phase 2 not right after 2 h: flat shading by the Sun's direction plus the engine's
+  `sunVisible` for day and night, and a line on screen that cast shadows are not drawn.
 - 15:00 local: anything not working is hidden (`EXPLORER_ENABLED = false` if the mode itself
   is broken) and the Planner is delivered. After that, phase 9 and bug fixes only.
-- Phases 4 to 8 start only when the phase before them is committed and checked in a browser.
+- Phases 5 to 8 are independent; each starts only when the one before is committed and
+  checked in a browser.
 
 ## Verification
 
 After every phase: `npm run validate`, `npm run lint`, `npm run build`, then in the browser:
 
+- Patch against horizon: sample the mesh skyline from the site at a few azimuths and compare
+  with `horizon_deg`; differences should stay within a few tenths of a degree.
 - Mons Mouton, landing 2026-12-16: the Sun circles just above the skyline for 14 days; its
   disk goes behind the terrain at 2026-12-30T08:27Z (the sunset in
   `data/metrics_mons_mouton_terrain.json`), the same minute the metric card switches.
-- Shackleton: the skyline stands 20–24° high all around; the Sun never appears; night shading.
+- Shackleton: walls 20–24° high all around; the floor stays in shadow for the whole year;
+  the Sun never appears.
+- Connecting ridge: the ground at the observer's feet is lit while the Shackleton interior
+  next to it is black.
 - Malapert A: the Earth stays above the northern skyline for the whole window.
-- Connecting ridge, mast 2 → 10 m: the near skyline drops, sunlight share matches the
-  inspector.
-- At any paused instant the view and the inspector agree on `sunVisible` and `earthVisible`.
-- Apollo 11 (no terrain): flat horizon, the Sun high overhead, no beacons, no error.
+- At any paused instant the view and the inspector agree on `sunVisible` and `earthVisible`,
+  and the ground under the observer is lit or dark accordingly.
+- Apollo 11 and custom points (no patch): curtain only, no error.
 - With WebGL disabled the fallback chart appears and the tour still works.
