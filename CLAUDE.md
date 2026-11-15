@@ -228,6 +228,13 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   `--disable-renderer-backgrounding` etc., or `requestAnimationFrame` stops and playback
   freezes. Not checked: real GPU frame rate during the game, mission 3 played to the end.
 
+- 2026-11-15 evening (frontend, Sezer's machine): phone layout fixes (below 760 px). Explorer
+  tour: A / B switch on its own row, then Back, dots, Planner (map icon only), Next. Surface
+  view in both modes: mast and ground tint in the settings popover (`PHONE_QUERY` in
+  `SurfaceView.tsx`; hidden in the game); tools, Earth card and tint legend stack top left
+  (`.surface__top`), so the Earth card no longer sits under wrapped buttons. Inspector title
+  ends in an ellipsis. Checked in headless Edge at 390x800, no horizontal scroll.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
