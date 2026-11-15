@@ -51,7 +51,7 @@ export function SunPathInset({ pole, equator, hours }: { pole: ScenarioView; equ
         <path className="inset__line inset__line--pole" d={frame.pole} />
         <line className="inset__cursor" x1={cursor} x2={cursor} y1={PAD.top} y2={H - PAD.bottom} />
         <text className="inset__tick inset__tick--axis" x={W - PAD.right} y={H - 4}>
-          {Math.round(hours / 24)} Earth days
+          {Number.isInteger(hours / 24) ? hours / 24 : (hours / 24).toFixed(1)} Earth days
         </text>
       </svg>
       <figcaption className="inset__legend">

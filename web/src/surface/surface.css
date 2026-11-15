@@ -341,7 +341,17 @@
   .surface__mast {
     top: 70px;
     bottom: auto;
-    width: 180px;
+    width: 150px;
+    padding: 6px 8px 2px;
+  }
+
+  .surface__mast .mast__note {
+    display: none;
+  }
+
+  .surface__earth-card {
+    max-width: calc(100% - 180px);
+    font-size: 11px;
   }
 
   .surface__caption {

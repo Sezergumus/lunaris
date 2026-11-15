@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { fetchTerrainHealth, terrainConfigured } from "./data/terrain.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
-import { Explorer } from "./explore/Explorer.tsx";
 import { SurfaceStage } from "./surface/SurfaceStage.tsx";
 import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type MapSavedPin, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
@@ -26,6 +25,9 @@ import { usePlayback } from "./state/usePlayback.ts";
 import { useViews } from "./state/view.ts";
 import { Sheet, type SheetState } from "./ui/Sheet.tsx";
 import { MOBILE_QUERY, useMediaQuery } from "./ui/useMediaQuery.ts";
+
+/** The Explorer (intro, tour, game) loads on demand: the Planner's first load does not carry it. */
+const Explorer = lazy(() => import("./explore/Explorer.tsx").then((module) => ({ default: module.Explorer })));
 
 const PANEL_GAP = 16;
 /** Distance of the map's own chrome from a panel edge, and from the screen edge without one. */
@@ -351,7 +353,11 @@ export default function App() {
         getInsets={getInsets}
       />
 
-      {mode === "explore" ? <Explorer views={views} sites={sites} nearby={nearby} /> : null}
+      {mode === "explore" ? (
+        <Suspense fallback={<div className="explorer explorer--loading">Loading the Explorer…</div>}>
+          <Explorer views={views} sites={sites} nearby={nearby} />
+        </Suspense>
+      ) : null}
 
       {mode === "plan" && surfaceOpen && views.length > 0 ? (
         <div className="surface-overlay">

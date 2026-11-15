@@ -73,7 +73,7 @@ function Transport({ children }: { children?: ReactNode }) {
         <span className="explorer__day">
           Day {day.toFixed(1)} of {Number.isInteger(windowHours / 24) ? windowHours / 24 : (windowHours / 24).toFixed(1)}
         </span>
-        <span className="explorer__utc">{formatUtcDateTime(startMs + offsetMs)} UTC</span>
+        <span className="explorer__utc">{formatUtcDateTime(startMs + offsetMs)}</span>
       </div>
       <div className="explorer__progress" aria-hidden="true">
         <div className="explorer__progress-fill" style={{ width: `${Math.min(100, (offsetMs / (windowHours * HOUR_MS)) * 100)}%` }} />

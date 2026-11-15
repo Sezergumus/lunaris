@@ -265,10 +265,15 @@
   background: var(--text-3);
 }
 
+/* Phones: the stage needs the room; the captions carry the same numbers as the inset. */
 @media (max-width: 759px) {
   .inset {
-    width: 100%;
-    max-width: 320px;
+    display: none;
+  }
+
+  .explorer__bottom {
+    max-height: 48vh;
+    overflow-y: auto;
   }
 }
 

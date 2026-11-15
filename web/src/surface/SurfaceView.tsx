@@ -385,8 +385,8 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     if (move) {
       event.preventDefault();
       modeActions.look(m.headingDeg + move[0], m.pitchDeg + move[1]);
-    } else if (event.key === "+" || event.key === "=") modeActions.setFov(m.fovDeg / 1.2);
-    else if (event.key === "-") modeActions.setFov(m.fovDeg * 1.2);
+    } else if (event.key === "+" || event.key === "=" || event.code === "Equal" || event.code === "NumpadAdd") modeActions.setFov(m.fovDeg / 1.2);
+    else if (event.key === "-" || event.code === "Minus" || event.code === "NumpadSubtract") modeActions.setFov(m.fovDeg * 1.2);
   };
 
   const terrain = !placeKey ? "curtain" : loaded?.key === placeKey ? loaded.kind : "loading";

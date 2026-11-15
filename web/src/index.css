@@ -745,3 +745,14 @@ svg {
 .site-row__risk[data-level="high"] {
   --level: #ff6961;
 }
+
+/* Shown for a moment while the Explorer's code loads (explore/explore.css comes with it). */
+.explorer--loading {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text-2);
+}
