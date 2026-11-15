@@ -63,6 +63,21 @@ export function nextTransition(transitions: Transitions, fromPosition: number): 
   return lo < positions.length ? { position: positions[lo], rising: transitions.rising[lo] === 1 } : null;
 }
 
+/** Whether a body is up now and when that changes: hours from now and the time, null without a change in the data. */
+export function nextChange(
+  series: { startMs: number; stepHours: number },
+  events: Transitions,
+  visibleNow: boolean,
+  position: number,
+): { visible: boolean; hours: number | null; atMs: number | null } {
+  const next = nextTransition(events, position);
+  return {
+    visible: next ? !next.rising : visibleNow,
+    hours: next ? (next.position - position) * series.stepHours : null,
+    atMs: next ? series.startMs + next.position * series.stepHours * 3600000 : null,
+  };
+}
+
 /** Visibility at a fractional position, from the event list alone. */
 export function visibleAt(transitions: Transitions, position: number): boolean {
   const next = nextTransition(transitions, position);

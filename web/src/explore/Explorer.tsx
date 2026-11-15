@@ -10,8 +10,12 @@ import { Button } from "../ui/Button.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { ExplorerShell } from "./ExplorerShell.tsx";
 import { SunPathInset } from "./SunPathInset.tsx";
-import { Game } from "./Game.tsx";
-import { GAME_SCENE, INTRO, LUNAR_DAY_HOURS, TOUR, applyScene } from "./steps.ts";
+import { GamePanel, GameStage } from "./Game.tsx";
+import { useGame } from "./useGame.ts";
+import { MISSIONS, missionScene } from "./game.ts";
+import { LiveCards } from "./LiveCards.tsx";
+import { INTRO, LUNAR_DAY_HOURS, TOUR, applyScene } from "./steps.ts";
+import { useMediaQuery } from "../ui/useMediaQuery.ts";
 
 interface ExplorerProps {
   views: ScenarioView[];
@@ -32,14 +36,19 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
   const game = step !== null && step >= TOUR.length;
   const tour = step !== null && !game ? TOUR[step] : null;
 
-  // Every step starts from its own scenario.
+  const result = nearby.state.status === "ready" ? nearby.state.result : null;
+  const [a, b = null] = views;
+  const play = useGame(a, sites, result);
+  const compact = useMediaQuery("(max-width: 759px)");
+
+  // Every step (and every mission of the game) starts from its own scenario.
+  const mission = game ? play.mission : null;
   useEffect(() => {
     if (!ready) return;
-    applyScene(game ? GAME_SCENE : tour ? tour.scene : INTRO.scene, sites);
-  }, [ready, tour, game, sites]);
+    applyScene(mission !== null ? missionScene(MISSIONS[mission]) : tour ? tour.scene : INTRO.scene, sites);
+  }, [ready, tour, mission, sites]);
 
   // "500 m matters": scenario B is the best nearby spot, once the grid is scored.
-  const result = nearby.state.status === "ready" ? nearby.state.result : null;
   useEffect(() => {
     if (!tour?.nearbySpot || !result || getScenario().placeB) return;
     const origin = getScenario().placeA;
@@ -50,13 +59,12 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
   // Which scenario stands on the stage; back to A whenever the step changes.
   const [stage, setStage] = useState<{ step: number | null; tag: "A" | "B" }>({ step, tag: "A" });
   const tag = stage.step === step ? stage.tag : "A";
-  const [a, b = null] = views;
   const onStage = tag === "B" && b ? b : a;
   const offsetMs = useScenario((s) => s.offsetMs);
 
   let caption = null;
   if (game) {
-    caption = <Game view={a} sites={sites} nearby={result} />;
+    caption = <GamePanel game={play} compact={compact} />;
   } else if (a) {
     const words = tour ? tour.caption(a, b) : INTRO.caption(a, b, offsetMs / 3600000);
     const inset = (tour?.inset || !tour) && b ? <SunPathInset pole={a} equator={b} hours={tour ? tour.scene.windowHours : LUNAR_DAY_HOURS} /> : null;
@@ -68,6 +76,7 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
           {words.detail ? <p>{words.detail}</p> : null}
         </div>
         {inset}
+        <LiveCards view={onStage ?? a} />
       </div>
     );
   }
@@ -116,7 +125,13 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
   );
 
   return (
-    <ExplorerShell title={onStage ? placeTitle(onStage.data.place) : null} caption={caption} actionsSlot={controls}>
+    <ExplorerShell
+      title={onStage ? placeTitle(onStage.data.place) : null}
+      caption={caption}
+      actionsSlot={controls}
+      overlay={game ? <GameStage game={play} compact={compact} /> : null}
+      stageState={game ? (play.stage ?? play.phase) : null}
+    >
       {onStage ? (
         // No beacons in the game: the best spot would give the answer away.
         <SurfaceStage view={onStage} look={tour?.look ?? "sun"} nearby={onStage === a && !game ? result : null} mode="explore" />

@@ -1,7 +1,7 @@
 import { Fragment, createContext, useContext, useMemo, type ReactNode, type Ref } from "react";
 import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Maximize2, Radio, RectangleHorizontal, RectangleVertical, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
-import { nextTransition, panelYield, type Transitions } from "../engine/events.ts";
+import { nextChange, panelYield, type Transitions } from "../engine/events.ts";
 import { analyzeWindow } from "../engine/risk.ts";
 import { formatDistance, formatLat, formatLon, surfaceDistanceM } from "../geo/polar.ts";
 import { siteSubtitle } from "../sites.ts";
@@ -16,7 +16,6 @@ import { CopyLink } from "./CopyLink.tsx";
 import { Explainer } from "./Explainer.tsx";
 import "./panels.css";
 
-const HOUR_MS = 3600000;
 const LINK_BLOCK_LABEL = { terrain: "Terrain", station: "No station", conjunction: "Conjunction" };
 const KICKER = { site: "Landing site", custom: "Custom point", reference: "Equatorial reference" };
 
@@ -257,13 +256,7 @@ function ElevationCell({ view }: { view: ScenarioView }) {
 
 /** Whether a body is up now and when that changes, from the interpolated event list. */
 function nextEvent(view: ScenarioView, events: Transitions, visibleNow: boolean, position: number) {
-  const next = nextTransition(events, position);
-  const { series } = view.data;
-  return {
-    visible: next ? !next.rising : visibleNow,
-    hours: next ? (next.position - position) * series.stepHours : null,
-    atMs: next ? series.startMs + next.position * series.stepHours * HOUR_MS : null,
-  };
+  return nextChange(view.data.series, events, visibleNow, position);
 }
 
 function SunsetCell({ view }: { view: ScenarioView }) {

@@ -1,138 +1,56 @@
-import { useEffect, useMemo, useState } from "react";
-import { Map as MapIcon, Rocket, RotateCcw } from "lucide-react";
-import { loadSiteGrid, type SiteInfo } from "../data/load.ts";
-import type { TerrainGrid, TerrainPoint } from "../engine/grid.ts";
-import { hopOrigin, neighbourPlace, type NearbyResult } from "../state/nearby.ts";
-import { landingScan } from "../state/placeData.ts";
+import { ArrowRight, BatteryWarning, Map as MapIcon, Mountain, Plane, Rocket, RotateCcw, Star, Sun } from "lucide-react";
+import { offsetText } from "../state/nearby.ts";
 import { modeActions } from "../state/mode.ts";
-import { actions, getScenario, sitePlace, subscribeScenario, useScenario } from "../state/scenario.ts";
+import { useScenario } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
-import { siteTitle } from "../sites.ts";
 import { Button } from "../ui/Button.tsx";
-import { DatePicker } from "../ui/DatePicker.tsx";
-import { formatUtcDate, formatUtcDateTime } from "../ui/format.ts";
-import { GAME_DAYS, dateHint, playOutcome, pointHint, type Outcome } from "./game.ts";
+import { formatUtcDateTime } from "../ui/format.ts";
+import { GAME_DAYS, LANDINGS_FOR_STAR, MISSIONS, SCOUTS_PER_MISSION, batteryAt, directionHint, isTooSteep, pointKey } from "./game.ts";
+import { LiveCards } from "./LiveCards.tsx";
+import { SunStrip } from "./SunStrip.tsx";
+import type { AttemptResult, GameState } from "./useGame.ts";
+import "./game.css";
 
-const HOUR_MS = 3600000;
+const WORDS: Record<string, string> = { N: "north", NE: "north-east", E: "east", SE: "south-east", S: "south", SW: "south-west", W: "west", NW: "north-west" };
 
-interface GameProps {
-  view: ScenarioView | undefined;
-  sites: SiteInfo[];
-  nearby: NearbyResult | null;
-}
+// ---------- Caption panel ----------
 
-type Phase = { name: "pick" } | { name: "playing"; outcome: Outcome } | { name: "done"; outcome: Outcome };
+export function GamePanel({ game, compact }: { game: GameState; compact: boolean }) {
+  const { view, phase } = game;
+  const mission = MISSIONS[game.mission];
+  const header = (
+    <div className="game__missions" role="tablist" aria-label="Missions">
+      {MISSIONS.map((m, i) => (
+        <button key={m.id} type="button" role="tab" aria-selected={i === game.mission} className="game__mission" disabled={phase === "playing"} onClick={() => game.setMission(i)}>
+          <span className="game__mission-number">{i + 1}</span>
+          <span className="game__mission-title">{m.title}</span>
+          <StarRow count={game.bestStars[m.id] ?? 0} small />
+        </button>
+      ))}
+    </div>
+  );
 
-/**
- * "Keep the lander alive for 14 days": pick one of the 81 points around a site and a landing
- * date; the mission then plays in the surface view and stops when the battery runs out.
- */
-export function Game({ view, sites, nearby }: GameProps) {
-  const [phase, setPhase] = useState<Phase>({ name: "pick" });
-  const limits = useScenario((s) => s.limits);
-  const startMs = useScenario((s) => s.startMs);
-  const windowHours = useScenario((s) => s.windowHours);
-  const placeA = useScenario((s) => s.placeA);
-  const gridSites = sites.filter((site) => site.grid);
-  // The site the point belongs to: the place itself, or the site its grid point was hopped from.
-  const origin = placeA ? hopOrigin(placeA.id)?.origin : null;
-  const siteKey = placeA?.kind === "site" ? placeA.key : origin?.kind === "site" ? origin.key : null;
-  const site = gridSites.find((s) => s.key === siteKey) ?? null;
-
-  const [grid, setGrid] = useState<{ key: string; grid: TerrainGrid } | null>(null);
-  useEffect(() => {
-    if (!siteKey) return;
-    let alive = true;
-    loadSiteGrid(siteKey).then((g) => alive && setGrid({ key: siteKey, grid: g }));
-    return () => {
-      alive = false;
-    };
-  }, [siteKey]);
-  const points = grid && grid.key === siteKey ? grid.grid : null;
-
-  // Stop the time-lapse when the battery runs out.
-  useEffect(() => {
-    if (phase.name !== "playing") return;
-    const stopAt = phase.outcome.survivedH * HOUR_MS;
-    // Once only: the actions below notify this same listener again.
-    let stopped = false;
-    const check = () => {
-      const s = getScenario();
-      if (!stopped && s.offsetMs >= stopAt) {
-        stopped = true;
-        actions.setPlaying(false);
-        actions.setOffsetMs(Math.min(stopAt, s.offsetMs));
-        setPhase({ name: "done", outcome: phase.outcome });
-      }
-    };
-    return subscribeScenario(check);
-  }, [phase]);
-
-  const current = useMemo(() => {
-    if (!points || !view) return null;
-    let best: TerrainPoint = points.points[0];
-    let bestD = Infinity;
-    for (const point of points.points) {
-      const d = Math.hypot(point.lat - view.data.lat, (point.lon - view.data.lon) * Math.cos((point.lat * Math.PI) / 180));
-      if (d < bestD) {
-        bestD = d;
-        best = point;
-      }
-    }
-    return best;
-  }, [points, view]);
-
-  const choosePoint = (point: TerrainPoint) => {
-    if (!site || !points) return;
-    setPhase({ name: "pick" });
-    actions.setOffsetMs(0);
-    actions.selectPlace(neighbourPlace(sitePlace(site), point, points));
-  };
-
-  const land = () => {
-    if (!view) return;
-    const outcome = playOutcome(view.data, startMs);
-    actions.setOffsetMs(0);
-    actions.setPlaying(true);
-    setPhase({ name: "playing", outcome });
-  };
-
-  const rule = view ? `Rule: the lander runs on sunlight. More than ${view.data.series.profile.battery_survival_h} h without Sun and the battery dies.` : "";
-
-  if (phase.name === "done" && view) {
-    const { outcome } = phase;
-    const day = outcome.survivedH / 24;
-    let hint: string | null = null;
-    if (outcome.failed) {
-      const near = nearby && current ? pointHint(nearby.scored, current, outcome.batteryH) : null;
-      const date = dateHint(landingScan(view.data), startMs, outcome.batteryH);
-      hint = near ? `Try the point ${near.text} of here, same date.` : date !== null ? `Try landing on ${formatUtcDate(date)} at the same point.` : "No date in the data keeps this point alive: try another point.";
-    }
+  if (phase === "playing" && view) {
     return (
       <div className="game">
-        <div className="explorer__words">
-          <p className="explorer__step-title">Keep the lander alive</p>
-          {outcome.failed ? (
-            <p>
-              Day {day.toFixed(1)}: the battery ran out.{" "}
-              {outcome.darkStartMs! <= startMs
-                ? `The lander touched down in the shadow of ${outcome.cause === "terrain" ? "the terrain" : "the night"} and the Sun did not come back for more than ${outcome.batteryH} h.`
-                : `The Sun went ${outcome.cause === "terrain" ? "behind the terrain" : "below the horizon"} on ${formatUtcDateTime(outcome.darkStartMs!)} and stayed away for more than ${outcome.batteryH} h.`}
-            </p>
-          ) : (
-            <p>
-              The lander made it: {GAME_DAYS} days on the surface, never more than {outcome.batteryH} h without the Sun.
-            </p>
-          )}
-          {hint ? <p>{hint}</p> : <p>Now try a point or a date that fails, and see why.</p>}
+        {header}
+        <div className="game__body">
+          <div className="explorer__words">
+            <p className="explorer__step-title">Mission {game.mission + 1} · landed</p>
+            <p>The lander is on its own now. Watch the battery: it drains in the dark and fills up again in sunlight.</p>
+          </div>
+          <LiveCards view={view} />
         </div>
-        <div className="game__buttons">
-          <Button size="sm" variant="accent" onClick={() => (actions.setOffsetMs(0), setPhase({ name: "pick" }))}>
-            <RotateCcw aria-hidden="true" /> Try again
-          </Button>
-          <Button size="sm" onClick={() => modeActions.setMode("plan")}>
-            <MapIcon aria-hidden="true" /> Open in Planner
-          </Button>
+      </div>
+    );
+  }
+
+  if (phase === "done" && view && game.outcome) {
+    return (
+      <div className="game">
+        {header}
+        <div className="game__body">
+          <Debrief game={game} view={view} />
         </div>
       </div>
     );
@@ -140,45 +58,318 @@ export function Game({ view, sites, nearby }: GameProps) {
 
   return (
     <div className="game">
-      <div className="explorer__words">
-        <p className="explorer__step-title">Keep the lander alive for {GAME_DAYS} days</p>
-        <p>Pick a spot within 500 m and a landing date, then land.</p>
-        <p>{rule}</p>
-      </div>
-      <div className="game__pick">
-        <div className="game__sites" role="radiogroup" aria-label="Site">
-          {gridSites.map((s) => (
-            <button key={s.key} type="button" role="radio" aria-checked={s.key === siteKey} className="game__site" onClick={() => (setPhase({ name: "pick" }), actions.selectPlace(sitePlace(s)))}>
-              {siteTitle(s.name)}
-            </button>
-          ))}
+      {header}
+      <div className="game__body">
+        <div className="explorer__words">
+          <p className="explorer__step-title">
+            Mission {game.mission + 1} · {mission.title}
+          </p>
+          <p>{mission.blurb}</p>
+          {view ? <Rules view={view} /> : null}
         </div>
-        {points ? (
-          <div className="game__grid" role="radiogroup" aria-label="Spot within 500 m, north up" style={{ gridTemplateColumns: `repeat(${Math.round(Math.sqrt(points.points.length))}, 1fr)` }}>
-            {[...points.points]
-              .sort((p, q) => q.north_m - p.north_m || p.east_m - q.east_m)
-              .map((point) => (
-                <button
-                  key={`${point.east_m},${point.north_m}`}
-                  type="button"
-                  role="radio"
-                  aria-checked={point === current}
-                  aria-label={`${Math.round(point.east_m)} m east, ${Math.round(point.north_m)} m north`}
-                  className="game__cell"
-                  data-center={point.east_m === 0 && point.north_m === 0 ? true : undefined}
-                  disabled={phase.name === "playing"}
-                  onClick={() => choosePoint(point)}
-                />
-              ))}
-          </div>
+        {compact && phase !== "brief" ? <ScoutMap game={game} /> : null}
+        {phase === "pick" ? <FlightLog game={game} /> : null}
+        {phase === "brief" && compact ? (
+          <Button size="sm" variant="accent" onClick={game.start}>
+            Start <ArrowRight aria-hidden="true" />
+          </Button>
         ) : null}
-        {limits ? (
-          <DatePicker label="Landing date" valueMs={startMs} minMs={limits.minMs} maxMs={limits.maxMs - windowHours * HOUR_MS} onChange={(ms) => (setPhase({ name: "pick" }), actions.setStart(ms))} />
+      </div>
+    </div>
+  );
+}
+
+function Rules({ view }: { view: ScenarioView }) {
+  const { profile } = view.data.series;
+  return (
+    <ul className="game__rules">
+      <li>
+        <BatteryWarning aria-hidden="true" />
+        <span>
+          More than <b>{profile.battery_survival_h} h</b> without Sun: the battery dies.
+        </span>
+      </li>
+      <li>
+        <Mountain aria-hidden="true" />
+        <span>
+          Ground steeper than <b>{profile.max_slope_deg}°</b>: the lander tips over.
+        </span>
+      </li>
+      <li>
+        <Sun aria-hidden="true" />
+        <span>
+          Clue: the Sun's path in the sky is <b>dashed</b> where hills hide it.
+        </span>
+      </li>
+    </ul>
+  );
+}
+
+function Debrief({ game, view }: { game: GameState; view: ScenarioView }) {
+  const outcome = game.outcome!;
+  const startMs = view.startMs;
+  let story: string;
+  if (outcome.cause === "slope") {
+    story = `The ground here is ${outcome.slopeDeg!.toFixed(0)}° steep, but the lander can only stand on ${outcome.slopeLimitDeg}°. It tipped over at touchdown.`;
+  } else if (outcome.failed) {
+    const day = (outcome.survivedH / 24).toFixed(1);
+    const where = outcome.cause === "terrain" ? "behind the hills" : "below the horizon";
+    story =
+      outcome.darkStartMs! <= startMs
+        ? `Day ${day}: the battery ran out. The lander touched down in the dark, and the Sun stayed ${where} for more than ${outcome.batteryH} h.`
+        : `Day ${day}: the battery ran out. The Sun went ${where} on ${formatUtcDateTime(outcome.darkStartMs!)} and stayed away for more than ${outcome.batteryH} h.`;
+  } else {
+    story =
+      outcome.longestDarkH === 0
+        ? `The lander made it through all ${GAME_DAYS} days without a single hour of darkness.`
+        : `The lander made it through ${GAME_DAYS} days. Its longest time without Sun was ${Math.round(outcome.longestDarkH)} h, and the battery lasts ${outcome.batteryH} h.`;
+  }
+  const direction = outcome.failed && game.nearby && game.current ? directionHint(game.nearby.scored, game.current, outcome.batteryH, outcome.slopeLimitDeg) : null;
+  return (
+    <>
+      <div className="explorer__words">
+        <p className="explorer__step-title">{outcome.failed ? "Mission lost" : "Mission complete"}</p>
+        <p>{story}</p>
+        {direction ? (
+          <p>
+            Hint: look to the {WORDS[direction]} of this spot.{game.scoutsLeft > 0 ? " A scout flight shows a spot's Sun before you land." : ""}
+          </p>
+        ) : outcome.failed && outcome.cause !== "slope" ? (
+          <p>No flat spot nearby survives this date.</p>
         ) : null}
-        <Button size="sm" variant="accent" disabled={!view || phase.name === "playing"} onClick={land}>
-          <Rocket aria-hidden="true" /> {phase.name === "playing" ? "Landed…" : "Land"}
+      </div>
+      {outcome.cause !== "slope" ? <SunStrip data={view.data} landingMs={startMs} hours={GAME_DAYS * 24} battery failAtH={outcome.failed ? outcome.survivedH : null} /> : null}
+    </>
+  );
+}
+
+function FlightLog({ game }: { game: GameState }) {
+  const battery = game.view?.data.series.profile.battery_survival_h ?? 0;
+  return (
+    <section className="log" aria-label="Flight log">
+      <p className="log__title">Flight log</p>
+      {game.history.length === 0 ? (
+        <ol className="log__steps">
+          <li>Click a spot on the landing map. Hatched spots are too steep.</li>
+          <li>Look at the sky: where is the Sun's path dashed behind the hills?</li>
+          <li>Not sure? Send a scout: the orange band must never have a dark gap longer than the red battery bar.</li>
+          <li>Land, and watch the battery.</li>
+        </ol>
+      ) : (
+        <ul className="log__list">
+          {game.history.map((entry, i) => (
+            <li key={i} data-result={entry.result}>
+              <span className="log__n">#{i + 1}</span>
+              <span className="log__where">{entry.where}</span>
+              <span className="log__what">
+                {entry.result === "tipped"
+                  ? "tipped over"
+                  : entry.result === "dead"
+                    ? `battery died, day ${entry.day.toFixed(1)}`
+                    : `survived · ${Math.round(entry.darkH)} of ${battery} h dark`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// ---------- Stage overlay ----------
+
+export function GameStage({ game, compact }: { game: GameState; compact: boolean }) {
+  const { phase, view } = game;
+  const mission = MISSIONS[game.mission];
+  if (phase === "brief" && !compact) {
+    return (
+      <div className="game-card game-card--center glass glass--thick" role="dialog" aria-label={`Mission ${game.mission + 1}`}>
+        <p className="explorer__step-title">
+          Mission {game.mission + 1} of {MISSIONS.length}
+        </p>
+        <h2 className="game-card__title">{mission.title}</h2>
+        <p className="game-card__text">
+          Keep the lander alive for {GAME_DAYS} days. Pick a spot on the map within 500 m of the site, then land. {SCOUTS_PER_MISSION} scout flights show you a spot's Sun before you commit.
+        </p>
+        {view ? <Rules view={view} /> : null}
+        <Button variant="accent" onClick={game.start}>
+          Start the mission <ArrowRight aria-hidden="true" />
         </Button>
       </div>
+    );
+  }
+  if (phase === "pick" && !compact) {
+    return (
+      <div className="game-card game-card--map glass glass--thick">
+        <ScoutMap game={game} />
+      </div>
+    );
+  }
+  if (phase === "playing" && view) return <LowBattery view={view} />;
+  if (phase === "done" && game.outcome) {
+    const { outcome, stars } = game;
+    const title = outcome.cause === "slope" ? "Tipped over" : outcome.failed ? "Battery empty" : "Mission complete";
+    const next = game.mission + 1 < MISSIONS.length ? game.mission + 1 : null;
+    return (
+      <div className="game-card game-card--center game-card--result glass glass--thick" data-won={!outcome.failed || undefined} role="status">
+        <h2 className="game-card__title">{title}</h2>
+        {outcome.cause === "slope" ? (
+          <p className="game-card__text">
+            Ground {outcome.slopeDeg!.toFixed(0)}° steep, the limit is {outcome.slopeLimitDeg}°
+          </p>
+        ) : outcome.failed ? (
+          <p className="game-card__text">
+            Day {(outcome.survivedH / 24).toFixed(1)} of {GAME_DAYS}: {Math.round(outcome.longestDarkH)} h without Sun
+          </p>
+        ) : null}
+        {stars && !outcome.failed ? (
+          <ul className="game-card__stars">
+            {stars.earned.map((on, i) => (
+              <li key={i} data-on={on || undefined} style={{ animationDelay: `${0.25 + i * 0.35}s` }}>
+                <Star aria-hidden="true" /> <span>{stars.reasons[i]}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="game-card__text game-card__text--quiet">
+          Landing {game.landings} · {game.scoutsLeft} scout flight{game.scoutsLeft === 1 ? "" : "s"} left
+        </p>
+        <div className="game-card__buttons">
+          <Button size="sm" variant={outcome.failed ? "accent" : undefined} onClick={game.retry}>
+            <RotateCcw aria-hidden="true" /> {outcome.failed ? "Try another spot" : "Play again"}
+          </Button>
+          {!outcome.failed && next !== null ? (
+            <Button size="sm" variant="accent" onClick={() => game.setMission(next)}>
+              Next mission <ArrowRight aria-hidden="true" />
+            </Button>
+          ) : null}
+          {!outcome.failed && next === null ? (
+            <Button size="sm" variant="accent" onClick={() => modeActions.setMode("plan")}>
+              <MapIcon aria-hidden="true" /> Open in Planner
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+function LowBattery({ view }: { view: ScenarioView }) {
+  const offsetMs = useScenario((s) => s.offsetMs);
+  const battery = batteryAt(view.data.series, view.startMs, view.startMs + offsetMs);
+  return (
+    <div className="game-hud" data-low={battery.share < 0.25 || undefined}>
+      <span className="game-hud__label">{battery.charging ? "Charging" : battery.share < 0.25 ? "Battery low" : "On battery"}</span>
+      <span className="game-hud__bar">
+        <span className="game-hud__fill" style={{ width: `${battery.share * 100}%` }} />
+      </span>
+      <span className="game-hud__value">{Math.round(battery.share * 100)}%</span>
+    </div>
+  );
+}
+
+function StarRow({ count, small = false }: { count: number; small?: boolean }) {
+  return (
+    <span className="game__star-row" data-small={small || undefined} role="img" aria-label={`${count} of 3 stars`}>
+      {[0, 1, 2].map((i) => (
+        <Star key={i} aria-hidden="true" data-on={i < count || undefined} />
+      ))}
+    </span>
+  );
+}
+
+// ---------- Scout map ----------
+
+const RESULT_LABEL: Record<AttemptResult, string> = { ok: "survived", low: "survived, battery ran low", dead: "battery died", tipped: "tipped over" };
+
+function ScoutMap({ game }: { game: GameState }) {
+  const { grid, current, view } = game;
+  if (!grid || !view) return <p className="game__loading">Loading the map…</p>;
+  const limit = view.data.series.profile.max_slope_deg;
+  const size = Math.round(Math.sqrt(grid.points.length));
+  const half = ((size - 1) / 2) * grid.step_m;
+  const points = [...grid.points].sort((p, q) => q.north_m - p.north_m || p.east_m - q.east_m);
+  const steep = current ? isTooSteep(current, limit) : false;
+  const key = current ? pointKey(current) : null;
+  const scouted = key !== null && game.scouted.has(key);
+  const tried = key !== null ? game.log.get(key) : undefined;
+  const playing = game.phase === "playing";
+  return (
+    <div className="scout">
+      <div className="scout__head">
+        <span className="scout__title">Landing map</span>
+        <span className="scout__meta">
+          {game.landings < LANDINGS_FOR_STAR ? `${LANDINGS_FOR_STAR - game.landings} ${LANDINGS_FOR_STAR - game.landings === 1 ? "try" : "tries"} left for ★★` : `Landing ${game.landings + (playing ? 0 : 1)}`}
+        </span>
+      </div>
+      <div className="scout__frame">
+        <span className="scout__north" aria-hidden="true">
+          N
+        </span>
+        <div className="scout__grid" role="radiogroup" aria-label="Landing spot, north up" style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}>
+          {points.map((point) => {
+            const k = pointKey(point);
+            const attempt = game.log.get(k);
+            const center = point.east_m === 0 && point.north_m === 0;
+            const tooSteep = isTooSteep(point, limit);
+            const where = center ? "site center" : offsetText(point);
+            const slope = point.slope_deg !== null ? `${point.slope_deg.toFixed(0)}° slope` : "slope unknown";
+            return (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={point === current}
+                aria-label={`${where}, ${slope}${tooSteep ? ", too steep" : ""}${attempt ? `, ${RESULT_LABEL[attempt.result]}` : ""}`}
+                title={`${where} · ${slope}${attempt ? ` · ${RESULT_LABEL[attempt.result]}${attempt.result === "dead" ? ` on day ${attempt.day.toFixed(1)}` : ""}` : ""}`}
+                className="scout__cell"
+                data-steep={tooSteep || undefined}
+                data-center={center || undefined}
+                data-result={attempt?.result}
+                data-scouted={game.scouted.has(k) || undefined}
+                disabled={playing}
+                onClick={() => game.choose(point)}
+              />
+            );
+          })}
+        </div>
+        <span className="scout__scale" aria-hidden="true">
+          {Math.round(2 * half)} m
+        </span>
+      </div>
+      <ul className="scout__legend" aria-label="Legend">
+        <li data-key="steep">Too steep</li>
+        <li data-key="ok">Survived</li>
+        <li data-key="low">Barely</li>
+        <li data-key="dead">Battery died</li>
+        <li data-key="tipped">Tipped</li>
+      </ul>
+      <div className="scout__spot" aria-live="polite">
+        {current ? (
+          <>
+            <p className="scout__where">
+              <b>{current.east_m === 0 && current.north_m === 0 ? "Site center" : offsetText(current)}</b> · ground{" "}
+              <span data-bad={steep || undefined}>
+                {current.slope_deg !== null ? `${current.slope_deg.toFixed(0)}°` : "?"} {steep ? `(over ${limit}°)` : "(flat enough)"}
+              </span>
+              {tried ? <span className="scout__tried"> · tried: {RESULT_LABEL[tried.result]}</span> : null}
+            </p>
+            {scouted ? (
+              <SunStrip data={view.data} landingMs={view.startMs} hours={GAME_DAYS * 24} />
+            ) : (
+              <Button size="sm" disabled={game.scoutsLeft === 0 || playing} onClick={game.scout}>
+                <Plane aria-hidden="true" /> Scout the Sun here ({game.scoutsLeft} left)
+              </Button>
+            )}
+          </>
+        ) : (
+          <p className="scout__where">Pick a spot on the map.</p>
+        )}
+      </div>
+      <Button variant="accent" disabled={!current || playing} onClick={game.land}>
+        <Rocket aria-hidden="true" /> Land here
+      </Button>
     </div>
   );
 }

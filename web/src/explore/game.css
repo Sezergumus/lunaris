@@ -1,0 +1,808 @@
+/* ---------- Live cards: the place right now, in plain words ---------- */
+
+.cards {
+  flex: 1 1 360px;
+  max-width: 520px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-row);
+  background: var(--fill-hover);
+  border: 1px solid var(--separator);
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  transition: border-color 0.3s var(--ease-out);
+}
+
+.card[data-tone="good"] {
+  border-color: rgba(48, 209, 88, 0.35);
+}
+
+.card[data-tone="warn"] {
+  border-color: rgba(255, 214, 10, 0.35);
+}
+
+.card[data-tone="bad"] {
+  border-color: rgba(255, 69, 58, 0.4);
+}
+
+.card__icon {
+  grid-row: span 3;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--fill-press);
+  color: var(--text-2);
+}
+
+.card__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.card[data-tone="good"] .card__icon {
+  color: var(--success);
+}
+
+.card[data-tone="warn"] .card__icon {
+  color: var(--warning);
+}
+
+.card[data-tone="bad"] .card__icon {
+  color: var(--danger);
+}
+
+.card__label {
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card__value {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card__sub {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.card__bar {
+  grid-column: 2;
+  height: 5px;
+  margin: 3px 0 1px;
+  border-radius: 3px;
+  background: var(--fill-press);
+  overflow: hidden;
+}
+
+.card__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--success);
+  transition: width 0.5s var(--ease-out);
+}
+
+.card[data-tone="warn"] .card__bar-fill {
+  background: var(--warning);
+}
+
+.card[data-tone="bad"] .card__bar-fill {
+  background: var(--danger);
+}
+
+@media (max-width: 759px) {
+  .cards {
+    flex-basis: 100%;
+    max-width: none;
+    gap: 6px;
+  }
+
+  .card {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .card__sub {
+    display: none;
+  }
+}
+
+/* ---------- Sun strip: the mission as a band of light and dark ---------- */
+
+.strip {
+  margin: 0;
+  width: 100%;
+  max-width: 280px;
+  min-width: 0;
+}
+
+.strip svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.strip__lit {
+  fill: var(--sun);
+  opacity: 0.85;
+}
+
+.strip__dark {
+  fill: #1c1c24;
+}
+
+.strip__tick {
+  stroke: var(--text-3);
+}
+
+.strip__ruler {
+  fill: var(--danger);
+}
+
+.strip__label {
+  fill: var(--text-2);
+  font-size: 9px;
+}
+
+.strip__battery {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 1.6;
+}
+
+.strip__fail {
+  stroke: var(--danger);
+  stroke-width: 2;
+}
+
+.strip__legend {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.strip__days {
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.strip__key::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  background: var(--sun);
+}
+
+.strip__key--dark::before {
+  background: #1c1c24;
+  outline: 1px solid var(--text-3);
+}
+
+.strip__key--battery::before {
+  height: 2px;
+  vertical-align: middle;
+  background: var(--success);
+}
+
+/* ---------- Landing game: caption panel ---------- */
+
+.game {
+  display: grid;
+  gap: 10px;
+}
+
+.game__missions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.game__mission {
+  font: inherit;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid var(--separator);
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.game__mission[aria-selected="true"] {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.game__mission:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.game__mission-number {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--fill-press);
+  font-weight: 650;
+}
+
+.game__star-row {
+  display: inline-flex;
+  gap: 1px;
+}
+
+.game__star-row svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-3);
+}
+
+.game__star-row svg[data-on] {
+  color: var(--warning);
+  fill: var(--warning);
+}
+
+.game__body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.game__rules {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.game__rules li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.game__rules svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--warning);
+}
+
+.game__rules b {
+  color: var(--text);
+}
+
+.game__loading {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+/* ---------- Landing game: cards on the stage ---------- */
+
+.game-card {
+  position: absolute;
+  z-index: 5;
+  border-radius: var(--radius-panel);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-panel);
+}
+
+.game-card--center {
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: min(440px, calc(100% - 32px));
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  animation: game-pop 0.35s var(--ease-out) both;
+}
+
+.game-card--map {
+  top: 34px;
+  right: 10px;
+  width: 268px;
+  max-height: calc(100% - 44px);
+  overflow: hidden auto;
+  padding: 12px;
+}
+
+.game-card__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.game-card__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.game-card__text--quiet {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.game-card--result {
+  justify-items: center;
+  text-align: center;
+}
+
+.game-card--result .game-card__title {
+  font-size: 30px;
+  color: var(--danger);
+}
+
+.game-card--result[data-won] .game-card__title {
+  color: var(--success);
+}
+
+.game-card__stars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.game-card__stars li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-card__stars svg {
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+}
+
+.game-card__stars li[data-on] {
+  color: var(--text);
+  animation: game-star 0.45s var(--ease-out) both;
+}
+
+.game-card__stars li[data-on] svg {
+  color: var(--warning);
+  fill: var(--warning);
+}
+
+.game-card__buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Battery while the mission plays. */
+.game-hud {
+  position: absolute;
+  z-index: 5;
+  top: 70px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--glass-thick);
+  border: 1px solid var(--glass-border);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.game-hud__bar {
+  width: 120px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--fill-press);
+  overflow: hidden;
+}
+
+.game-hud__fill {
+  display: block;
+  height: 100%;
+  background: var(--success);
+  transition: width 0.4s var(--ease-out), background-color 0.3s;
+}
+
+.game-hud__value {
+  min-width: 3.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-hud[data-low] {
+  color: var(--danger);
+  border-color: rgba(255, 69, 58, 0.5);
+  animation: game-pulse 0.9s ease-in-out infinite;
+}
+
+.game-hud[data-low] .game-hud__fill {
+  background: var(--danger);
+}
+
+/* The stage in the game: no mast slider (it would change the answer); dimmed when the
+   battery died, shaken when the lander tipped over. */
+.explorer__stage[data-game] .surface__mast {
+  display: none;
+}
+
+.explorer__stage .surface__canvas {
+  transition: filter 0.8s var(--ease-out);
+}
+
+.explorer__stage[data-game="dead"] .surface__canvas,
+.explorer__stage[data-game="tipped"] .surface__canvas {
+  filter: grayscale(1) brightness(0.4);
+}
+
+.explorer__stage[data-game="tipped"] {
+  animation: game-shake 0.45s ease-in-out;
+}
+
+@keyframes game-pop {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+
+@keyframes game-star {
+  from {
+    opacity: 0;
+    scale: 0.5;
+  }
+}
+
+@keyframes game-pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 69, 58, 0.18);
+  }
+}
+
+@keyframes game-shake {
+  20% {
+    translate: -8px 2px;
+  }
+  40% {
+    translate: 7px -2px;
+  }
+  60% {
+    translate: -5px 1px;
+  }
+  80% {
+    translate: 3px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card--center,
+  .game-card__stars li[data-on],
+  .game-hud[data-low],
+  .explorer__stage[data-game="tipped"] {
+    animation: none;
+  }
+}
+
+/* ---------- Scout map ---------- */
+
+.scout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.scout__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.scout__title {
+  font-weight: 650;
+  font-size: 14px;
+}
+
+.scout__meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.scout__frame {
+  position: relative;
+  padding: 14px 0 16px;
+}
+
+.scout__north,
+.scout__scale {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.scout__north {
+  top: 0;
+  font-weight: 700;
+}
+
+.scout__scale {
+  bottom: 0;
+}
+
+.scout__grid {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  max-width: 216px;
+  margin: 0 auto;
+}
+
+.scout__cell {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  transition: transform 0.12s var(--ease-out), background-color 0.2s;
+}
+
+.scout__cell:hover:not(:disabled) {
+  transform: scale(1.15);
+  z-index: 1;
+}
+
+.scout__cell:disabled {
+  cursor: default;
+}
+
+.scout__cell[data-steep] {
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 3px, rgba(255, 159, 10, 0.32) 3px 5px);
+}
+
+.scout__cell[data-center]::after {
+  content: "";
+  position: absolute;
+  inset: 30%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+
+.scout__cell[data-scouted]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sun);
+}
+
+.scout__cell[data-result="ok"] {
+  background: var(--success);
+}
+
+.scout__cell[data-result="low"] {
+  background: var(--warning);
+}
+
+.scout__cell[data-result="dead"] {
+  background: var(--danger);
+}
+
+.scout__cell[data-result="tipped"] {
+  background: repeating-linear-gradient(45deg, #555 0 3px, #2a2a2a 3px 6px);
+  outline: 1px solid var(--danger);
+  outline-offset: -1px;
+}
+
+.scout__cell[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  z-index: 2;
+}
+
+.scout__cell:focus-visible {
+  outline: 2px solid var(--accent-ring);
+}
+
+.scout__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.scout__legend li::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.scout__legend [data-key="steep"]::before {
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 2px, rgba(255, 159, 10, 0.6) 2px 3px);
+}
+
+.scout__legend [data-key="ok"]::before {
+  background: var(--success);
+}
+
+.scout__legend [data-key="low"]::before {
+  background: var(--warning);
+}
+
+.scout__legend [data-key="dead"]::before {
+  background: var(--danger);
+}
+
+.scout__legend [data-key="tipped"]::before {
+  background: #555;
+  outline: 1px solid var(--danger);
+}
+
+.scout__spot {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.scout__where {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.scout__where b {
+  color: var(--text);
+}
+
+.scout__where [data-bad] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.scout__tried {
+  color: var(--text-3);
+}
+
+.scout .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Phones: the map sits in the caption panel. */
+@media (max-width: 759px) {
+  .game__body .scout {
+    width: 100%;
+  }
+
+  .game-hud {
+    top: 10px;
+  }
+}
+
+/* ---------- Flight log: how to play, then every landing of the mission ---------- */
+
+.log {
+  flex: 1 1 300px;
+  max-width: 460px;
+  padding: 10px 12px;
+  border-radius: var(--radius-row);
+  background: var(--fill-hover);
+  border: 1px solid var(--separator);
+  font-size: 13px;
+}
+
+.log__title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.log__steps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.log__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.log__list li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.log__n {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.log__where {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log__what {
+  color: var(--success);
+}
+
+.log__list [data-result="low"] .log__what {
+  color: var(--warning);
+}
+
+.log__list [data-result="dead"] .log__what,
+.log__list [data-result="tipped"] .log__what {
+  color: var(--danger);
+}
