@@ -394,6 +394,16 @@
   right: 80px;
 }
 
+/* No close button (the Explorer's stage): the settings button takes the corner, as far from
+   the right edge as the tools are from the left. */
+.surface:not([data-closable]) .surface__settings {
+  right: 10px;
+}
+
+.surface[data-compact]:not([data-closable]) .surface__top {
+  right: 48px;
+}
+
 .popover.popover--surface {
   background: rgba(20, 20, 24, 0.95);
   width: 240px;

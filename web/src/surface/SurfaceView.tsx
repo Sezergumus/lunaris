@@ -588,6 +588,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       }
       data-camera={drone ? "drone" : "eye"}
       data-compact={compact || undefined}
+      data-closable={onClose ? true : undefined}
       onKeyDown={onKeyDown}
     >
       <canvas ref={canvasRef} className="surface__canvas" />
