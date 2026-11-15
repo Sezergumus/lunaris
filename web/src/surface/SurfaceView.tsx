@@ -38,6 +38,8 @@ const ORBIT_DEG_PER_PX = 0.25;
 const DRONE_LABELS_WITHIN_M = 1500;
 /** Planner below this width: the mast and ground controls move into a settings popover. */
 const COMPACT_QUERY = "(max-width: 1399px)";
+/** Phones: the settings button in both modes, the legend stacked under the tools. */
+const PHONE_QUERY = "(max-width: 759px)";
 
 /** What the ground around the place is tinted with: a score of every nearby grid point. */
 type GroundOverlay = "off" | "risk" | "sun";
@@ -546,7 +548,9 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
   };
 
   const terrain = !placeKey ? "curtain" : loaded?.key === placeKey ? loaded.kind : "loading";
-  const compact = useMediaQuery(COMPACT_QUERY) && beaconMode === "plan";
+  const narrowPlanner = useMediaQuery(COMPACT_QUERY) && beaconMode === "plan";
+  const phone = useMediaQuery(PHONE_QUERY);
+  const compact = narrowPlanner || phone;
 
   const groundRow =
     terrainReady && nearby ? (
@@ -603,7 +607,6 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       {beaconMode === "explore" ? (
         <>
           <div ref={psrRef} className="surface__psr" hidden aria-hidden="true" />
-          <div ref={earthCardRef} className="surface__earth-card" aria-live="off" />
           <p ref={whyRef} className="surface__why" aria-live="polite" />
         </>
       ) : null}
@@ -624,23 +627,29 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
             ))
           : null}
       </div>
-      <div className="surface__tools">
-        <Button size="sm" onClick={() => lookAt("sun")}>
-          <Sun aria-hidden="true" /> Look at Sun
-        </Button>
-        <Button size="sm" onClick={() => lookAt("earth")}>
-          <Earth aria-hidden="true" /> Look at Earth
-        </Button>
-        {terrainReady ? (
-          <Button size="sm" onClick={() => modeActions.setCamera(drone ? "eye" : "drone")}>
-            {drone ? <PersonStanding aria-hidden="true" /> : <Drone aria-hidden="true" />} {drone ? "Surface view" : "Drone view"}
+      {/* Top left, stacked so nothing overlaps however the buttons wrap: the tools, the
+          Explorer's Earth card and, on phones, the ground tint's legend. */}
+      <div className="surface__top">
+        <div className="surface__tools">
+          <Button size="sm" onClick={() => lookAt("sun")}>
+            <Sun aria-hidden="true" /> Look at Sun
           </Button>
-        ) : null}
-        {hop ? (
-          <Button size="sm" onClick={() => actions.selectPlace(hop.origin.kind === "site" ? hop.origin : neighbourPlace(hop.origin, hop.grid.points[0], hop.grid))}>
-            <CornerUpLeft aria-hidden="true" /> Back to {placeTitle(hop.origin)}
+          <Button size="sm" onClick={() => lookAt("earth")}>
+            <Earth aria-hidden="true" /> Look at Earth
           </Button>
-        ) : null}
+          {terrainReady ? (
+            <Button size="sm" onClick={() => modeActions.setCamera(drone ? "eye" : "drone")}>
+              {drone ? <PersonStanding aria-hidden="true" /> : <Drone aria-hidden="true" />} {drone ? "Surface view" : "Drone view"}
+            </Button>
+          ) : null}
+          {hop ? (
+            <Button size="sm" onClick={() => actions.selectPlace(hop.origin.kind === "site" ? hop.origin : neighbourPlace(hop.origin, hop.grid.points[0], hop.grid))}>
+              <CornerUpLeft aria-hidden="true" /> Back to {placeTitle(hop.origin)}
+            </Button>
+          ) : null}
+        </div>
+        {beaconMode === "explore" ? <div ref={earthCardRef} className="surface__earth-card" aria-live="off" /> : null}
+        {phone && legend ? <div className="surface__legend-card glass glass--thick">{legend}</div> : null}
       </div>
       {onClose ? (
         <IconButton className="surface__close" label="Close the surface view" size="sm" tipSide="left" onClick={onClose}>
@@ -662,7 +671,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
-          {legend ? <div className="surface__overlay surface__overlay--legend glass glass--thick">{legend}</div> : null}
+          {legend && !phone ? <div className="surface__overlay surface__overlay--legend glass glass--thick">{legend}</div> : null}
         </>
       ) : (
         <>

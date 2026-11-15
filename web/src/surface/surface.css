@@ -212,15 +212,13 @@
   opacity: 0.55;
 }
 
-/* Explorer labels. */
+/* Explorer labels. The Earth card sits in the top-left stack, under the tools. */
 .surface__earth-card {
-  position: absolute;
-  top: 70px;
-  left: 10px;
-  max-width: min(320px, calc(100% - 20px));
+  max-width: min(320px, 100%);
   padding: 6px 9px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
   color: var(--earth);
   font-size: 12px;
   line-height: 1.45;
@@ -271,11 +269,18 @@
   border-radius: 10px;
 }
 
-.surface__tools {
+.surface__top {
   position: absolute;
   top: 34px;
   left: 10px;
   right: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.surface__tools {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -385,7 +390,7 @@
   right: 42px;
 }
 
-.surface[data-compact] .surface__tools {
+.surface[data-compact] .surface__top {
   right: 80px;
 }
 
@@ -424,7 +429,6 @@
   }
 
   .surface__earth-card {
-    max-width: calc(100% - 180px);
     font-size: 11px;
   }
 
@@ -531,6 +535,19 @@
   .surface__legend-note {
     display: none;
   }
+}
+
+/* Phones: the ground tint's legend in the top-left stack (SurfaceView, PHONE_QUERY). */
+.surface__legend-card {
+  width: 176px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: default;
+}
+
+.surface__legend-card .surface__legend-note {
+  display: none;
 }
 
 /* Compact Planner: the ground tint's legend stays on the view while the settings are closed,

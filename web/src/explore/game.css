@@ -806,3 +806,8 @@
 .log__list [data-result="tipped"] .log__what {
   color: var(--danger);
 }
+
+/* Phones: the mast slider lives in the settings popover, and the game has nothing else there. */
+.explorer__stage[data-game] .surface__settings {
+  display: none;
+}
