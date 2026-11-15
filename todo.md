@@ -219,6 +219,7 @@ Technical decisions (so nobody has to work them out again):
   not from a sea level. Write "5,321 m above the Moon's mean radius".
 - Rocks, small craters, surface texture, real star positions: not in the data.
 - Free walking: positions are the 81 grid points, because only they have an engine horizon.
+  (The drone view moves the camera only; the place, its skyline and its scores stay put.)
 
 ## Frontend phases
 

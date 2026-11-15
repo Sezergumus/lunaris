@@ -279,6 +279,14 @@ export class SkyLayer {
     this.anchor.add(this.curtain);
   }
 
+  /**
+   * The curtain is the skyline seen from the place itself; a camera elsewhere (the drone
+   * view) hides it and shows the terrain mesh alone.
+   */
+  setCurtainVisible(visible: boolean) {
+    if (this.curtain) this.curtain.visible = visible;
+  }
+
   /** Moves the sky with the observer and places the bodies. */
   update(eye: THREE.Vector3, sun: BodyState, earth: BodyState, starOpacity: number, glare: number, latDeg: number, timeMs: number) {
     this.anchor.position.copy(eye);

@@ -2,7 +2,7 @@
 // ephemeris puts them, and the skyline the risk model uses. Lazy entry point (three.js lives
 // in this chunk only).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { CornerUpLeft, Earth, Sun, X } from "lucide-react";
+import { CornerUpLeft, Drone, Earth, PersonStanding, Sun, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { obstruction, rangeAt, sentence } from "../charts/why.ts";
 import type { SkyTables } from "../data/load.ts";
@@ -13,21 +13,94 @@ import { sampleAt } from "../engine/events.ts";
 import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, horizonAt } from "../engine/risk.ts";
 import { sampleIndex } from "../engine/sky.ts";
 import { formatDistance } from "../geo/polar.ts";
-import { getMode, modeActions, subscribeMode } from "../state/mode.ts";
-import { pointDistanceM } from "../engine/grid.ts";
+import { getMode, modeActions, subscribeMode, useMode } from "../state/mode.ts";
+import { pointDistanceM, type ScoredPoint } from "../engine/grid.ts";
 import { betterSpot, hopOrigin, neighbourPlace, offsetText, type NearbyResult } from "../state/nearby.ts";
 import { actions, getScenario, placeTitle, subscribeScenario, useScenario } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
+import { Segmented } from "../ui/Segmented.tsx";
 import { formatAngle } from "../ui/format.ts";
 import { destination } from "./geometry.ts";
-import { SurfaceScene, webgl2Available, type BeaconSpec } from "./scene.ts";
+import { SurfaceScene, webgl2Available, type BeaconSpec, type HeatSpec } from "./scene.ts";
 import "./surface.css";
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 const TWEEN_MS = 700;
 /** Drag: degrees of view turned per pixel are the field of view over the canvas width. */
 const KEY_STEP_DEG = 2;
+/** Drone view: degrees the camera circles or tilts per pixel dragged. */
+const ORBIT_DEG_PER_PX = 0.25;
+/** Drone view: beyond this distance only the best spot keeps its label, meters. */
+const DRONE_LABELS_WITHIN_M = 1500;
+
+/** What the ground around the place is tinted with: a score of every nearby grid point. */
+type GroundOverlay = "off" | "risk" | "sun";
+const OVERLAY_OPTIONS: { value: GroundOverlay; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "risk", label: "Risk" },
+  { value: "sun", label: "Sun" },
+];
+
+type Rgb = [number, number, number];
+/** Risk 0, 50 and 100: the colours of the low, medium and high levels. */
+const RISK_RAMP: Rgb[] = [[48, 209, 88], [255, 214, 10], [255, 69, 58]];
+/** Least to most usable Sun among the grid points (dark to bright, readable without colour vision). */
+const SUN_RAMP: Rgb[] = [[59, 28, 140], [33, 144, 141], [253, 231, 37]];
+const css = (ramp: Rgb[]) => `linear-gradient(90deg, ${ramp.map((c) => `rgb(${c.join(",")})`).join(", ")})`;
+
+/** Colour at t (0-1) along a ramp of evenly spaced stops. */
+function rampColor(ramp: Rgb[], t: number): Rgb {
+  const x = Math.max(0, Math.min(1, t)) * (ramp.length - 1);
+  const i = Math.min(ramp.length - 2, Math.floor(x));
+  const f = x - i;
+  return [0, 1, 2].map((k) => ramp[i][k] + (ramp[i + 1][k] - ramp[i][k]) * f) as Rgb;
+}
+
+interface Heat {
+  spec: HeatSpec;
+  /** Legend: the ramp and what its two ends stand for. */
+  title: string;
+  gradient: string;
+  low: string;
+  high: string;
+  note: string;
+}
+
+/**
+ * The scored grid as a ground tint. Risk uses the fixed 0-100 scale of the score; usable Sun
+ * is stretched between the lowest and the highest value of the grid, which the legend names.
+ */
+function buildHeat(nearby: NearbyResult, overlay: Exclude<GroundOverlay, "off">): Heat | null {
+  const { grid, scored } = nearby;
+  const size = grid.grid;
+  const step = grid.step_m;
+  if (size < 2 || scored.length !== size * size) return null;
+  const half = ((size - 1) / 2) * step;
+  const cell = (entry: ScoredPoint) => ({ col: Math.round((entry.point.east_m + half) / step), row: Math.round((entry.point.north_m + half) / step) });
+  const corner = (col: number, row: number) => scored.find((entry) => cell(entry).col === col && cell(entry).row === row)?.point;
+  const [southWest, southEast, northWest] = [corner(0, 0), corner(size - 1, 0), corner(0, size - 1)];
+  if (!southWest || !southEast || !northWest) return null;
+  const value = (entry: ScoredPoint) => (overlay === "risk" ? entry.score.overall : entry.window.power.sunlit_pct);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const entry of scored) {
+    lo = Math.min(lo, value(entry));
+    hi = Math.max(hi, value(entry));
+  }
+  const colors = new Uint8Array(size * size * 4);
+  for (const entry of scored) {
+    const { col, row } = cell(entry);
+    if (col < 0 || row < 0 || col >= size || row >= size) continue;
+    const v = value(entry);
+    const color = overlay === "risk" ? rampColor(RISK_RAMP, v / 100) : rampColor(SUN_RAMP, hi - lo < 0.05 ? 1 : (v - lo) / (hi - lo));
+    colors.set([...color.map(Math.round), 255], (row * size + col) * 4);
+  }
+  const spec = { size, stepM: step, colors, southWest, southEast, northWest };
+  const points = `${size * size} points, ${step} m apart`;
+  if (overlay === "risk") return { spec, title: "Risk of this mission", gradient: css(RISK_RAMP), low: "0", high: "100", note: `${points} · here ${lo.toFixed(0)} to ${hi.toFixed(0)}` };
+  return { spec, title: "Usable Sun in this mission", gradient: css(SUN_RAMP), low: `${lo.toFixed(0)} %`, high: `${hi.toFixed(0)} %`, note: points };
+}
 
 interface SurfaceViewProps {
   view: ScenarioView;
@@ -89,6 +162,10 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
   const earthCardRef = useRef<HTMLDivElement>(null);
   const psrRef = useRef<HTMLDivElement>(null);
   const whyRef = useRef<HTMLParagraphElement>(null);
+  const hereRef = useRef<HTMLDivElement>(null);
+  /** The drone camera needs a terrain mesh; without one the view stays first person. */
+  const droneRef = useRef(false);
+  const [overlay, setOverlay] = useState<GroundOverlay>("off");
   const { tables } = useSkyTables();
   const tablesRef = useRef<SkyTables | null>(null);
   const modeRef = useRef(beaconMode);
@@ -133,6 +210,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
         observerLit: at.solarFraction,
         eyeHeightM: v.data.mast.heightM,
         eye: flightRef.current ?? undefined,
+        droneDistanceM: droneRef.current ? m.droneDistanceM : null,
         headingDeg: m.headingDeg,
         pitchDeg: m.pitchDeg,
         fovDeg: m.fovDeg,
@@ -142,9 +220,14 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       drawCompass(compassRef.current, m.headingDeg, scene.horizontalFovDeg);
       placeMark(sunMarkRef.current, scene.project(at.sunAz, at.sunAlt), at.sunVisible, m.headingDeg, at.sunAz);
       placeMark(earthMarkRef.current, scene.project(at.earthAz, at.earthAlt), at.earthVisible, m.headingDeg, at.earthAz);
-      placeLanderLabel(landerRef.current, scene.landerShadowInfo());
-      placeBeaconLabels(beaconsRef.current, scene.beaconProjections());
-      if (readoutRef.current) {
+      const drone = droneRef.current;
+      placeLanderLabel(landerRef.current, drone ? null : scene.landerShadowInfo());
+      // From far away the labels of neighbours 125 m apart pile up: only the best spot keeps its own.
+      placeBeaconLabels(beaconsRef.current, scene.beaconProjections(), drone && scene.cameraDistanceM > DRONE_LABELS_WITHIN_M);
+      placeHere(hereRef.current, drone && !flightRef.current ? scene.observerProjection() : null);
+      if (readoutRef.current && drone) {
+        readoutRef.current.textContent = `Drone · ${formatDistance(scene.cameraDistanceM)} away · looking ${COMPASS[Math.round(m.headingDeg / 45) % 8]}`;
+      } else if (readoutRef.current) {
         // What is at the center of the view: direction, and the skyline there with its distance.
         let skyline = "";
         if (v.data.horizon) {
@@ -252,6 +335,24 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
 
   const terrainReady = loaded?.key === placeKey && loaded?.kind === "mesh";
 
+  // Drone camera: only over a terrain mesh. A place without one falls back to first person.
+  const camera = useMode((s) => s.camera);
+  const drone = camera === "drone" && terrainReady;
+  const noMesh = !placeKey || (loaded?.key === placeKey && loaded.kind === "curtain");
+  useEffect(() => {
+    if (camera === "drone" && noMesh) modeActions.setCamera("eye");
+  }, [camera, noMesh]);
+  useLayoutEffect(() => {
+    droneRef.current = drone;
+    updateRef.current();
+  }, [drone]);
+
+  // Ground tint: the scores of the nearby grid for the mission on screen.
+  const heat = useMemo(() => (nearby && overlay !== "off" ? buildHeat(nearby, overlay) : null), [nearby, overlay]);
+  useEffect(() => {
+    sceneRef.current?.setHeat(terrainReady ? (heat?.spec ?? null) : null);
+  }, [heat, terrainReady]);
+
   // Planner labels on or off.
   useEffect(() => {
     sceneRef.current?.setGuides(beaconMode === "plan");
@@ -321,7 +422,8 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     const at = sampleAt(data.series, data.sky, viewRef.current.startMs + getScenario().offsetMs);
     const earth = look === "earth" || (look === undefined && !at.sunVisible && at.earthVisible);
     const target = earth ? { az: at.earthAz, el: at.earthAlt } : { az: at.sunAz, el: at.sunAlt };
-    modeActions.look(target.az, Math.max(-5, Math.min(20, target.el)));
+    // The drone keeps its tilt and only turns toward the body.
+    modeActions.look(target.az, getMode().camera === "drone" ? getMode().pitchDeg : Math.max(-5, Math.min(20, target.el)));
   }, [data.place.id, data.series, data.sky, look]);
 
   const lookAt = (body: "sun" | "earth") => {
@@ -336,7 +438,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     const pointers = new Map<number, { x: number; y: number }>();
     let pinch = 0;
     const onDown = (event: PointerEvent) => {
-      if ((event.target as HTMLElement).closest("button, .surface__mast")) return;
+      if ((event.target as HTMLElement).closest("button, .surface__mast, .surface__overlay")) return;
       root.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 2) pinch = spread(pointers);
@@ -349,8 +451,16 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       const m = getMode();
       if (pointers.size >= 2) {
         const next = spread(pointers);
-        if (pinch > 0 && next > 0) modeActions.setFov(m.fovDeg * (pinch / next));
+        if (pinch > 0 && next > 0) {
+          if (droneRef.current) modeActions.setDroneDistance(m.droneDistanceM * (pinch / next));
+          else modeActions.setFov(m.fovDeg * (pinch / next));
+        }
         pinch = next;
+        return;
+      }
+      if (droneRef.current) {
+        // Drag turns the ground under the pointer: the camera circles the other way.
+        modeActions.look(m.headingDeg + (current.x - last.x) * ORBIT_DEG_PER_PX, m.pitchDeg - (current.y - last.y) * ORBIT_DEG_PER_PX);
         return;
       }
       const degPerPx = m.fovDeg / Math.max(1, root.clientHeight);
@@ -363,7 +473,9 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     const onWheel = (event: WheelEvent) => {
       if ((event.target as HTMLElement).closest(".surface__mast")) return;
       event.preventDefault();
-      modeActions.setFov(getMode().fovDeg * Math.exp(event.deltaY * 0.0015));
+      const factor = Math.exp(event.deltaY * 0.0015);
+      if (droneRef.current) modeActions.setDroneDistance(getMode().droneDistanceM * factor);
+      else modeActions.setFov(getMode().fovDeg * factor);
     };
     root.addEventListener("pointerdown", onDown);
     root.addEventListener("pointermove", onMove);
@@ -384,11 +496,16 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
     const step = event.shiftKey ? KEY_STEP_DEG * 5 : KEY_STEP_DEG;
     const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
     const move = moves[event.key];
+    // Segmented controls and buttons inside the view keep their own arrow keys.
+    if ((event.target as HTMLElement).closest("button")) return;
+    const zoom = (factor: number) => (droneRef.current ? modeActions.setDroneDistance(m.droneDistanceM * factor) : modeActions.setFov(m.fovDeg * factor));
     if (move) {
       event.preventDefault();
-      modeActions.look(m.headingDeg + move[0], m.pitchDeg + move[1]);
-    } else if (event.key === "+" || event.key === "=" || event.code === "Equal" || event.code === "NumpadAdd") modeActions.setFov(m.fovDeg / 1.2);
-    else if (event.key === "-" || event.code === "Minus" || event.code === "NumpadSubtract") modeActions.setFov(m.fovDeg * 1.2);
+      // Drone: left / right circle the place, up / down tilt toward a top view and back.
+      if (droneRef.current) modeActions.look(m.headingDeg - move[0], m.pitchDeg - move[1]);
+      else modeActions.look(m.headingDeg + move[0], m.pitchDeg + move[1]);
+    } else if (event.key === "+" || event.key === "=" || event.code === "Equal" || event.code === "NumpadAdd") zoom(1 / 1.2);
+    else if (event.key === "-" || event.code === "Minus" || event.code === "NumpadSubtract") zoom(1.2);
   };
 
   const terrain = !placeKey ? "curtain" : loaded?.key === placeKey ? loaded.kind : "loading";
@@ -402,7 +519,12 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       tabIndex={0}
       role="application"
       aria-roledescription="3D view"
-      aria-label={`View from the surface at ${data.place.name}. Drag or use the arrow keys to look around; plus and minus zoom.`}
+      aria-label={
+        drone
+          ? `Drone view of ${data.place.name}. Drag or use the arrow keys to circle the place; plus and minus move closer or away.`
+          : `View from the surface at ${data.place.name}. Drag or use the arrow keys to look around; plus and minus zoom.`
+      }
+      data-camera={drone ? "drone" : "eye"}
       onKeyDown={onKeyDown}
     >
       <canvas ref={canvasRef} className="surface__canvas" />
@@ -416,6 +538,9 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
         <span className="surface__mark-label">Earth</span>
       </div>
       <div ref={landerRef} className="surface__lander" aria-hidden="true" />
+      <div ref={hereRef} className="surface__here" hidden aria-hidden="true">
+        {placeTitle(data.place)}
+      </div>
       {beaconMode === "explore" ? (
         <>
           <div ref={psrRef} className="surface__psr" hidden aria-hidden="true" />
@@ -440,6 +565,11 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
         <Button size="sm" onClick={() => lookAt("earth")}>
           <Earth aria-hidden="true" /> Look at Earth
         </Button>
+        {terrainReady ? (
+          <Button size="sm" onClick={() => modeActions.setCamera(drone ? "eye" : "drone")}>
+            {drone ? <PersonStanding aria-hidden="true" /> : <Drone aria-hidden="true" />} {drone ? "Surface view" : "Drone view"}
+          </Button>
+        ) : null}
         {hop ? (
           <Button size="sm" onClick={() => actions.selectPlace(hop.origin.kind === "site" ? hop.origin : neighbourPlace(hop.origin, hop.grid.points[0], hop.grid))}>
             <CornerUpLeft aria-hidden="true" /> Back to {placeTitle(hop.origin)}
@@ -454,8 +584,28 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       <div className="surface__mast glass glass--thick">
         <MastControl views={[view]} />
       </div>
+      {terrainReady && nearby ? (
+        <div className="surface__overlay glass glass--thick">
+          <div className="surface__overlay-row">
+            <span className="surface__overlay-name">Ground</span>
+            <Segmented size="sm" label="Colour the ground around the place" value={overlay} onChange={setOverlay} options={OVERLAY_OPTIONS} />
+          </div>
+          {heat ? (
+            <div className="surface__legend">
+              <span className="surface__legend-title">{heat.title}</span>
+              <div className="surface__legend-scale">
+                <span>{heat.low}</span>
+                <span className="surface__legend-bar" style={{ background: heat.gradient }} />
+                <span>{heat.high}</span>
+              </div>
+              <span className="surface__legend-note">{heat.note}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div ref={readoutRef} className="surface__readout" aria-hidden="true" />
       <p className="surface__caption">
+        {drone ? "Drone view: from up here the camera can see a Sun or an Earth that the terrain hides from the lander; labels and scores are those of the place itself. " : ""}
         {terrain === "mesh"
           ? "Measured: terrain (LOLA, 60 m pixels), Sun and Earth (JPL ephemeris), the risk model's skyline. Illustrative: light, glare, stars, the Earth's map, and the fine ground texture (the terrain data has no rocks or craters smaller than about 60 m)."
           : terrain === "loading"
@@ -515,16 +665,25 @@ function placePsrPin(el: HTMLDivElement | null, scene: SurfaceScene, data: Scena
 }
 
 /** Beacon labels follow the tops of their poles; hidden while the pole is out of view. */
-function placeBeaconLabels(el: HTMLDivElement | null, projections: { x: number; y: number; inView: boolean }[]) {
+function placeBeaconLabels(el: HTMLDivElement | null, projections: { x: number; y: number; inView: boolean }[], bestOnly = false) {
   if (!el) return;
   el.querySelectorAll<HTMLElement>(".surface__beacon").forEach((button) => {
     const p = projections[Number(button.dataset.i)];
-    button.hidden = !p || !p.inView;
+    button.hidden = !p || !p.inView || (bestOnly && !button.dataset.best);
     if (p && p.inView) {
       button.style.left = `${(p.x * 100).toFixed(2)}%`;
       button.style.top = `${(p.y * 100).toFixed(2)}%`;
     }
   });
+}
+
+/** Drone view: the place's name over its marker. */
+function placeHere(el: HTMLDivElement | null, p: { x: number; y: number; inView: boolean } | null) {
+  if (!el) return;
+  el.hidden = !p || !p.inView;
+  if (!p || !p.inView) return;
+  el.style.left = `${(p.x * 100).toFixed(2)}%`;
+  el.style.top = `${(p.y * 100).toFixed(2)}%`;
 }
 
 /** Label at the tip of the lander's shadow: its true length on flat ground. */
@@ -551,11 +710,11 @@ function tweenLook(azimuthDeg: number, elevationDeg: number) {
   const pitch = Math.max(-80, Math.min(80, elevationDeg));
   const start = getMode();
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    modeActions.look(azimuthDeg, pitch);
+    modeActions.look(azimuthDeg, start.camera === "drone" ? start.pitchDeg : pitch);
     return;
   }
   const dHeading = azDiff(azimuthDeg, start.headingDeg);
-  const dPitch = pitch - start.pitchDeg;
+  const dPitch = start.camera === "drone" ? 0 : pitch - start.pitchDeg;
   const t0 = performance.now();
   const step = (now: number) => {
     const t = Math.min(1, (now - t0) / TWEEN_MS);

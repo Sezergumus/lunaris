@@ -153,6 +153,25 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   integrated graphics not measured. No texture files were added (decided against a tiled
   image: it repeats and smears at grazing view angles).
 
+- 2026-11-15 afternoon (frontend, Sezer's machine): two additions to the surface view, in
+  both modes, wherever the terrain mesh is loaded. **Drone view** (button in the tools;
+  `camera` / `droneDistanceM` in `state/mode.ts`, not in the URL): the camera circles the
+  place from above and looks at it (drag = circle and tilt, wheel / pinch / plus, minus =
+  distance 80 m to 5 km, kept at least 20 m above the ground under it). The 5 km limit keeps
+  the camera inside the innermost terrain level, which the draw order needs. The skyline
+  curtain and the blocker highlight are hidden there (they belong to the place); Sun / Earth
+  labels, scores and the lit ground under the place stay those of the place, and the caption
+  says so. Hops work from it. **Ground tint** ("Ground: Off / Risk / Sun", shown when a
+  scored grid exists): the 81 (or 25) grid scores as a texture in the terrain fragment
+  shader (`setHeat` / `HeatSpec` in `surface/scene.ts`, `buildHeat` in `SurfaceView.tsx`),
+  with a dot at every grid point and a legend. Risk uses the fixed 0-100 scale; usable Sun
+  is stretched between the grid's lowest and highest value (named in the legend; one dark
+  point can flatten the rest, as at Malapert A with 0 to 89 %). Default off. Checked in
+  headless Edge (software WebGL) on the dev server: Malapert A (tint, drone, hop to the best
+  spot, back to first person), Mons Mouton at 390x800, Explorer tour step 3; no page
+  errors. One screenshot right after a very large wheel step came back blank and could not
+  be reproduced. Not checked: real GPU frame rate, a custom point with a live 5x5 grid.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against

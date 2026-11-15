@@ -366,3 +366,95 @@
     display: none;
   }
 }
+
+/* Drone view: the place's name over its marker; bodies the terrain hides from the lander
+   may be in plain sight from the camera. */
+.surface__here {
+  position: absolute;
+  transform: translate(-50%, -100%) translateY(-6px);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(10, 10, 14, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.surface[data-camera="drone"] .surface__mark[data-hidden="true"] .surface__mark-label::after {
+  content: " (hidden at the place)";
+}
+
+/* Ground tint: the control and its legend, above the mast panel. */
+.surface__overlay {
+  position: absolute;
+  right: 10px;
+  bottom: 150px;
+  width: 210px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  cursor: default;
+  font-size: 12px;
+}
+
+.surface__overlay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.surface__overlay-name {
+  color: var(--text-2);
+}
+
+.surface__legend {
+  display: grid;
+  gap: 3px;
+}
+
+.surface__legend-title {
+  font-weight: 600;
+}
+
+.surface__legend-scale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.surface__legend-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.surface__legend-note {
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+/* Narrow stage: on the left under the tools (the mast panel holds the right side). */
+@container (max-width: 560px) {
+  .surface__overlay {
+    top: 112px;
+    left: 10px;
+    right: auto;
+    bottom: auto;
+    width: 176px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .surface__overlay-name {
+    display: none;
+  }
+
+  .surface__legend-note {
+    display: none;
+  }
+}

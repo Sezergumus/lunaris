@@ -14,7 +14,7 @@ import * as THREE from "three";
 import type { TerrainPatch } from "../data/load.ts";
 import type { Horizon } from "../engine/risk.ts";
 import { horizonAt } from "../engine/risk.ts";
-import { directionToScene, latLonToProjected, siteFrame, type SiteFrame } from "./geometry.ts";
+import { destination, directionToScene, latLonToProjected, siteFrame, type SiteFrame } from "./geometry.ts";
 import { ShadowPass } from "./shadow.ts";
 import { SKY_DISTANCE, SkyLayer, type BodyState } from "./sky.ts";
 import { buildLevels, type LevelMesh } from "./terrain.ts";
@@ -27,6 +27,8 @@ const OBSERVER_ZONE_M = [60, 150] as const;
 /** The lander's shadow is drawn up to this length; the label gives the true one. */
 const LANDER_SHADOW_CAP_M = 90;
 const LANDER_SHADOW_WIDTH_M = 1.6;
+/** The drone camera stays at least this far above the ground under it, meters. */
+const DRONE_CLEARANCE_M = 20;
 
 export interface ViewState {
   sun: BodyState;
@@ -37,6 +39,11 @@ export interface ViewState {
   eyeHeightM: number;
   /** Camera position while flying to another point; default: eyeHeightM above the origin. */
   eye?: [number, number, number];
+  /**
+   * Drone view: the camera stands this far from the observer's position, back along the
+   * direction it looks in (heading, pitch), and looks at it. Null = first person.
+   */
+  droneDistanceM?: number | null;
   headingDeg: number;
   pitchDeg: number;
   /** Vertical field of view, degrees. */
@@ -71,6 +78,13 @@ const TERRAIN_FRAGMENT = /* glsl */ `
   uniform float hasShadow;
   uniform float observerLit;
   uniform float observerBlend;
+  uniform sampler2D heatMap;
+  uniform float heatOn;
+  uniform vec2 heatOrigin;
+  uniform vec2 heatRowX;
+  uniform vec2 heatRowY;
+  uniform float heatSize;
+  uniform float heatStep;
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec2 vShadowUv;
@@ -175,7 +189,26 @@ const TERRAIN_FRAGMENT = /* glsl */ `
     vec3 albedo = vec3(0.62, 0.61, 0.6) * detail.z;
     // The fill light (scattered light, earthshine; illustrative) is a little stronger on
     // surfaces that face up, so slopes in shadow keep their shape.
-    gl_FragColor = vec4(albedo * (fill * (0.45 + 0.55 * max(n.y, 0.0)) + direct), 1.0);
+    vec3 color = albedo * (fill * (0.45 + 0.55 * max(n.y, 0.0)) + direct);
+    if (heatOn > 0.5) {
+      // Scores of the nearby grid points as a tint on the ground: g counts grid cells from
+      // the south-west point, the texture holds one texel per point. The tint keeps some
+      // brightness of its own, so it can be read in shadow and at night.
+      vec2 q = vPosition.xz - heatOrigin;
+      vec2 g = vec2(dot(heatRowX, q), dot(heatRowY, q));
+      float inside = min(min(g.x, g.y), min(heatSize - 1.0 - g.x, heatSize - 1.0 - g.y)) + 0.5;
+      float cover = smoothstep(0.0, 0.12, inside);
+      if (cover > 0.0) {
+        vec3 heat = texture2D(heatMap, (g + 0.5) / heatSize).rgb;
+        float glow = 0.2 + 0.75 * min(direct * 1.5, 1.0);
+        color = mix(color, heat * glow, 0.6 * cover);
+        // A dot at every grid point: there the colour is the score of that point itself.
+        float radius = max(2.5, 1.2 * footprint);
+        float node = 1.0 - smoothstep(radius, radius * 1.35, length((g - floor(g + 0.5)) * heatStep));
+        color = mix(color, heat * (0.45 + 0.55 * glow) + 0.08, node * cover);
+      }
+    }
+    gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -192,6 +225,13 @@ function terrainMaterial(level: number): THREE.ShaderMaterial {
       observerLit: { value: 1 },
       // Only the innermost level holds the ground under the observer.
       observerBlend: { value: level === 0 ? 1 : 0 },
+      heatMap: { value: null },
+      heatOn: { value: 0 },
+      heatOrigin: { value: new THREE.Vector2() },
+      heatRowX: { value: new THREE.Vector2() },
+      heatRowY: { value: new THREE.Vector2() },
+      heatSize: { value: 1 },
+      heatStep: { value: 1 },
     },
     vertexShader: TERRAIN_VERTEX,
     fragmentShader: TERRAIN_FRAGMENT,
@@ -214,6 +254,20 @@ export interface BeaconSpec {
   color: string;
   /** The best spot: taller. */
   best: boolean;
+}
+
+/** Scores of a square grid of nearby points, drawn as a tint on the ground. */
+export interface HeatSpec {
+  /** Points per side. */
+  size: number;
+  /** Distance between neighbouring points, meters. */
+  stepM: number;
+  /** RGBA bytes (sRGB), one texel per point, row by row from the south-west point. */
+  colors: Uint8Array;
+  /** Three corner points of the grid: they place it on the terrain. */
+  southWest: { lat: number; lon: number };
+  southEast: { lat: number; lon: number };
+  northWest: { lat: number; lon: number };
 }
 
 /** Height of a beacon pole above the ground, meters (taller for the best spot). */
@@ -239,6 +293,11 @@ export class SurfaceScene {
   private shadowTimer = 0;
   private readonly landerScene = new THREE.Scene();
   private siteFrame: SiteFrame | null = null;
+  private site = { latDeg: 0, lonDeg: 0, groundHeightM: 0 };
+  private heat: HeatSpec | null = null;
+  private heatTexture: THREE.DataTexture | null = null;
+  /** Drone view: a pole at the observer's position, sized with the camera's distance. */
+  private readonly marker: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private readonly beacons = new THREE.Group();
   private beaconTops: THREE.Vector3[] = [];
   private patch: TerrainPatch | null = null;
@@ -269,6 +328,11 @@ export class SurfaceScene {
     this.landerShadow = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
     this.landerShadow.frustumCulled = false;
     this.landerScene.add(this.landerShadow);
+
+    // Unit pole standing on the origin; scaled every frame.
+    this.marker = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 10).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    this.marker.frustumCulled = false;
+    this.marker.visible = false;
   }
 
   /** The engine's skyline for the curtain; null = flat. */
@@ -288,6 +352,7 @@ export class SurfaceScene {
   setTerrain(patch: TerrainPatch | null, latDeg: number, lonDeg: number, groundHeightM: number) {
     this.clearTerrain();
     this.siteFrame = siteFrame(latDeg, lonDeg, groundHeightM);
+    this.site = { latDeg, lonDeg, groundHeightM };
     this.patch = patch;
     if (patch) {
       const frame = this.siteFrame;
@@ -298,7 +363,7 @@ export class SurfaceScene {
         this.levelScenes.push(scene);
       }
       // Beacons stand on the innermost level and are hidden by terrain in front of them.
-      this.levelScenes[0]?.add(this.beacons);
+      this.levelScenes[0]?.add(this.beacons, this.marker);
       try {
         this.shadows = new ShadowPass(patch, this.levels, latDeg, lonDeg, groundHeightM);
         this.levels.forEach((level, k) => {
@@ -312,7 +377,64 @@ export class SurfaceScene {
       }
       this.shadowSun.set(Infinity, 0, 0);
     }
+    this.applyHeat();
     this.requestRender();
+  }
+
+  /** Tints the ground around the place with the scores of the nearby grid; null = off. */
+  setHeat(spec: HeatSpec | null) {
+    this.heat = spec;
+    this.heatTexture?.dispose();
+    this.heatTexture = null;
+    if (spec) {
+      const texture = new THREE.DataTexture(spec.colors, spec.size, spec.size, THREE.RGBAFormat);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearFilter;
+      texture.needsUpdate = true;
+      this.heatTexture = texture;
+    }
+    this.applyHeat();
+    this.requestRender();
+  }
+
+  /** Hands the grid's place in the current site frame to the innermost level (the grid is +-500 m). */
+  private applyHeat() {
+    const uniforms = (this.levels[0]?.mesh.material as THREE.ShaderMaterial | undefined)?.uniforms;
+    if (!uniforms) return;
+    const spec = this.heat;
+    const at = (p: { lat: number; lon: number }) => this.groundToScene(p.lat, p.lon, this.site.groundHeightM);
+    const origin = spec ? at(spec.southWest) : null;
+    const east = spec ? at(spec.southEast) : null;
+    const north = spec ? at(spec.northWest) : null;
+    if (!spec || !this.heatTexture || !origin || !east || !north || spec.size < 2) {
+      uniforms.heatOn.value = 0;
+      return;
+    }
+    // One grid cell along each side, in scene x / z; the inverse turns a ground position
+    // into grid coordinates.
+    const cells = spec.size - 1;
+    const [ex, ez] = [(east.x - origin.x) / cells, (east.z - origin.z) / cells];
+    const [nx, nz] = [(north.x - origin.x) / cells, (north.z - origin.z) / cells];
+    const det = ex * nz - nx * ez;
+    if (Math.abs(det) < 1e-9) {
+      uniforms.heatOn.value = 0;
+      return;
+    }
+    uniforms.heatMap.value = this.heatTexture;
+    uniforms.heatOrigin.value.set(origin.x, origin.z);
+    uniforms.heatRowX.value.set(nz / det, -nx / det);
+    uniforms.heatRowY.value.set(-ez / det, ex / det);
+    uniforms.heatSize.value = spec.size;
+    uniforms.heatStep.value = spec.stepM;
+    uniforms.heatOn.value = 1;
+  }
+
+  /** Height of the terrain surface under a scene position (scene y); null outside the patch. */
+  private groundYAt(x: number, z: number): number | null {
+    const distance = Math.hypot(x, z);
+    const spot = distance < 1e-3 ? { lat: this.site.latDeg, lon: this.site.lonDeg } : destination(this.site.latDeg, this.site.lonDeg, Math.atan2(x, -z) / DEG, distance);
+    return this.terrainPointAt(spot.lat, spot.lon)?.y ?? null;
   }
 
   /** Scene position of a point on the ground (or above it); null before a frame is known. */
@@ -440,6 +562,16 @@ export class SurfaceScene {
     return (2 * Math.atan(Math.tan(v / 2) * (this.width / this.height))) / DEG;
   }
 
+  /** Where the observer's position lands in the canvas (the drone view's "you are here"). */
+  observerProjection(): Projection {
+    return this.projectPoint(this.observerPosition());
+  }
+
+  /** Distance of the camera from the observer's position, meters (0 in first person). */
+  get cameraDistanceM(): number {
+    return this.cameraPosition().distanceTo(this.observerPosition());
+  }
+
   /** Where a direction lands in the canvas for the current camera. */
   project(azimuthDeg: number, elevationDeg: number): Projection {
     const [x, y, z] = directionToScene(azimuthDeg, elevationDeg);
@@ -481,10 +613,29 @@ export class SurfaceScene {
     });
   }
 
-  private cameraPosition(): THREE.Vector3 {
+  /** Where the observer stands (or flies, during a hop). */
+  private observerPosition(): THREE.Vector3 {
     const s = this.state;
     if (!s) return new THREE.Vector3();
     return s.eye ? new THREE.Vector3(...s.eye) : new THREE.Vector3(0, s.eyeHeightM, 0);
+  }
+
+  /** The drone camera is on only with a terrain mesh to look at. */
+  private get drone(): boolean {
+    return Boolean(this.state?.droneDistanceM) && this.levels.length > 0;
+  }
+
+  private cameraPosition(): THREE.Vector3 {
+    const s = this.state;
+    const eye = this.observerPosition();
+    if (!s || !this.drone) return eye;
+    const [dx, dy, dz] = directionToScene(s.headingDeg, s.pitchDeg);
+    const d = s.droneDistanceM!;
+    eye.set(eye.x - dx * d, eye.y - dy * d, eye.z - dz * d);
+    // Never under the ground: a ridge behind the place lifts the camera over it.
+    const ground = this.groundYAt(eye.x, eye.z);
+    if (ground !== null) eye.y = Math.max(eye.y, ground + DRONE_CLEARANCE_M);
+    return eye;
   }
 
   private placeCamera() {
@@ -494,9 +645,12 @@ export class SurfaceScene {
     this.camera.aspect = this.width / this.height;
     const eye = this.cameraPosition();
     this.camera.position.copy(eye);
-    const [dx, dy, dz] = directionToScene(s.headingDeg, s.pitchDeg);
     this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(eye.x + dx, eye.y + dy, eye.z + dz);
+    if (this.drone) this.camera.lookAt(this.observerPosition());
+    else {
+      const [dx, dy, dz] = directionToScene(s.headingDeg, s.pitchDeg);
+      this.camera.lookAt(eye.x + dx, eye.y + dy, eye.z + dz);
+    }
     this.camera.updateMatrixWorld();
   }
 
@@ -546,6 +700,17 @@ export class SurfaceScene {
     this.sky.update(this.camera.position, s.sun, s.earth, s.observerLit > 0.05 ? 0.12 : 0.9, s.observerLit, s.latDeg, s.timeMs);
 
     // The lander's shadow lies on the ground away from the Sun while the observer is sunlit.
+    const drone = this.drone;
+    // The skyline curtain and the blocking stretches belong to the place itself, not to a
+    // camera above it.
+    this.sky.setCurtainVisible(!drone);
+    this.marker.visible = drone && !s.eye;
+    if (this.marker.visible) {
+      const d = this.camera.position.distanceTo(this.observerPosition());
+      this.marker.scale.set(d * 0.003, d * 0.06, d * 0.003);
+    }
+    // Distance of the camera from the center of the nested levels.
+    const offset = this.camera.position.length();
     const showLander = this.levels.length > 0 && s.observerLit > 0.05 && s.sun.elevationDeg > 0 && !s.eye;
     this.landerShadow.visible = showLander;
     if (showLander) {
@@ -565,15 +730,15 @@ export class SurfaceScene {
       r.clearDepth();
       // A triangle can come closer than its nearest vertex by up to a cell; the innermost
       // level holds the ground under the observer's feet.
-      const near = k === 0 ? 0.05 : Math.max(0.05, (level.near - 2 * level.level.pixelM - s.eyeHeightM) * 0.5);
-      this.setPlanes(near, level.far * 1.05 + s.eyeHeightM + 100);
+      const near = k === 0 ? (drone ? 2 : 0.05) : Math.max(0.05, (level.near - 2 * level.level.pixelM - offset) * 0.5);
+      this.setPlanes(near, level.far * 1.05 + offset + 100);
       r.render(this.levelScenes[k], this.camera);
     }
     if (showLander) {
       this.setPlanes(0.05, 1e3);
       r.render(this.landerScene, this.camera);
     }
-    if (this.blockerScene.visible && this.blockerScene.children.length > 0) {
+    if (!drone && this.blockerScene.visible && this.blockerScene.children.length > 0) {
       this.blockerScene.position.copy(this.camera.position);
       this.setPlanes(SKY_DISTANCE * 0.01, SKY_DISTANCE * 3);
       r.render(this.blockerScene, this.camera);
@@ -604,6 +769,9 @@ export class SurfaceScene {
     this.sky.dispose();
     this.landerShadow.geometry.dispose();
     this.landerShadow.material.dispose();
+    this.marker.geometry.dispose();
+    this.marker.material.dispose();
+    this.heatTexture?.dispose();
     this.renderer.dispose();
   }
 }
