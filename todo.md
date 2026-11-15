@@ -8,8 +8,34 @@ code and the data files. A new session must be able to implement it from this fi
 **Status:** approved by Sezer and Kerem, not started. One commit per phase (Conventional
 Commits, English, no AI attribution, no push unless asked). Tick the boxes as the work lands.
 
-**Who does what:** phase B is backend (Kerem, needs the local DEM). Everything else is
-frontend (Sezer). Phase 0 and the first half of phase 1 do not wait for phase B.
+**Who does what:** phase B is backend (Kerem, local DEM). Everything else is frontend
+(Sezer). Phase 0 and the first half of phase 1 do not wait for phase B.
+
+## Instructions for the AI agent (read first)
+
+Sezer starts the agent and checks the result in the morning. Nobody is there to answer.
+
+- **Work until every box in this file is ticked. Do not stop and do not ask for approval.**
+  This file is the approval for every phase, every commit and every new dependency listed
+  here. There is no time limit and nothing is cut: every phase is delivered.
+- When a decision is open, take the option that best fits this file and `CLAUDE.md`, write
+  it down for the summary, and go on. When something fails, find the cause and fix it; do
+  not ship a lesser version instead.
+- Phase B: if `data/terrain_<site>.json` / `.bin` are not there when phase 1 needs them, do
+  phase B yourself. This Windows machine has no local DEM; `lunar_terrain.py` then reads the
+  NASA files remotely (range reads, about a minute per site). The Python environment is
+  `.venv` in the repository root (`.venv/Scripts/python`, `requirements.txt` installed).
+  Pull first in case Kerem has already pushed them.
+- After each phase: `npm run validate`, `npm run lint`, `npm run build`, then check it in a
+  browser (headless Edge or Chrome against `npm run dev`; both are installed), then commit
+  with the message given under the phase. Never push.
+- Do not change the engine's numbers or the URL parameters the Planner already uses.
+- Still off limits: any Claude/AI attribution, Turkish in code or docs, pushing, and
+  deleting files you did not create.
+- **When everything is done**, fill in the "Summary" section at the end of this file and
+  commit it: what was built per phase, decisions you took on your own, deviations from this
+  plan, what was checked and how, known problems, and how to try it (URLs to open). Update
+  the session handoff in `CLAUDE.md` in the same commit.
 
 ## Why
 
@@ -173,7 +199,6 @@ Estimates are for one developer working with Claude.
 
 - [ ] `state/mode.ts` and the `mode` / `view` / `step` parameters in `state/url.ts`.
 - [ ] `Planner | Explorer` control in the sites panel header and in the mobile dock.
-- [ ] `EXPLORER_ENABLED` constant that hides the control (the cut rule needs one line).
 - [ ] Explorer shell: the Planner panels step aside; one stage, a caption area, a transport
       (play, pause, restart).
 - [ ] Escape and the browser's back button leave the mode.
@@ -233,8 +258,6 @@ Estimates are for one developer working with Claude.
 
 `feat(web): add the guided tour`
 
-**Cut line A. Explorer can ship here.**
-
 ### Phase 5: hopping between grid points (about 2 h)
 
 - [ ] Registry of which grid a hopped-to place came from, so `useNearby` keeps the 81 points
@@ -282,29 +305,26 @@ Estimates are for one developer working with Claude.
 
 `feat(web): add the landing game`
 
-### Phase 9: wrap-up (about 1 h, always done, also after a cut)
+### Phase 9: wrap-up (about 1 h)
 
 - [ ] Phone-sized screen: touch look, sheet layout, captions readable, frame rate acceptable.
 - [ ] Keyboard: every control reachable, visible focus, Escape closes.
 - [ ] Bundle: `three` and the patches only on demand; Planner first load unchanged.
 - [ ] `npm run validate`, `npm run lint`, `npm run build`.
 - [ ] Two Explorer screenshots for the slides.
-- [ ] `CLAUDE.md` handoff: what was built, what was cut, known limits.
+- [ ] `CLAUDE.md` handoff: what was built, known limits.
 
 `docs: record the Explorer mode in the session handoff`
 
-## Order and cut rules
+## Order
 
-- Start phase B (Kerem) and phase 0 (Sezer) at the same time. Phase 1 begins with the Sun,
-  the Earth and the curtain, and takes the mesh in when the first patch file arrives.
-- Phase B not delivered, or the mesh not right 3 h into phase 1: ship the curtain-only view
-  (skyline silhouette) and go on to phases 3 and 4. The intro and the tour work on it.
-- Phase 2 not right after 2 h: flat shading by the Sun's direction plus the engine's
-  `sunVisible` for day and night, and a line on screen that cast shadows are not drawn.
-- 15:00 local: anything not working is hidden (`EXPLORER_ENABLED = false` if the mode itself
-  is broken) and the Planner is delivered. After that, phase 9 and bug fixes only.
-- Phases 5 to 8 are independent; each starts only when the one before is committed and
+- Phase B and phase 0 can run at the same time. Phase 1 begins with the Sun, the Earth and
+  the curtain, and takes the mesh in when the patch files exist (see the agent
+  instructions: generate them if they are missing).
+- Then phases 2 to 9 in order. Each starts only when the one before is committed and
   checked in a browser.
+- The curtain-only view and the `HorizonView` fallback are runtime fallbacks (no patch for
+  the place, no WebGL 2), not a way to skip work.
 
 ## Verification
 
@@ -324,3 +344,7 @@ After every phase: `npm run validate`, `npm run lint`, `npm run build`, then in 
   and the ground under the observer is lit or dark accordingly.
 - Apollo 11 and custom points (no patch): curtain only, no error.
 - With WebGL disabled the fallback chart appears and the tour still works.
+
+## Summary
+
+To be written by the agent when every phase is done (see "Instructions for the AI agent").

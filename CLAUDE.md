@@ -89,8 +89,9 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   (three.js, real LOLA terrain, shadows on the GPU; the engine's horizon still decides what
   is visible). Approved, not started. **Backend task for Kerem: "Phase B" in `todo.md`**, a
   `patch` command that writes `data/terrain_<site>.json` / `.bin` (four nested height
-  windows per site). Frontend phases, cut rules and the claims the data does not support
-  are in that file.
+  windows per site). Frontend phases and the claims the data does not support are in that
+  file. An AI agent works through it unattended (its instructions are at the top of
+  `todo.md`) and writes a summary at the end of that file.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
