@@ -178,6 +178,19 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   close button (`COMPACT_QUERY` in `SurfaceView.tsx`); the tint legend stays on the view.
   Explorer unchanged. Checked in headless Edge at 1600, 1280, 1100 and 390 px wide.
 
+- 2026-11-15 late afternoon (frontend, Sezer's machine): adaptive quality in the surface
+  view for slow GPUs (`QUALITY_LEVELS`, `measureFrame` in `web/src/surface/scene.ts`). The
+  time from a drawn frame to the next animation frame is the frame cost; after about ten
+  frames slower than 25 ms the view steps down one of four levels (drawing resolution
+  100 / 75 / 50 / 50 % of the pixel ratio, shadows at most every 50 / 100 / 200 / 400 ms
+  while the Sun moves). After 120 fast frames it steps back up once; slow again after
+  that locks the lower level. At rest (350 ms) one frame is drawn at full resolution and
+  the shadows catch up, so a still image is exact at every level. The level is on the
+  canvas as `data-quality`. Checked in headless Edge: real GPU stays at level 0 (7 ms
+  frames); forced SwiftShader at 2108 px wide goes to level 3 (frames 300 -> 165 ms,
+  buffer 1054 px while dragging, 2108 px at rest), no page errors. Still not measured on
+  real integrated graphics; playback (as opposed to dragging) was not driven in the test.
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against

@@ -7,7 +7,7 @@
 // along any line of sight. Frames are drawn on demand only.
 //
 // Light: terrain shadows come from the shadow pass (shadow.ts), recomputed only when the
-// Sun moves and at most SHADOW_INTERVAL_MS apart. The ground under the observer follows the
+// Sun moves and at most a quality-dependent interval apart. The ground under the observer follows the
 // engine instead (its visible share of the Sun's disk), so the view and the metric cards
 // never disagree about whether the observer stands in sunlight.
 import * as THREE from "three";
@@ -20,8 +20,26 @@ import { SKY_DISTANCE, SkyLayer, type BodyState } from "./sky.ts";
 import { buildLevels, type LevelMesh } from "./terrain.ts";
 
 const DEG = Math.PI / 180;
-/** Shadows are recomputed at most this often while the Sun moves (playback). */
-const SHADOW_INTERVAL_MS = 50;
+/**
+ * Adaptive quality for slow GPUs (integrated graphics). While frames stay slow the view
+ * steps down one level: a lower drawing resolution (share of the device pixel ratio) and
+ * shadows recomputed less often while the Sun moves (playback). Level 0 is full quality.
+ * At rest the view is redrawn once at full resolution, and the shadows always catch up
+ * with the Sun after the last move, so a still image is exact at every level.
+ */
+const QUALITY_LEVELS = [
+  { resolution: 1, shadowIntervalMs: 50 },
+  { resolution: 0.75, shadowIntervalMs: 100 },
+  { resolution: 0.5, shadowIntervalMs: 200 },
+  { resolution: 0.5, shadowIntervalMs: 400 },
+];
+/** A frame longer than this counts as slow (below about 40 frames a second). */
+const SLOW_FRAME_MS = 25;
+const FAST_FRAME_MS = 20;
+/** Slow frames, net of good ones, before stepping down; fast frames in a row before stepping up. */
+const SLOW_FRAMES_TO_STEP_DOWN = 10;
+const FAST_FRAMES_TO_STEP_UP = 120;
+const SHARP_AFTER_IDLE_MS = 350;
 /** Ground within this distance of the observer takes the engine's light, meters (blend zone). */
 const OBSERVER_ZONE_M = [60, 150] as const;
 /** The lander's shadow is drawn up to this length; the label gives the true one. */
@@ -306,6 +324,18 @@ export class SurfaceScene {
   private readonly blockerScene = new THREE.Scene();
   private readonly landerShadow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private frame = 0;
+  /** Adaptive quality (see QUALITY_LEVELS): the level in use and what decides the next one. */
+  private readonly basePixelRatio: number;
+  private quality = 0;
+  private slowScore = 0;
+  private fastFrames = 0;
+  private settleFrames = 0;
+  private steppedUp = false;
+  private upgradeLocked = false;
+  private probe = 0;
+  private idleTimer = 0;
+  /** True while the canvas holds the full-resolution frame drawn at rest. */
+  private sharp = false;
   private state: ViewState | null = null;
   private width = 1;
   private height = 1;
@@ -316,7 +346,9 @@ export class SurfaceScene {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     this.renderer.autoClear = false;
     this.renderer.setClearColor(0x000000, 1);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.basePixelRatio = Math.min(window.devicePixelRatio, 2);
+    this.renderer.setPixelRatio(this.basePixelRatio);
+    canvas.dataset.quality = "0";
 
     // The mast's shadow: thin at the observer's feet, as wide as the panel at the far end
     // (unit length along -z, scaled to the shadow's length).
@@ -607,10 +639,77 @@ export class SurfaceScene {
 
   requestRender() {
     if (this.frame) return;
-    this.frame = requestAnimationFrame(() => {
+    this.frame = requestAnimationFrame((timestamp) => {
       this.frame = 0;
+      if (this.sharp) {
+        this.sharp = false;
+        this.renderer.setPixelRatio(this.basePixelRatio * QUALITY_LEVELS[this.quality].resolution);
+      }
       this.render();
+      // The time to the next animation frame is the cost of this one: the browser holds
+      // the next frame back while the GPU is still busy.
+      if (!this.probe) {
+        this.probe = requestAnimationFrame((next) => {
+          this.probe = 0;
+          this.measureFrame(next - timestamp);
+        });
+      }
+      if (this.quality > 0) {
+        clearTimeout(this.idleTimer);
+        this.idleTimer = window.setTimeout(() => this.renderSharp(), SHARP_AFTER_IDLE_MS);
+      }
     });
+  }
+
+  /** Current quality level: 0 is full quality, higher is cheaper (see QUALITY_LEVELS). */
+  get qualityLevel(): number {
+    return this.quality;
+  }
+
+  /** Steps the quality down while frames are slow, and carefully back up while they are fast. */
+  private measureFrame(frameMs: number) {
+    // A hidden tab or a stalled page says nothing about the GPU.
+    if (frameMs > 1000) return;
+    if (this.settleFrames > 0) {
+      this.settleFrames--;
+      return;
+    }
+    if (frameMs > SLOW_FRAME_MS) {
+      this.slowScore++;
+      this.fastFrames = 0;
+    } else {
+      this.slowScore = Math.max(0, this.slowScore - 1);
+      this.fastFrames = frameMs < FAST_FRAME_MS ? this.fastFrames + 1 : 0;
+    }
+    if (this.slowScore >= SLOW_FRAMES_TO_STEP_DOWN && this.quality < QUALITY_LEVELS.length - 1) {
+      // Slow again right after a step up: this machine cannot hold the higher level.
+      if (this.steppedUp) this.upgradeLocked = true;
+      this.setQuality(this.quality + 1);
+    } else if (this.fastFrames >= FAST_FRAMES_TO_STEP_UP && this.quality > 0 && !this.upgradeLocked) {
+      this.setQuality(this.quality - 1);
+      this.steppedUp = true;
+    }
+  }
+
+  private setQuality(level: number) {
+    this.quality = level;
+    this.slowScore = 0;
+    this.fastFrames = 0;
+    this.steppedUp = false;
+    this.settleFrames = 3;
+    this.sharp = false;
+    this.renderer.setPixelRatio(this.basePixelRatio * QUALITY_LEVELS[level].resolution);
+    this.renderer.domElement.dataset.quality = String(level);
+    this.requestRender();
+  }
+
+  /** One frame at full resolution once the view has come to rest at a reduced quality. */
+  private renderSharp() {
+    this.idleTimer = 0;
+    if (this.quality === 0 || this.sharp || this.frame || !this.state) return;
+    this.sharp = true;
+    this.renderer.setPixelRatio(this.basePixelRatio);
+    this.render();
   }
 
   /** Where the observer stands (or flies, during a hop). */
@@ -654,18 +753,20 @@ export class SurfaceScene {
     this.camera.updateMatrixWorld();
   }
 
-  /** Recomputes the shadows if the Sun moved, but not more often than SHADOW_INTERVAL_MS. */
+  /** Recomputes the shadows if the Sun moved, but not more often than the quality level allows. */
   private refreshShadows(sunDir: THREE.Vector3, radiusDeg: number, sunUp: number) {
     if (!this.shadows || sunUp <= 0) return;
     const moved = this.shadowSun.angleTo(sunDir) > 1e-5 || Math.abs(this.shadowRadius - radiusDeg) > 1e-5 || !Number.isFinite(this.shadowSun.x);
     if (!moved) return;
     const now = performance.now();
-    if (now - this.lastShadowMs < SHADOW_INTERVAL_MS) {
+    const interval = QUALITY_LEVELS[this.quality].shadowIntervalMs;
+    if (now - this.lastShadowMs < interval) {
+      // The timer brings the shadows up to date after the last move, at every level.
       if (!this.shadowTimer) {
         this.shadowTimer = window.setTimeout(() => {
           this.shadowTimer = 0;
           this.requestRender();
-        }, SHADOW_INTERVAL_MS - (now - this.lastShadowMs));
+        }, interval - (now - this.lastShadowMs));
       }
       return;
     }
@@ -765,6 +866,8 @@ export class SurfaceScene {
   dispose() {
     if (this.frame) cancelAnimationFrame(this.frame);
     if (this.shadowTimer) clearTimeout(this.shadowTimer);
+    if (this.probe) cancelAnimationFrame(this.probe);
+    clearTimeout(this.idleTimer);
     this.clearTerrain();
     this.sky.dispose();
     this.landerShadow.geometry.dispose();
