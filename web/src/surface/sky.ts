@@ -46,18 +46,87 @@ const EARTH_VERTEX = /* glsl */ `
   }
 `;
 
-// Day side lit by the Sun (the phase follows from the Sun's direction); a faint night side.
+// Measured: the disk's place and size and its phase (the day side faces the Sun). Illustrative:
+// oceans, continents, ice and clouds are noise, not the real map; the globe turns once per
+// lunar day of the Earth's sky (24 h 50 min) about an axis parallel to the Moon's, so from
+// the south pole the Earth's north is down.
 const EARTH_FRAGMENT = /* glsl */ `
   uniform vec3 sunDirection;
+  uniform vec3 toViewer;
+  uniform mat3 earthFrame;
   varying vec3 vNormal;
+
+  float hash(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
+  }
+
+  float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = p - i;
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+      mix(mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y),
+      f.z);
+  }
+
+  // Scales finer than a screen pixel (pixel = change of p per pixel) are left out.
+  float fbm(vec3 p, float pixel) {
+    float sum = 0.0;
+    float total = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
+    for (int k = 0; k < 6; k++) {
+      float w = amplitude * (1.0 - smoothstep(0.3, 0.8, pixel * frequency));
+      // A scale left out counts as its mean, so the result keeps its level.
+      sum += w * (noise(p * frequency) - 0.5);
+      total += amplitude;
+      amplitude *= 0.5;
+      frequency *= 2.03;
+    }
+    return 0.5 + sum / total;
+  }
+
   void main() {
-    float light = max(dot(normalize(vNormal), sunDirection), 0.0);
-    vec3 day = vec3(0.55, 0.72, 0.95);
-    vec3 color = day * (0.06 + 1.1 * light);
+    vec3 n = normalize(vNormal);
+    vec3 p = earthFrame * n;
+    float pixel = length(fwidth(p));
+
+    float relief = fbm(p * 1.9 + 4.2, pixel * 1.9);
+    float land = smoothstep(0.535, 0.56, relief);
+    float latitude = abs(p.y);
+    float ice = smoothstep(0.86, 0.9, latitude + 0.12 * (fbm(p * 5.0, pixel * 5.0) - 0.5));
+    float dry = smoothstep(0.42, 0.62, fbm(p * 3.1 + 9.0, pixel * 3.1)) * (1.0 - smoothstep(0.35, 0.7, latitude));
+
+    vec3 ocean = mix(vec3(0.012, 0.055, 0.21), vec3(0.03, 0.17, 0.34), smoothstep(0.47, 0.535, relief));
+    vec3 ground = mix(vec3(0.05, 0.17, 0.045), vec3(0.34, 0.26, 0.13), dry);
+    ground = mix(ground, vec3(0.2, 0.19, 0.16), smoothstep(0.62, 0.72, relief));
+    vec3 surface = mix(mix(ocean, ground, land), vec3(0.8, 0.86, 0.92), ice);
+
+    // Clouds: stretched along the latitude circles, with a second field breaking them up.
+    vec3 c = vec3(p.x, p.y * 2.4, p.z) * 2.3;
+    float cover = fbm(c + 2.5 * fbm(c * 0.7 + 3.0, pixel * 4.0), pixel * 5.5);
+    float clouds = 0.9 * smoothstep(0.5, 0.68, cover);
+    surface = mix(surface, vec3(0.93), clouds);
+
+    float light = dot(n, sunDirection);
+    float day = smoothstep(-0.06, 0.14, light) * (0.3 + 0.7 * clamp(light, 0.0, 1.0));
+    float facing = clamp(dot(n, toViewer), 0.0, 1.0);
+    // Sunlight mirrored by the sea.
+    float glint = pow(max(dot(reflect(-sunDirection, n), toViewer), 0.0), 60.0) * (1.0 - land) * (1.0 - ice) * (1.0 - clouds);
+    // The air: a blue veil that thickens toward the limb.
+    float air = pow(1.0 - facing, 2.5);
+    vec3 color = mix(surface, vec3(0.25, 0.45, 0.9), 0.1 + 0.55 * air) * day * 1.7 + vec3(1.0, 0.95, 0.85) * glint * 0.5 * day;
+    color += vec3(0.004, 0.006, 0.012) + vec3(0.02, 0.05, 0.12) * air * smoothstep(-0.25, 0.1, light);
     gl_FragColor = vec4(color, 1.0);
     #include <colorspace_fragment>
   }
 `;
+
+/** The Earth's rotation against the Moon's direction: one turn per 24 h 50 min, milliseconds. */
+const EARTH_TURN_MS = 89428e3;
 
 const STAR_COUNT = 1400;
 
@@ -127,7 +196,7 @@ export class SkyLayer {
     this.sun.renderOrder = 2;
     this.earth = new THREE.Mesh(
       new THREE.SphereGeometry(1, 48, 24),
-      new THREE.ShaderMaterial({ uniforms: { sunDirection: { value: this.sunDirection } }, vertexShader: EARTH_VERTEX, fragmentShader: EARTH_FRAGMENT, depthTest: false, depthWrite: false, transparent: true }),
+      new THREE.ShaderMaterial({ uniforms: { sunDirection: { value: this.sunDirection }, toViewer: { value: new THREE.Vector3(0, 0, 1) }, earthFrame: { value: new THREE.Matrix3() } }, vertexShader: EARTH_VERTEX, fragmentShader: EARTH_FRAGMENT, depthTest: false, depthWrite: false, transparent: true }),
     );
     this.earth.renderOrder = 2;
     this.anchor.add(this.stars, this.glare, this.sun, this.earth);
@@ -211,12 +280,23 @@ export class SkyLayer {
   }
 
   /** Moves the sky with the observer and places the bodies. */
-  update(eye: THREE.Vector3, sun: BodyState, earth: BodyState, starOpacity: number, glare: number) {
+  update(eye: THREE.Vector3, sun: BodyState, earth: BodyState, starOpacity: number, glare: number, latDeg: number, timeMs: number) {
     this.anchor.position.copy(eye);
     const sunDir = directionToScene(sun.azimuthDeg, sun.elevationDeg);
     this.sunDirection.set(...sunDir);
     this.place(this.sun, sunDir, sun.radiusDeg);
-    this.place(this.earth, directionToScene(earth.azimuthDeg, earth.elevationDeg), earth.radiusDeg);
+    const earthDir = directionToScene(earth.azimuthDeg, earth.elevationDeg);
+    this.place(this.earth, earthDir, earth.radiusDeg);
+    // The globe's own axes in the scene (x east, y up, z south): its north along the Moon's
+    // (illustrative), turned by the time of day.
+    const lat = (latDeg * Math.PI) / 180;
+    const [ny, nz] = [Math.sin(lat), -Math.cos(lat)];
+    const turn = ((timeMs / EARTH_TURN_MS) % 1) * 2 * Math.PI;
+    const [cos, sin] = [Math.cos(turn), Math.sin(turn)];
+    // e1 = east, e3 = e1 x north = (0, -nz, ny); rows: the globe's x, y (north), z.
+    const uniforms = this.earth.material.uniforms;
+    uniforms.earthFrame.value.set(cos, sin * nz, -sin * ny, 0, ny, nz, sin, -cos * nz, cos * ny);
+    uniforms.toViewer.value.set(-earthDir[0], -earthDir[1], -earthDir[2]);
     const sunRadius = SKY_DISTANCE * Math.sin((sun.radiusDeg * Math.PI) / 180);
     this.glare.position.set(sunDir[0] * SKY_DISTANCE * 0.99, sunDir[1] * SKY_DISTANCE * 0.99, sunDir[2] * SKY_DISTANCE * 0.99);
     this.glare.scale.setScalar(sunRadius * 16);

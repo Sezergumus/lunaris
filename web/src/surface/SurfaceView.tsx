@@ -136,6 +136,8 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
         headingDeg: m.headingDeg,
         pitchDeg: m.pitchDeg,
         fovDeg: m.fovDeg,
+        latDeg: v.data.lat,
+        timeMs: at.ms,
       });
       drawCompass(compassRef.current, m.headingDeg, scene.horizontalFovDeg);
       placeMark(sunMarkRef.current, scene.project(at.sunAz, at.sunAlt), at.sunVisible, m.headingDeg, at.sunAz);
@@ -455,10 +457,10 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       <div ref={readoutRef} className="surface__readout" aria-hidden="true" />
       <p className="surface__caption">
         {terrain === "mesh"
-          ? "Measured: terrain (LOLA, 60 m pixels), Sun and Earth (JPL ephemeris), the risk model's skyline. Illustrative: light, glare, stars. No rocks or craters smaller than about 60 m."
+          ? "Measured: terrain (LOLA, 60 m pixels), Sun and Earth (JPL ephemeris), the risk model's skyline. Illustrative: light, glare, stars, the Earth's map, and the fine ground texture (the terrain data has no rocks or craters smaller than about 60 m)."
           : terrain === "loading"
             ? "Loading the terrain…"
-            : "No 3D terrain for this point: the dark band is the risk model's skyline (measured); Sun and Earth from the JPL ephemeris."}
+            : "No 3D terrain for this point: the dark band is the risk model's skyline (measured); Sun and Earth from the JPL ephemeris (the Earth's map is illustrative)."}
       </p>
     </div>
   );

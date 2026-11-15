@@ -41,6 +41,9 @@ export interface ViewState {
   pitchDeg: number;
   /** Vertical field of view, degrees. */
   fovDeg: number;
+  /** Latitude of the place and the instant shown: they orient and turn the Earth's globe. */
+  latDeg: number;
+  timeMs: number;
 }
 
 const TERRAIN_VERTEX = /* glsl */ `
@@ -71,8 +74,97 @@ const TERRAIN_FRAGMENT = /* glsl */ `
   varying vec3 vPosition;
   varying vec3 vNormal;
   varying vec2 vShadowUv;
+
+  // Fine surface detail below the 60 m height pixels: illustrative, not measured. It only
+  // tilts the shading normal and tints the albedo; heights, shadows and the skyline are
+  // untouched. Every scale fades out before it gets smaller than a screen pixel.
+  float hash(vec2 p) {
+    vec3 q = fract(vec3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+  }
+
+  // Value noise: x = value (0-1), yz = gradient per unit of p.
+  vec3 noised(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = p - i;
+    vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    vec2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return vec3(a + (b - a) * u.x + (c - a) * u.y + (a - b - c + d) * u.x * u.y, du * vec2(b - a + (a - b - c + d) * u.y, c - a + (a - b - c + d) * u.x));
+  }
+
+  // Weight of a feature of this size (m) for a screen pixel covering "footprint" m of ground.
+  float visible(float sizeM, float footprint) {
+    return 1.0 - smoothstep(0.3, 0.7, footprint / sizeM);
+  }
+
+  // One bowl-shaped crater with a raised rim in some cells of a grid; returns the slope
+  // (height gradient) at p.
+  vec2 craters(vec2 p, float cell, float seed) {
+    vec2 q = p / cell;
+    vec2 i = floor(q);
+    vec2 f = q - i;
+    float pick = hash(i + seed);
+    if (pick > 0.6) return vec2(0.0);
+    vec2 center = 0.3 + 0.4 * vec2(hash(i + seed + 17.0), hash(i + seed + 31.0));
+    float radius = 0.07 + 0.15 * hash(i + seed + 47.0);
+    vec2 d = f - center;
+    // An uneven outline, so the rims are not perfect circles.
+    float t = length(d) / radius * (1.0 + 0.14 * (noised(q * 5.0 + seed).x - 0.5));
+    // Slope along the radius: a flat floor, a wall that steepens toward the rim, and the
+    // rim's outer flank falling away.
+    float slope = t < 1.0 ? 0.3 * t * t * t : -0.13 * exp(-4.0 * (t - 1.0));
+    float edge = 1.0 - smoothstep(0.38, 0.5, max(abs(f.x - 0.5), abs(f.y - 0.5)));
+    // Older craters are softer.
+    float age = 0.35 + 0.65 * hash(i + seed + 59.0);
+    return normalize(d + 1e-6) * slope * edge * age;
+  }
+
+  // Slope of the fine relief at a ground position (m) and an albedo factor around 1.
+  vec3 surfaceDetail(vec2 p, float footprint) {
+    vec2 slope = vec2(0.0);
+    float tone = 1.0;
+    // Broad tone patches: ejecta and regolith maturity differ from place to place.
+    tone += 0.10 * (noised(p / 900.0).x - 0.5) * visible(900.0, footprint);
+    tone += 0.08 * (noised(p / 130.0 + 7.3).x - 0.5) * visible(130.0, footprint);
+    if (footprint > 40.0) return vec3(slope, tone);
+    // Rolling relief and grain, six scales from 45 m down to 0.35 m. The broad scales stay
+    // gentle: the Sun is a few degrees up here, and a steeper swell would have to cast a
+    // shadow, which only the measured terrain does.
+    float size = 45.0;
+    float steep = 0.008;
+    mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
+    // Each scale is turned against the last so no grid shows; "frame" takes p to that scale's
+    // axes, and (v * frame) brings a gradient back.
+    mat2 frame = mat2(1.0, 0.0, 0.0, 1.0);
+    for (int k = 0; k < 6; k++) {
+      float w = visible(size, footprint);
+      if (w > 0.0) {
+        vec3 n = noised((frame * p) / size + float(k) * 19.7);
+        slope += w * steep * (n.yz * frame);
+        tone += w * 0.035 * (n.x - 0.5);
+      }
+      frame = turn * frame;
+      size *= 0.38;
+      steep = min(steep * 1.6, 0.06);
+    }
+    mat2 turn2 = turn * turn;
+    slope += craters(p, 95.0, 3.0) * visible(20.0, footprint);
+    slope += (craters(turn * p, 24.0, 11.0) * turn) * visible(6.0, footprint);
+    slope += (craters(turn2 * p, 6.5, 23.0) * turn2) * visible(1.6, footprint);
+    slope += craters(p + 40.0, 1.7, 37.0) * visible(0.45, footprint);
+    return vec3(slope, tone);
+  }
+
   void main() {
     vec3 n = normalize(vNormal);
+    float footprint = max(length(dFdx(vPosition.xz)), length(dFdy(vPosition.xz)));
+    vec3 detail = surfaceDetail(vPosition.xz, footprint);
+    n = normalize(n - vec3(detail.x, 0.0, detail.y));
     float mu0 = max(dot(n, sunDirection), 0.0);
     float mu = max(dot(n, normalize(cameraPosition - vPosition)), 0.0);
     float lommel = mu0 / (mu0 + mu + 1e-3);
@@ -80,7 +172,7 @@ const TERRAIN_FRAGMENT = /* glsl */ `
     float near = observerBlend * (1.0 - smoothstep(${OBSERVER_ZONE_M[0]}.0, ${OBSERVER_ZONE_M[1]}.0, length(vPosition.xz)));
     lit = mix(lit, observerLit, near);
     float direct = sunUp * lit * (0.38 * (1.0 - exp(-mu0 * exposure)) + 0.3 * lommel);
-    vec3 albedo = vec3(0.62, 0.61, 0.6);
+    vec3 albedo = vec3(0.62, 0.61, 0.6) * detail.z;
     // The fill light (scattered light, earthshine; illustrative) is a little stronger on
     // surfaces that face up, so slopes in shadow keep their shape.
     gl_FragColor = vec4(albedo * (fill * (0.45 + 0.55 * max(n.y, 0.0)) + direct), 1.0);
@@ -451,7 +543,7 @@ export class SurfaceScene {
       uniforms.fill.value = s.observerLit > 0.05 ? 0.03 : 0.06;
     }
     // Stars come out when the observer stands in shadow (the glare and the lit ground hide them).
-    this.sky.update(this.camera.position, s.sun, s.earth, s.observerLit > 0.05 ? 0.12 : 0.9, s.observerLit);
+    this.sky.update(this.camera.position, s.sun, s.earth, s.observerLit > 0.05 ? 0.12 : 0.9, s.observerLit, s.latDeg, s.timeMs);
 
     // The lander's shadow lies on the ground away from the Sun while the observer is sunlit.
     const showLander = this.levels.length > 0 && s.observerLit > 0.05 && s.sun.elevationDeg > 0 && !s.eye;

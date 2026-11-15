@@ -140,6 +140,19 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   NOT run for these phases (do not start it now, it would redo them). Open: frame rate on
   integrated graphics during playback; the Planner's 3D overlay on a phone.
 
+- 2026-11-15 ~13:15 (frontend, Sezer's machine): the surface view looks less bare. Ground:
+  procedural fine detail in the terrain fragment shader (`surfaceDetail` in
+  `web/src/surface/scene.ts`: six noise scales 45 m to 0.35 m, four crater sizes, albedo
+  patches), which only tilts the shading normal and tints the albedo; heights, GPU shadows
+  and the skyline are untouched, and each scale fades before it is smaller than a pixel.
+  Earth: oceans, land, ice, clouds, air and sea glint from noise (`EARTH_FRAGMENT` in
+  `sky.ts`); position, size and phase are still the ephemeris, the map is illustrative,
+  the globe turns once per 24 h 50 min about an axis parallel to the Moon's (`ViewState`
+  got `latDeg`, `timeMs`). The caption names both as illustrative. Checked in headless
+  Edge (software WebGL) at Mons Mouton and Malapert A, no page errors; frame rate on real
+  integrated graphics not measured. No texture files were added (decided against a tiled
+  image: it repeats and smears at grazing view angles).
+
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
 - Frontend: scaffold, data build script, TypeScript risk engine (validated against
