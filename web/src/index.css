@@ -542,19 +542,26 @@ svg {
 }
 
 /*
- * Top of the map between the panels: the bottom holds the map's legend and scale, and the
- * zoom buttons sit in the top-right corner.
+ * Phones only (App.tsx renders it below the docked width): top centre of the full-screen
+ * map, which is free there. Steps aside like the dock while a sheet covers the map.
  */
 .surface-launcher {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: start;
-  justify-self: center;
+  position: fixed;
+  z-index: 5;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
   gap: 7px;
   padding-inline: 16px;
   border-radius: 999px;
   font-weight: 600;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  transition: opacity 200ms var(--ease-out);
+}
+
+.hud[data-sheet] .surface-launcher {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .hud__error {

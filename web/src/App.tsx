@@ -415,7 +415,7 @@ export default function App() {
             Sun and Earth tables could not be loaded ({tablesError}).
           </p>
         ) : null}
-        {!mobile && placeA && views.length > 0 && !surfaceOpen ? <SurfaceLauncher place={placeA} /> : null}
+        {mobile && placeA && views.length > 0 && !surfaceOpen ? <SurfaceLauncher place={placeA} /> : null}
       </div>
     </div>
   );

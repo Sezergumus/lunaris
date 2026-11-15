@@ -5,9 +5,9 @@ import { Button } from "../ui/Button.tsx";
 import { Tip } from "../ui/Tooltip.tsx";
 
 /**
- * Wide screens: a button over the map, above the timeline, that opens the first-person
- * surface view of scenario A. The same view opens from the horizon chart in the inspector;
- * this one is where the eye already is after picking a place on the map.
+ * Phones: a button at the top of the map that opens the first-person surface view of
+ * scenario A while a place is selected. On wide screens the horizon chart in the inspector
+ * is the way in; on a phone that chart waits in a closed sheet.
  */
 export function SurfaceLauncher({ place }: { place: Place }) {
   return (
