@@ -5,6 +5,8 @@ Subcommands:
   compute   Compute locally with Skyfield                -> data/skyfield_<site>.csv
   horizons  Fetch the same table from the JPL Horizons API -> data/horizons_<site>.csv
   compare   Compare the two tables and print difference statistics
+  events    Check rise/set times against one-minute Horizons
+            tables (--terrain: with the terrain horizon) -> data/events_<site>.json
   metrics   Rise/set events, visibility windows and summary numbers
             from the Skyfield table                     -> data/metrics_<site>.json
             (--terrain: use the terrain horizon          -> data/metrics_<site>_terrain.json)
@@ -28,6 +30,7 @@ Example:
   python lunar_sky.py compute  --site malapert_a --start 2026-12-01 --days 30
   python lunar_sky.py horizons --site malapert_a --start 2026-12-01 --days 30
   python lunar_sky.py compare  --site malapert_a
+  python lunar_sky.py events   --site mons_mouton --terrain
   python lunar_sky.py metrics  --site malapert_a --at 2026-12-10T12:00
   python lunar_sky.py horizon  --site malapert_a
   python lunar_sky.py metrics  --site malapert_a --terrain
@@ -245,7 +248,9 @@ def station_moon_elevation(times, kernel_dir):
 
 
 # ------------------------------------------------------------------ Horizons
-def horizons_table(body_id, lat, lon, height_m, start, stop, step_min):
+def horizons_table(body_id, lat, lon, height_m, start, stop, step_min, quantities="4"):
+    """Azimuth and elevation from Horizons as {utc: (az, alt)}; with
+    quantities "4,13" the angular diameter (arcsec) follows as a third value."""
     import requests
 
     params = {
@@ -260,18 +265,19 @@ def horizons_table(body_id, lat, lon, height_m, start, stop, step_min):
         "START_TIME": f"'{start:%Y-%m-%d %H:%M}'",
         "STOP_TIME": f"'{stop:%Y-%m-%d %H:%M}'",
         "STEP_SIZE": f"'{step_min}m'",
-        "QUANTITIES": "'4'",
+        "QUANTITIES": f"'{quantities}'",
         "APPARENT": "'AIRLESS'",
         "ANG_FORMAT": "'DEG'",
         "CSV_FORMAT": "'YES'",
     }
     r = requests.get("https://ssd.jpl.nasa.gov/api/horizons.api", params=params, timeout=120)
     r.raise_for_status()
-    return parse_horizons(r.text)
+    return parse_horizons(r.text, 3 if quantities == "4,13" else 2)
 
 
-def parse_horizons(text):
-    """Extract {utc: (az, alt)} from the rows between $$SOE and $$EOE."""
+def parse_horizons(text, columns=2):
+    """Extract {utc: (az, alt)} from the rows between $$SOE and $$EOE
+    (the last `columns` numbers of each row)."""
     if "$$SOE" not in text:
         raise RuntimeError("Horizons returned no table:\n" + text[-1500:])
     body = text.split("$$SOE")[1].split("$$EOE")[0]
@@ -285,7 +291,7 @@ def parse_horizons(text):
                 nums.append(float(p))
             except ValueError:
                 pass
-        rows[when] = (nums[-2], nums[-1])     # azimuth, elevation
+        rows[when] = tuple(nums[-columns:])   # azimuth, elevation[, angular diameter]
     return rows
 
 
@@ -332,7 +338,7 @@ def compare(sky, hor):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("cmd", choices=["compute", "horizons", "compare", "metrics", "horizon", "dsn", "risk", "mast",
-                                  "rank", "nearby", "vectors", "grid", "patch", "backtest", "sites"])
+                                  "rank", "nearby", "vectors", "grid", "patch", "backtest", "events", "sites"])
     p.add_argument("--site", default="malapert_a", help="built-in site key, or a name for custom coordinates")
     p.add_argument("--lat", type=float, help="custom latitude (degrees, north positive)")
     p.add_argument("--lon", type=float, help="custom longitude (degrees, east positive)")
@@ -452,6 +458,9 @@ def main():
 
     elif a.cmd == "patch":
         run_patch(a, key, label, lat, lon)
+
+    elif a.cmd == "events":
+        run_events(a, key, label, lat, lon, sky_path)
 
 
 def parse_instant(text):
@@ -993,6 +1002,109 @@ def run_mast(a, key, label, lat, lon, sky_path):
         print(f"  {r['mast_m']:5.0f}m {r['mean_horizon_deg']:+12.2f}d {r['sun_visible_pct']:11.1f}% "
               f"{lm.format_duration(r['longest_darkness_h']):>13s} {r['earth_visible_pct']:13.1f}% "
               f"{lm.format_duration(r['longest_earth_outage_h']):>15s}")
+
+
+def run_events(a, key, label, lat, lon, sky_path):
+    """Check the rise/set times of `metrics` against JPL Horizons.
+
+    `metrics` finds each event by linear interpolation in the hourly Skyfield
+    table. Here every event is located again in a one-minute Horizons table
+    around it, with the same visibility rule (upper limb against the sphere
+    or, with --terrain, against the terrain horizon in the body's direction).
+    A second time uses the disk radius Horizons reports for that instant
+    instead of the fixed 0.27 / 0.95 deg, to show what the fixed radius costs.
+    """
+    import time
+
+    import lunar_metrics as lm
+
+    times, sun_alt, earth_alt, sun_az, earth_az = lm.load_series(sky_path)
+    horizon, sun_horizon, earth_horizon = None, None, None
+    if a.terrain:
+        import lunar_terrain as lt
+
+        horizon = lt.load_horizon(os.path.join(a.out, f"horizon_{key}.json"))
+        sun_horizon = lt.horizon_at(horizon, sun_az).tolist()
+        earth_horizon = lt.horizon_at(horizon, earth_az).tolist()
+    result = lm.analyze(times, sun_alt, earth_alt, sun_horizon=sun_horizon, earth_horizon=earth_horizon)
+    events = sorted(result["sun"]["events"] + result["earth"]["events"], key=lambda e: e["utc"])
+    # An event on the first or last hour of the table has no room for a search window.
+    events = [e for e in events if times[0] + timedelta(hours=6) < e["utc"] < times[-1] - timedelta(hours=6)]
+
+    def crossings(table, radius_of, rising):
+        """Instants where the upper limb crosses the horizon in the wanted direction."""
+        when = sorted(table)
+        margin = []
+        for t in when:
+            az, alt, diameter = table[t]
+            ground = float(lt.horizon_at(horizon, az)) if horizon is not None else 0.0
+            margin.append(alt + radius_of(diameter) - ground)
+        return [t for t, up in lm.find_events(when, margin) if up == rising]
+
+    rows = []
+    for index, event in enumerate(events):
+        sun = event["type"].startswith("sun")
+        rising = event["type"].endswith("rise")
+        fixed = lm.SUN_RADIUS_DEG if sun else lm.EARTH_RADIUS_DEG
+        row = {"utc": event["utc"], "type": event["type"]}
+        for half_h in (2, 12):
+            start = (event["utc"] - timedelta(hours=half_h)).replace(second=0, microsecond=0)
+            for attempt in range(4):
+                try:
+                    table = horizons_table(10 if sun else 399, lat, lon, a.height,
+                                           start, start + timedelta(hours=2 * half_h), 1, "4,13")
+                    break
+                except Exception:
+                    if attempt == 3:
+                        raise
+                    time.sleep(5 * (attempt + 1))
+            found = crossings(table, lambda d: fixed, rising)
+            if found:
+                break
+        if found:
+            nearest = min(found, key=lambda t: abs(t - event["utc"]))
+            row["horizons_utc"] = nearest
+            row["difference_min"] = (event["utc"] - nearest).total_seconds() / 60.0
+            true_disk = crossings(table, lambda d: d / 7200.0, rising)
+            if true_disk:
+                best = min(true_disk, key=lambda t: abs(t - event["utc"]))
+                row["horizons_true_disk_utc"] = best
+                row["difference_true_disk_min"] = (event["utc"] - best).total_seconds() / 60.0
+            middle = table[sorted(table)[len(table) // 2]]
+            row["disk_radius_deg"] = middle[2] / 7200.0
+        rows.append(row)
+        print(f"  {index + 1:3d}/{len(events)} {lm.format_time(event['utc'])} {event['type']:10s} "
+              + (f"{row['difference_min']:+7.1f} min" if found else "no crossing within 12 h in Horizons"),
+              flush=True)
+
+    def stats(name, field, body):
+        values = sorted(abs(r[field]) for r in rows if field in r and r["type"].startswith(body))
+        if not values:
+            return None
+        out = {"events": len(values), "median_min": values[len(values) // 2],
+               "p95_min": values[min(len(values) - 1, int(0.95 * len(values)))], "max_min": values[-1]}
+        print(f"  {name:34s} {out['events']:4d} events: median {out['median_min']:.1f}, "
+              f"95th pct {out['p95_min']:.1f}, max {out['max_min']:.1f} min")
+        return out
+
+    model = "terrain" if a.terrain else "sphere"
+    print(f"{label}  ({lat}, {lon}), {model} horizon: |metrics - Horizons| over {len(rows)} events")
+    summary = {
+        "sun_same_radius": stats("Sun, same disk radius", "difference_min", "sun"),
+        "earth_same_radius": stats("Earth, same disk radius", "difference_min", "earth"),
+        "sun_true_disk": stats("Sun, Horizons disk radius", "difference_true_disk_min", "sun"),
+        "earth_true_disk": stats("Earth, Horizons disk radius", "difference_true_disk_min", "earth"),
+        "unmatched": sum(1 for r in rows if "difference_min" not in r),
+    }
+    print(f"  Events without a crossing in Horizons within 12 h: {summary['unmatched']}")
+    path = os.path.join(a.out, f"events_{key}{'_terrain' if a.terrain else ''}.json")
+    with open(path, "w") as f:
+        f.write(lm.to_json({"site": {"key": key, "name": label, "lat": lat, "lon": lon},
+                            "horizon_model": model,
+                            "method": "each rise/set of the hourly Skyfield table (linear interpolation) "
+                                      "against the same rule on a one-minute JPL Horizons table",
+                            "summary": summary, "events": rows}) + "\n")
+    print("wrote:", path)
 
 
 def run_patch(a, key, label, lat, lon):
