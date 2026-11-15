@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
-import { analyzeWindow, scoreWindow, type RiskLevel, type Score } from "../engine/risk.ts";
+import { analyzeWindow, scoreWindow, type MissionWindow, type RiskLevel, type Score } from "../engine/risk.ts";
 import { Tip } from "../ui/Tooltip.tsx";
 import type { ScenarioView } from "../state/view.ts";
+import { verdict } from "./verdict.ts";
 
 const LEVEL_TEXT: Record<RiskLevel, string> = { low: "Low", medium: "Medium", high: "High" };
 const LEVEL_ICON = { low: ShieldCheck, medium: ShieldAlert, high: ShieldX };
@@ -13,11 +14,11 @@ const CATEGORIES = [
 ] as const;
 
 /** Risk of the mission that lands at the scenario's start date; null if it leaves the data. */
-function useScore(view: ScenarioView): Score | null {
+function useScore(view: ScenarioView): { window: MissionWindow; score: Score } | null {
   return useMemo(() => {
     const { series, slopeP95Deg } = view.data;
     const window = analyzeWindow(series, view.startMs);
-    return window ? scoreWindow(window, series.profile, slopeP95Deg) : null;
+    return window ? { window, score: scoreWindow(window, series.profile, slopeP95Deg) } : null;
   }, [view]);
 }
 
@@ -32,11 +33,13 @@ function useMapErrorScore(view: ScenarioView): Score | null {
 }
 
 function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) {
-  const score = useScore(view);
+  const scored = useScore(view);
   const worse = useMapErrorScore(view);
   const mapError = view.data.mapError;
-  if (!score) return <p className="risk__none">The mission would end after the last date in the data.</p>;
+  if (!scored) return <p className="risk__none">The mission would end after the last date in the data.</p>;
+  const { score } = scored;
   const Icon = LEVEL_ICON[score.level];
+  const said = verdict(scored.window, score, view.data.series.profile, view.data.slopeP95Deg);
   return (
     <div className="risk__column" data-level={score.level}>
       <p className="risk__overall">
@@ -64,6 +67,9 @@ function ScoreColumn({ view, tagged }: { view: ScenarioView; tagged: boolean }) 
           );
         })}
       </dl>
+      <p className="risk__verdict">
+        <strong>{said.headline}</strong> {said.reason}
+      </p>
       {worse && mapError ? (
         <Tip label={`Scored again with the horizon raised by the map's height error (${mapError.heightErrorM.toFixed(1)} m, up to ${mapError.maxDeg.toFixed(2)}° higher)`} side="bottom">
           {/* Short either way, so A and B stay on one line each: the full story is in the tooltip. */}

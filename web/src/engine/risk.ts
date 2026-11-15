@@ -405,13 +405,13 @@ export function analyzeWindow(series: Series, landingMs: number, durationDays?: 
 // ------------------------------------------------------------------- score
 
 /** 0 up to half the limit, rising linearly to 100 at the limit or beyond. */
-function limitRisk(value: number, limit: number): number {
+export function limitRisk(value: number, limit: number): number {
   const used = value / limit;
   return 100 * Math.min(1, Math.max(0, (used - COMFORT_FRACTION) / (1 - COMFORT_FRACTION)));
 }
 
 /** 0 when the requirement is met, 100 when nothing of it is delivered. */
-function shortfallRisk(value: number, required: number): number {
+export function shortfallRisk(value: number, required: number): number {
   return 100 * Math.min(1, Math.max(0, (required - value) / required));
 }
 

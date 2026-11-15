@@ -584,6 +584,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+.risk__verdict {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+
+.risk__verdict strong {
+  font-weight: 650;
+  color: var(--level);
+}
+
 .risk__error {
   grid-column: 1 / -1;
   font-size: 11px;
