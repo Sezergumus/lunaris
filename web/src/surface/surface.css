@@ -327,6 +327,43 @@
   border: 1px solid var(--glass-border);
 }
 
+/* Below 1400px the gap between the panels is too narrow for the view: it takes the sites
+   panel's column as well. The details panel and the timeline stay; the list comes back when
+   the view closes. */
+@media (min-width: 760px) and (max-width: 1399px) {
+  .surface-overlay {
+    left: 16px;
+  }
+
+  .app[data-surface] .sidebar {
+    visibility: hidden;
+  }
+}
+
+/* Below 1400px the mast and ground controls open from a settings button beside the close
+   button (SurfaceView, COMPACT_QUERY). */
+.surface__settings {
+  position: absolute;
+  top: 34px;
+  right: 42px;
+}
+
+.surface[data-compact] .surface__tools {
+  right: 80px;
+}
+
+.popover.popover--surface {
+  background: rgba(20, 20, 24, 0.95);
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  gap: 10px;
+  font-size: 12px;
+}
+
+.popover--surface .mast__note {
+  margin-bottom: 0;
+}
+
 /* A narrow stage (the Planner's overlay between the panels, phones): the mast panel moves up
    under the tools and the caption takes the whole width. */
 @container (max-width: 760px) {
@@ -456,5 +493,17 @@
 
   .surface__legend-note {
     display: none;
+  }
+}
+
+/* Compact Planner: the ground tint's legend stays on the view while the settings are closed,
+   at the bottom right where the mast panel was; on a narrow stage top left, under the tools. */
+.surface__overlay.surface__overlay--legend {
+  bottom: 30px;
+}
+
+@container (max-width: 560px) {
+  .surface__overlay.surface__overlay--legend {
+    bottom: auto;
   }
 }

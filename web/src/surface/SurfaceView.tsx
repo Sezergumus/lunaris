@@ -2,7 +2,8 @@
 // ephemeris puts them, and the skyline the risk model uses. Lazy entry point (three.js lives
 // in this chunk only).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { CornerUpLeft, Drone, Earth, PersonStanding, Sun, X } from "lucide-react";
+import { Popover } from "radix-ui";
+import { CornerUpLeft, Drone, Earth, PersonStanding, SlidersHorizontal, Sun, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { obstruction, rangeAt, sentence } from "../charts/why.ts";
 import type { SkyTables } from "../data/load.ts";
@@ -21,6 +22,7 @@ import type { ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { formatAngle } from "../ui/format.ts";
+import { useMediaQuery } from "../ui/useMediaQuery.ts";
 import { destination } from "./geometry.ts";
 import { SurfaceScene, webgl2Available, type BeaconSpec, type HeatSpec } from "./scene.ts";
 import "./surface.css";
@@ -33,6 +35,8 @@ const KEY_STEP_DEG = 2;
 const ORBIT_DEG_PER_PX = 0.25;
 /** Drone view: beyond this distance only the best spot keeps its label, meters. */
 const DRONE_LABELS_WITHIN_M = 1500;
+/** Planner below this width: the mast and ground controls move into a settings popover. */
+const COMPACT_QUERY = "(max-width: 1399px)";
 
 /** What the ground around the place is tinted with: a score of every nearby grid point. */
 type GroundOverlay = "off" | "risk" | "sun";
@@ -492,6 +496,8 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
   }, []);
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // Keys from the settings popover bubble here through the portal; they are not for the camera.
+    if (event.defaultPrevented || !rootRef.current?.contains(event.target as Node)) return;
     const m = getMode();
     const step = event.shiftKey ? KEY_STEP_DEG * 5 : KEY_STEP_DEG;
     const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] };
@@ -509,6 +515,27 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
   };
 
   const terrain = !placeKey ? "curtain" : loaded?.key === placeKey ? loaded.kind : "loading";
+  const compact = useMediaQuery(COMPACT_QUERY) && beaconMode === "plan";
+
+  const groundRow =
+    terrainReady && nearby ? (
+      <div className="surface__overlay-row">
+        <span className="surface__overlay-name">Ground</span>
+        <Segmented size="sm" label="Colour the ground around the place" value={overlay} onChange={setOverlay} options={OVERLAY_OPTIONS} />
+      </div>
+    ) : null;
+  const legend =
+    terrainReady && nearby && heat ? (
+      <div className="surface__legend">
+        <span className="surface__legend-title">{heat.title}</span>
+        <div className="surface__legend-scale">
+          <span>{heat.low}</span>
+          <span className="surface__legend-bar" style={{ background: heat.gradient }} />
+          <span>{heat.high}</span>
+        </div>
+        <span className="surface__legend-note">{heat.note}</span>
+      </div>
+    ) : null;
 
   if (failed) return <Fallback view={view} reason="The 3D view could not start in this browser." />;
 
@@ -525,6 +552,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
           : `View from the surface at ${data.place.name}. Drag or use the arrow keys to look around; plus and minus zoom.`
       }
       data-camera={drone ? "drone" : "eye"}
+      data-compact={compact || undefined}
       onKeyDown={onKeyDown}
     >
       <canvas ref={canvasRef} className="surface__canvas" />
@@ -581,28 +609,36 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
           <X aria-hidden="true" />
         </IconButton>
       ) : null}
-      <div className="surface__mast glass glass--thick">
-        <MastControl views={[view]} />
-      </div>
-      {terrainReady && nearby ? (
-        <div className="surface__overlay glass glass--thick">
-          <div className="surface__overlay-row">
-            <span className="surface__overlay-name">Ground</span>
-            <Segmented size="sm" label="Colour the ground around the place" value={overlay} onChange={setOverlay} options={OVERLAY_OPTIONS} />
+      {compact ? (
+        <>
+          <Popover.Root>
+            <Popover.Trigger asChild>
+              <IconButton className="surface__settings" label="View settings" size="sm" tipSide="bottom">
+                <SlidersHorizontal aria-hidden="true" />
+              </IconButton>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content className="popover popover--surface glass glass--thick" side="bottom" align="end" sideOffset={8} collisionPadding={12}>
+                <MastControl views={[view]} />
+                {groundRow}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+          {legend ? <div className="surface__overlay surface__overlay--legend glass glass--thick">{legend}</div> : null}
+        </>
+      ) : (
+        <>
+          <div className="surface__mast glass glass--thick">
+            <MastControl views={[view]} />
           </div>
-          {heat ? (
-            <div className="surface__legend">
-              <span className="surface__legend-title">{heat.title}</span>
-              <div className="surface__legend-scale">
-                <span>{heat.low}</span>
-                <span className="surface__legend-bar" style={{ background: heat.gradient }} />
-                <span>{heat.high}</span>
-              </div>
-              <span className="surface__legend-note">{heat.note}</span>
+          {groundRow ? (
+            <div className="surface__overlay glass glass--thick">
+              {groundRow}
+              {legend}
             </div>
           ) : null}
-        </div>
-      ) : null}
+        </>
+      )}
       <div ref={readoutRef} className="surface__readout" aria-hidden="true" />
       <p className="surface__caption">
         {drone ? "Drone view: from up here the camera can see a Sun or an Earth that the terrain hides from the lander; labels and scores are those of the place itself. " : ""}

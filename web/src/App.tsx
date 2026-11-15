@@ -326,7 +326,7 @@ export default function App() {
   );
 
   return (
-    <div ref={appRef} className="app">
+    <div ref={appRef} className="app" data-surface={(mode === "plan" && surfaceOpen && views.length > 0) || undefined}>
       <MoonMap
         sites={sites}
         selectedKey={placeA?.kind === "site" ? placeA.key : null}
