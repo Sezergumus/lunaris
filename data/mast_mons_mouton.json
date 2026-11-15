@@ -13,26 +13,26 @@
   {
    "mast_m": 2.0,
    "mean_horizon_deg": 1.157,
-   "sun_visible_pct": 45.59,
-   "longest_darkness_h": 411.573,
-   "earth_visible_pct": 92.754,
-   "longest_earth_outage_h": 75.854
+   "sun_visible_pct": 45.549,
+   "longest_darkness_h": 411.802,
+   "earth_visible_pct": 92.418,
+   "longest_earth_outage_h": 76.133
   },
   {
    "mast_m": 5.0,
    "mean_horizon_deg": 1.073,
-   "sun_visible_pct": 46.061,
-   "longest_darkness_h": 409.404,
-   "earth_visible_pct": 93.136,
-   "longest_earth_outage_h": 74.789
+   "sun_visible_pct": 46.04,
+   "longest_darkness_h": 409.631,
+   "earth_visible_pct": 92.712,
+   "longest_earth_outage_h": 75.075
   },
   {
    "mast_m": 10.0,
    "mean_horizon_deg": 0.96,
-   "sun_visible_pct": 46.609,
-   "longest_darkness_h": 405.639,
-   "earth_visible_pct": 93.724,
-   "longest_earth_outage_h": 72.974
+   "sun_visible_pct": 46.586,
+   "longest_darkness_h": 405.872,
+   "earth_visible_pct": 93.363,
+   "longest_earth_outage_h": 73.267
   }
  ]
 }

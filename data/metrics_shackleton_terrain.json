@@ -13,8 +13,14 @@
   },
   "horizon_model": "terrain",
   "thresholds_deg": {
-    "sun_radius": 0.27,
-    "earth_radius": 0.95,
+    "sun_radius": [
+      0.2616,
+      0.2718
+    ],
+    "earth_radius": [
+      0.8985,
+      1.0251
+    ],
     "horizon_dip": 0.0,
     "mask": 0.0
   },

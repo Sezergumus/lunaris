@@ -8,500 +8,500 @@
   "horizon_model": "sphere",
   "method": "each rise/set of the hourly Skyfield table (linear interpolation) against the same rule on a one-minute JPL Horizons table",
   "summary": {
-    "sun_same_radius": {
+    "sun": {
       "events": 24,
-      "median_min": 0.01,
-      "p95_min": 0.0288,
-      "max_min": 0.0377
+      "median_min": 0.1523,
+      "p95_min": 0.1865,
+      "max_min": 0.1955
     },
-    "earth_same_radius": {
+    "earth": {
       "events": 28,
-      "median_min": 0.0694,
-      "p95_min": 0.114,
-      "max_min": 0.1253
+      "median_min": 0.0799,
+      "p95_min": 0.1181,
+      "max_min": 0.1195
     },
-    "sun_true_disk": {
+    "sun_horizons_fixed_disk": {
       "events": 24,
-      "median_min": 5.3079,
-      "p95_min": 10.8185,
-      "max_min": 11.1104
+      "median_min": 5.2033,
+      "p95_min": 10.6467,
+      "max_min": 10.9614
     },
-    "earth_true_disk": {
+    "earth_horizons_fixed_disk": {
       "events": 28,
-      "median_min": 55.2524,
-      "p95_min": 90.7353,
-      "max_min": 93.0592
+      "median_min": 55.338,
+      "p95_min": 90.5803,
+      "max_min": 92.9367
     },
     "unmatched": 0
   },
   "events": [
     {
-      "utc": "2026-12-04T09:40Z",
+      "utc": "2026-12-04T09:09Z",
       "type": "earthset",
-      "horizons_utc": "2026-12-04T09:40Z",
-      "difference_min": 0.103,
-      "horizons_true_disk_utc": "2026-12-04T09:09Z",
-      "difference_true_disk_min": 31.7399,
-      "disk_radius_deg": 0.9317
+      "horizons_utc": "2026-12-04T09:09Z",
+      "difference_min": 0.0686,
+      "horizons_fixed_disk_utc": "2026-12-04T09:40Z",
+      "difference_fixed_disk_min": -31.5684,
+      "disk_radius_deg": 0.9319
     },
     {
-      "utc": "2026-12-10T02:57Z",
+      "utc": "2026-12-10T04:30Z",
       "type": "earthrise",
-      "horizons_utc": "2026-12-10T02:57Z",
-      "difference_min": -0.0199,
-      "horizons_true_disk_utc": "2026-12-10T04:30Z",
-      "difference_true_disk_min": -93.0592,
-      "disk_radius_deg": 0.9002
+      "horizons_utc": "2026-12-10T04:30Z",
+      "difference_min": -0.1026,
+      "horizons_fixed_disk_utc": "2026-12-10T02:57Z",
+      "difference_fixed_disk_min": 92.9367,
+      "disk_radius_deg": 0.9001
     },
     {
-      "utc": "2026-12-12T16:05Z",
+      "utc": "2026-12-12T16:03Z",
       "type": "sunrise",
-      "horizons_utc": "2026-12-12T16:05Z",
-      "difference_min": 0.01,
-      "horizons_true_disk_utc": "2026-12-12T16:03Z",
-      "difference_true_disk_min": 1.6738,
+      "horizons_utc": "2026-12-12T16:03Z",
+      "difference_min": -0.1497,
+      "horizons_fixed_disk_utc": "2026-12-12T16:05Z",
+      "difference_fixed_disk_min": -1.8135,
       "disk_radius_deg": 0.2712
     },
     {
-      "utc": "2026-12-30T05:35Z",
+      "utc": "2026-12-30T05:36Z",
       "type": "sunset",
-      "horizons_utc": "2026-12-30T05:35Z",
-      "difference_min": 0.0275,
-      "horizons_true_disk_utc": "2026-12-30T05:36Z",
-      "difference_true_disk_min": -1.1329,
+      "horizons_utc": "2026-12-30T05:36Z",
+      "difference_min": 0.1825,
+      "horizons_fixed_disk_utc": "2026-12-30T05:35Z",
+      "difference_fixed_disk_min": 1.3429,
       "disk_radius_deg": 0.2709
     },
     {
-      "utc": "2026-12-31T09:36Z",
+      "utc": "2026-12-31T09:21Z",
       "type": "earthset",
-      "horizons_utc": "2026-12-31T09:36Z",
-      "difference_min": 0.114,
-      "horizons_true_disk_utc": "2026-12-31T09:21Z",
-      "difference_true_disk_min": 15.1042,
-      "disk_radius_deg": 0.9408
+      "horizons_utc": "2026-12-31T09:21Z",
+      "difference_min": 0.1073,
+      "horizons_fixed_disk_utc": "2026-12-31T09:36Z",
+      "difference_fixed_disk_min": -14.8829,
+      "disk_radius_deg": 0.941
     },
     {
-      "utc": "2027-01-06T07:39Z",
+      "utc": "2027-01-06T09:10Z",
       "type": "earthrise",
-      "horizons_utc": "2027-01-06T07:40Z",
-      "difference_min": -0.0963,
-      "horizons_true_disk_utc": "2027-01-06T09:10Z",
-      "difference_true_disk_min": -90.7353,
-      "disk_radius_deg": 0.8995
+      "horizons_utc": "2027-01-06T09:10Z",
+      "difference_min": -0.0587,
+      "horizons_fixed_disk_utc": "2027-01-06T07:40Z",
+      "difference_fixed_disk_min": 90.5803,
+      "disk_radius_deg": 0.8994
     },
     {
-      "utc": "2027-01-11T19:39Z",
+      "utc": "2027-01-11T19:37Z",
       "type": "sunrise",
-      "horizons_utc": "2027-01-11T19:39Z",
-      "difference_min": -0.0047,
-      "horizons_true_disk_utc": "2027-01-11T19:37Z",
-      "difference_true_disk_min": 1.9883,
+      "horizons_utc": "2027-01-11T19:37Z",
+      "difference_min": -0.1645,
+      "horizons_fixed_disk_utc": "2027-01-11T19:39Z",
+      "difference_fixed_disk_min": -2.1574,
       "disk_radius_deg": 0.2715
     },
     {
-      "utc": "2027-01-27T13:01Z",
+      "utc": "2027-01-27T13:13Z",
       "type": "earthset",
-      "horizons_utc": "2027-01-27T13:01Z",
-      "difference_min": 0.0156,
-      "horizons_true_disk_utc": "2027-01-27T13:13Z",
-      "difference_true_disk_min": -11.5765,
-      "disk_radius_deg": 0.9576
+      "horizons_utc": "2027-01-27T13:13Z",
+      "difference_min": 0.078,
+      "horizons_fixed_disk_utc": "2027-01-27T13:01Z",
+      "difference_fixed_disk_min": 11.6701,
+      "disk_radius_deg": 0.9575
     },
     {
-      "utc": "2027-01-28T04:07Z",
+      "utc": "2027-01-28T04:08Z",
       "type": "sunset",
-      "horizons_utc": "2027-01-28T04:07Z",
-      "difference_min": 0.0211,
-      "horizons_true_disk_utc": "2027-01-28T04:08Z",
-      "difference_true_disk_min": -0.4812,
+      "horizons_utc": "2027-01-28T04:08Z",
+      "difference_min": 0.1708,
+      "horizons_fixed_disk_utc": "2027-01-28T04:07Z",
+      "difference_fixed_disk_min": 0.673,
       "disk_radius_deg": 0.2704
     },
     {
-      "utc": "2027-02-02T14:00Z",
+      "utc": "2027-02-02T15:26Z",
       "type": "earthrise",
-      "horizons_utc": "2027-02-02T14:00Z",
-      "difference_min": -0.0147,
-      "horizons_true_disk_utc": "2027-02-02T15:26Z",
-      "difference_true_disk_min": -86.1177,
-      "disk_radius_deg": 0.9006
+      "horizons_utc": "2027-02-02T15:26Z",
+      "difference_min": -0.0907,
+      "horizons_fixed_disk_utc": "2027-02-02T14:00Z",
+      "difference_fixed_disk_min": 86.0123,
+      "disk_radius_deg": 0.9005
     },
     {
       "utc": "2027-02-11T04:11Z",
       "type": "sunrise",
       "horizons_utc": "2027-02-11T04:11Z",
-      "difference_min": 0.0036,
-      "horizons_true_disk_utc": "2027-02-11T04:11Z",
-      "difference_true_disk_min": 0.5866,
+      "difference_min": -0.1523,
+      "horizons_fixed_disk_utc": "2027-02-11T04:11Z",
+      "difference_fixed_disk_min": -0.7353,
       "disk_radius_deg": 0.2704
     },
     {
-      "utc": "2027-02-23T21:17Z",
+      "utc": "2027-02-23T21:47Z",
       "type": "earthset",
-      "horizons_utc": "2027-02-23T21:17Z",
-      "difference_min": 0.1026,
-      "horizons_true_disk_utc": "2027-02-23T21:47Z",
-      "difference_true_disk_min": -30.1334,
-      "disk_radius_deg": 0.9702
+      "horizons_utc": "2027-02-23T21:47Z",
+      "difference_min": 0.0815,
+      "horizons_fixed_disk_utc": "2027-02-23T21:17Z",
+      "difference_fixed_disk_min": 30.3174,
+      "disk_radius_deg": 0.9699
     },
     {
-      "utc": "2027-02-26T00:34Z",
+      "utc": "2027-02-26T00:33Z",
       "type": "sunset",
-      "horizons_utc": "2027-02-26T00:34Z",
-      "difference_min": 0.0102,
-      "horizons_true_disk_utc": "2027-02-26T00:32Z",
-      "difference_true_disk_min": 1.4612,
+      "horizons_utc": "2027-02-26T00:32Z",
+      "difference_min": 0.1581,
+      "horizons_fixed_disk_utc": "2027-02-26T00:34Z",
+      "difference_fixed_disk_min": -1.2929,
       "disk_radius_deg": 0.2689
     },
     {
-      "utc": "2027-03-01T19:12Z",
+      "utc": "2027-03-01T20:32Z",
       "type": "earthrise",
-      "horizons_utc": "2027-03-01T19:12Z",
-      "difference_min": -0.0608,
-      "horizons_true_disk_utc": "2027-03-01T20:32Z",
-      "difference_true_disk_min": -80.0084,
-      "disk_radius_deg": 0.9045
+      "horizons_utc": "2027-03-01T20:32Z",
+      "difference_min": -0.0923,
+      "horizons_fixed_disk_utc": "2027-03-01T19:12Z",
+      "difference_fixed_disk_min": 79.8553,
+      "disk_radius_deg": 0.9043
     },
     {
-      "utc": "2027-03-13T11:36Z",
+      "utc": "2027-03-13T11:38Z",
       "type": "sunrise",
-      "horizons_utc": "2027-03-13T11:36Z",
-      "difference_min": 0.016,
-      "horizons_true_disk_utc": "2027-03-13T11:38Z",
-      "difference_true_disk_min": -2.094,
+      "horizons_utc": "2027-03-13T11:38Z",
+      "difference_min": -0.1396,
+      "horizons_fixed_disk_utc": "2027-03-13T11:36Z",
+      "difference_fixed_disk_min": 1.9705,
       "disk_radius_deg": 0.2684
     },
     {
-      "utc": "2027-03-23T07:16Z",
+      "utc": "2027-03-23T07:50Z",
       "type": "earthset",
-      "horizons_utc": "2027-03-23T07:16Z",
-      "difference_min": 0.1057,
-      "horizons_true_disk_utc": "2027-03-23T07:49Z",
-      "difference_true_disk_min": -33.7329,
-      "disk_radius_deg": 0.9718
+      "horizons_utc": "2027-03-23T07:49Z",
+      "difference_min": 0.0799,
+      "horizons_fixed_disk_utc": "2027-03-23T07:16Z",
+      "difference_fixed_disk_min": 33.9184,
+      "disk_radius_deg": 0.9716
     },
     {
-      "utc": "2027-03-26T23:11Z",
+      "utc": "2027-03-26T23:07Z",
       "type": "sunset",
-      "horizons_utc": "2027-03-26T23:11Z",
-      "difference_min": 0.0068,
-      "horizons_true_disk_utc": "2027-03-26T23:07Z",
-      "difference_true_disk_min": 4.2989,
+      "horizons_utc": "2027-03-26T23:07Z",
+      "difference_min": 0.1593,
+      "horizons_fixed_disk_utc": "2027-03-26T23:11Z",
+      "difference_fixed_disk_min": -4.1329,
       "disk_radius_deg": 0.2667
     },
     {
-      "utc": "2027-03-28T22:00Z",
+      "utc": "2027-03-28T23:12Z",
       "type": "earthrise",
-      "horizons_utc": "2027-03-28T22:00Z",
-      "difference_min": -0.0196,
-      "horizons_true_disk_utc": "2027-03-28T23:12Z",
-      "difference_true_disk_min": -71.9588,
-      "disk_radius_deg": 0.9104
+      "horizons_utc": "2027-03-28T23:12Z",
+      "difference_min": -0.0611,
+      "horizons_fixed_disk_utc": "2027-03-28T22:00Z",
+      "difference_fixed_disk_min": 71.8781,
+      "disk_radius_deg": 0.9101
     },
     {
-      "utc": "2027-04-12T12:34Z",
+      "utc": "2027-04-12T12:40Z",
       "type": "sunrise",
-      "horizons_utc": "2027-04-12T12:34Z",
-      "difference_min": 0.0261,
-      "horizons_true_disk_utc": "2027-04-12T12:40Z",
-      "difference_true_disk_min": -5.3079,
+      "horizons_utc": "2027-04-12T12:40Z",
+      "difference_min": -0.1307,
+      "horizons_fixed_disk_utc": "2027-04-12T12:34Z",
+      "difference_fixed_disk_min": 5.2033,
       "disk_radius_deg": 0.266
     },
     {
-      "utc": "2027-04-19T14:51Z",
+      "utc": "2027-04-19T15:15Z",
       "type": "earthset",
-      "horizons_utc": "2027-04-19T14:50Z",
-      "difference_min": 0.0694,
-      "horizons_true_disk_utc": "2027-04-19T15:15Z",
-      "difference_true_disk_min": -24.5121,
-      "disk_radius_deg": 0.965
+      "horizons_utc": "2027-04-19T15:15Z",
+      "difference_min": 0.093,
+      "horizons_fixed_disk_utc": "2027-04-19T14:50Z",
+      "difference_fixed_disk_min": 24.6745,
+      "disk_radius_deg": 0.9649
     },
     {
-      "utc": "2027-04-24T23:40Z",
+      "utc": "2027-04-25T00:45Z",
       "type": "earthrise",
-      "horizons_utc": "2027-04-24T23:40Z",
-      "difference_min": -0.0923,
-      "horizons_true_disk_utc": "2027-04-25T00:45Z",
-      "difference_true_disk_min": -65.0275,
-      "disk_radius_deg": 0.9152
+      "horizons_utc": "2027-04-25T00:45Z",
+      "difference_min": -0.0777,
+      "horizons_fixed_disk_utc": "2027-04-24T23:40Z",
+      "difference_fixed_disk_min": 64.8576,
+      "disk_radius_deg": 0.9149
     },
     {
-      "utc": "2027-04-25T03:43Z",
+      "utc": "2027-04-25T03:35Z",
       "type": "sunset",
-      "horizons_utc": "2027-04-25T03:43Z",
-      "difference_min": 0.0007,
-      "horizons_true_disk_utc": "2027-04-25T03:35Z",
-      "difference_true_disk_min": 7.4148,
+      "horizons_utc": "2027-04-25T03:35Z",
+      "difference_min": 0.1501,
+      "horizons_fixed_disk_utc": "2027-04-25T03:43Z",
+      "difference_fixed_disk_min": -7.264,
       "disk_radius_deg": 0.2645
     },
     {
-      "utc": "2027-05-12T03:54Z",
+      "utc": "2027-05-12T04:02Z",
       "type": "sunrise",
-      "horizons_utc": "2027-05-12T03:54Z",
-      "difference_min": 0.0134,
-      "horizons_true_disk_utc": "2027-05-12T04:02Z",
-      "difference_true_disk_min": -8.0908,
+      "horizons_utc": "2027-05-12T04:02Z",
+      "difference_min": -0.1443,
+      "horizons_fixed_disk_utc": "2027-05-12T03:54Z",
+      "difference_fixed_disk_min": 7.96,
       "disk_radius_deg": 0.2639
     },
     {
-      "utc": "2027-05-16T18:05Z",
+      "utc": "2027-05-16T18:18Z",
       "type": "earthset",
-      "horizons_utc": "2027-05-16T18:05Z",
-      "difference_min": 0.048,
-      "horizons_true_disk_utc": "2027-05-16T18:18Z",
-      "difference_true_disk_min": -13.3989,
-      "disk_radius_deg": 0.9581
+      "horizons_utc": "2027-05-16T18:18Z",
+      "difference_min": 0.1094,
+      "horizons_fixed_disk_utc": "2027-05-16T18:05Z",
+      "difference_fixed_disk_min": 13.5564,
+      "disk_radius_deg": 0.958
     },
     {
-      "utc": "2027-05-22T02:31Z",
+      "utc": "2027-05-22T03:34Z",
       "type": "earthrise",
-      "horizons_utc": "2027-05-22T02:31Z",
-      "difference_min": -0.098,
-      "horizons_true_disk_utc": "2027-05-22T03:34Z",
-      "difference_true_disk_min": -63.7489,
-      "disk_radius_deg": 0.9157
+      "horizons_utc": "2027-05-22T03:34Z",
+      "difference_min": -0.1005,
+      "horizons_fixed_disk_utc": "2027-05-22T02:31Z",
+      "difference_fixed_disk_min": 63.5505,
+      "disk_radius_deg": 0.9154
     },
     {
-      "utc": "2027-05-24T16:30Z",
+      "utc": "2027-05-24T16:21Z",
       "type": "sunset",
-      "horizons_utc": "2027-05-24T16:30Z",
-      "difference_min": -0.0032,
-      "horizons_true_disk_utc": "2027-05-24T16:20Z",
-      "difference_true_disk_min": 9.9274,
+      "horizons_utc": "2027-05-24T16:20Z",
+      "difference_min": 0.1503,
+      "horizons_fixed_disk_utc": "2027-05-24T16:30Z",
+      "difference_fixed_disk_min": -9.7803,
       "disk_radius_deg": 0.2627
     },
     {
-      "utc": "2027-06-10T09:25Z",
+      "utc": "2027-06-10T09:34Z",
       "type": "sunrise",
-      "horizons_utc": "2027-06-10T09:25Z",
-      "difference_min": 0.0238,
-      "horizons_true_disk_utc": "2027-06-10T09:34Z",
-      "difference_true_disk_min": -9.6268,
+      "horizons_utc": "2027-06-10T09:34Z",
+      "difference_min": -0.1252,
+      "horizons_fixed_disk_utc": "2027-06-10T09:25Z",
+      "difference_fixed_disk_min": 9.5254,
       "disk_radius_deg": 0.2626
     },
     {
-      "utc": "2027-06-12T18:44Z",
+      "utc": "2027-06-12T18:59Z",
       "type": "earthset",
-      "horizons_utc": "2027-06-12T18:44Z",
-      "difference_min": 0.1041,
-      "horizons_true_disk_utc": "2027-06-12T18:59Z",
-      "difference_true_disk_min": -15.4074,
-      "disk_radius_deg": 0.9596
+      "horizons_utc": "2027-06-12T18:59Z",
+      "difference_min": 0.0259,
+      "horizons_fixed_disk_utc": "2027-06-12T18:44Z",
+      "difference_fixed_disk_min": 15.5374,
+      "disk_radius_deg": 0.9595
     },
     {
-      "utc": "2027-06-18T07:21Z",
+      "utc": "2027-06-18T08:28Z",
       "type": "earthrise",
-      "horizons_utc": "2027-06-18T07:22Z",
-      "difference_min": -0.0846,
-      "horizons_true_disk_utc": "2027-06-18T08:28Z",
-      "difference_true_disk_min": -66.6672,
-      "disk_radius_deg": 0.913
+      "horizons_utc": "2027-06-18T08:28Z",
+      "difference_min": -0.0941,
+      "horizons_fixed_disk_utc": "2027-06-18T07:22Z",
+      "difference_fixed_disk_min": 66.4886,
+      "disk_radius_deg": 0.9127
     },
     {
-      "utc": "2027-06-23T13:28Z",
+      "utc": "2027-06-23T13:17Z",
       "type": "sunset",
-      "horizons_utc": "2027-06-23T13:28Z",
-      "difference_min": -0.0015,
-      "horizons_true_disk_utc": "2027-06-23T13:17Z",
-      "difference_true_disk_min": 11.1104,
+      "horizons_utc": "2027-06-23T13:17Z",
+      "difference_min": 0.1505,
+      "horizons_fixed_disk_utc": "2027-06-23T13:28Z",
+      "difference_fixed_disk_min": -10.9614,
       "disk_radius_deg": 0.2617
     },
     {
-      "utc": "2027-07-09T07:40Z",
+      "utc": "2027-07-09T07:49Z",
       "type": "sunrise",
-      "horizons_utc": "2027-07-09T07:40Z",
-      "difference_min": 0.0232,
-      "horizons_true_disk_utc": "2027-07-09T07:50Z",
-      "difference_true_disk_min": -9.8115,
+      "horizons_utc": "2027-07-09T07:50Z",
+      "difference_min": -0.1225,
+      "horizons_fixed_disk_utc": "2027-07-09T07:40Z",
+      "difference_fixed_disk_min": 9.7123,
       "disk_radius_deg": 0.2623
     },
     {
-      "utc": "2027-07-09T20:49Z",
+      "utc": "2027-07-09T21:22Z",
       "type": "earthset",
-      "horizons_utc": "2027-07-09T20:49Z",
-      "difference_min": 0.0781,
-      "horizons_true_disk_utc": "2027-07-09T21:22Z",
-      "difference_true_disk_min": -33.1412,
-      "disk_radius_deg": 0.9717
+      "horizons_utc": "2027-07-09T21:22Z",
+      "difference_min": 0.1116,
+      "horizons_fixed_disk_utc": "2027-07-09T20:49Z",
+      "difference_fixed_disk_min": 33.3309,
+      "disk_radius_deg": 0.9714
     },
     {
-      "utc": "2027-07-15T13:02Z",
+      "utc": "2027-07-15T14:10Z",
       "type": "earthrise",
-      "horizons_utc": "2027-07-15T13:02Z",
-      "difference_min": -0.0258,
-      "horizons_true_disk_utc": "2027-07-15T14:10Z",
-      "difference_true_disk_min": -67.8782,
-      "disk_radius_deg": 0.9112
+      "horizons_utc": "2027-07-15T14:10Z",
+      "difference_min": -0.0612,
+      "horizons_fixed_disk_utc": "2027-07-15T13:02Z",
+      "difference_fixed_disk_min": 67.7911,
+      "disk_radius_deg": 0.9109
     },
     {
-      "utc": "2027-07-23T16:08Z",
+      "utc": "2027-07-23T15:58Z",
       "type": "sunset",
-      "horizons_utc": "2027-07-23T16:08Z",
-      "difference_min": 0.0107,
-      "horizons_true_disk_utc": "2027-07-23T15:58Z",
-      "difference_true_disk_min": 10.8185,
+      "horizons_utc": "2027-07-23T15:58Z",
+      "difference_min": 0.1611,
+      "horizons_fixed_disk_utc": "2027-07-23T16:08Z",
+      "difference_fixed_disk_min": -10.6467,
       "disk_radius_deg": 0.2619
     },
     {
-      "utc": "2027-08-06T02:58Z",
+      "utc": "2027-08-06T03:53Z",
       "type": "earthset",
-      "horizons_utc": "2027-08-06T02:58Z",
-      "difference_min": 0.0233,
-      "horizons_true_disk_utc": "2027-08-06T03:53Z",
-      "difference_true_disk_min": -55.2524,
-      "disk_radius_deg": 0.9876
-    },
-    {
-      "utc": "2027-08-07T02:25Z",
-      "type": "sunrise",
-      "horizons_utc": "2027-08-07T02:25Z",
-      "difference_min": 0.0086,
-      "horizons_true_disk_utc": "2027-08-07T02:34Z",
-      "difference_true_disk_min": -8.8811,
-      "disk_radius_deg": 0.263
-    },
-    {
-      "utc": "2027-08-11T17:52Z",
-      "type": "earthrise",
-      "horizons_utc": "2027-08-11T17:52Z",
-      "difference_min": -0.0419,
-      "horizons_true_disk_utc": "2027-08-11T18:55Z",
-      "difference_true_disk_min": -62.8983,
-      "disk_radius_deg": 0.9139
-    },
-    {
-      "utc": "2027-08-22T20:54Z",
-      "type": "sunset",
-      "horizons_utc": "2027-08-22T20:54Z",
-      "difference_min": 0.0054,
-      "horizons_true_disk_utc": "2027-08-22T20:45Z",
-      "difference_true_disk_min": 9.2195,
-      "disk_radius_deg": 0.2631
-    },
-    {
-      "utc": "2027-09-02T12:25Z",
-      "type": "earthset",
-      "horizons_utc": "2027-09-02T12:25Z",
-      "difference_min": 0.1253,
-      "horizons_true_disk_utc": "2027-09-02T13:36Z",
-      "difference_true_disk_min": -70.7387,
-      "disk_radius_deg": 0.9977
-    },
-    {
-      "utc": "2027-09-04T21:47Z",
-      "type": "sunrise",
-      "horizons_utc": "2027-09-04T21:47Z",
-      "difference_min": 0.0043,
-      "horizons_true_disk_utc": "2027-09-04T21:54Z",
-      "difference_true_disk_min": -7.0168,
-      "disk_radius_deg": 0.2646
-    },
-    {
-      "utc": "2027-09-07T20:59Z",
-      "type": "earthrise",
-      "horizons_utc": "2027-09-07T20:59Z",
-      "difference_min": -0.0186,
-      "horizons_true_disk_utc": "2027-09-07T21:48Z",
-      "difference_true_disk_min": -49.1386,
-      "disk_radius_deg": 0.9223
-    },
-    {
-      "utc": "2027-09-21T23:36Z",
-      "type": "sunset",
-      "horizons_utc": "2027-09-21T23:36Z",
-      "difference_min": 0.0288,
-      "horizons_true_disk_utc": "2027-09-21T23:29Z",
-      "difference_true_disk_min": 6.6177,
-      "disk_radius_deg": 0.2652
-    },
-    {
-      "utc": "2027-09-29T21:55Z",
-      "type": "earthset",
-      "horizons_utc": "2027-09-29T21:55Z",
-      "difference_min": 0.0541,
-      "horizons_true_disk_utc": "2027-09-29T23:08Z",
-      "difference_true_disk_min": -73.0444,
-      "disk_radius_deg": 0.997
-    },
-    {
-      "utc": "2027-10-03T21:59Z",
-      "type": "sunrise",
-      "horizons_utc": "2027-10-03T21:59Z",
-      "difference_min": 0.01,
-      "horizons_true_disk_utc": "2027-10-03T22:03Z",
-      "difference_true_disk_min": -4.3736,
-      "disk_radius_deg": 0.2667
-    },
-    {
-      "utc": "2027-10-04T23:13Z",
-      "type": "earthrise",
-      "horizons_utc": "2027-10-04T23:13Z",
-      "difference_min": -0.071,
-      "horizons_true_disk_utc": "2027-10-04T23:43Z",
-      "difference_true_disk_min": -29.6404,
-      "disk_radius_deg": 0.9337
-    },
-    {
-      "utc": "2027-10-21T20:01Z",
-      "type": "sunset",
-      "horizons_utc": "2027-10-21T20:01Z",
-      "difference_min": 0.0046,
-      "horizons_true_disk_utc": "2027-10-21T19:57Z",
-      "difference_true_disk_min": 3.4238,
-      "disk_radius_deg": 0.2675
-    },
-    {
-      "utc": "2027-10-27T03:56Z",
-      "type": "earthset",
-      "horizons_utc": "2027-10-27T03:56Z",
-      "difference_min": 0.0443,
-      "horizons_true_disk_utc": "2027-10-27T04:55Z",
-      "difference_true_disk_min": -59.5528,
+      "horizons_utc": "2027-08-06T03:53Z",
+      "difference_min": 0.0624,
+      "horizons_fixed_disk_utc": "2027-08-06T02:58Z",
+      "difference_fixed_disk_min": 55.338,
       "disk_radius_deg": 0.987
     },
     {
-      "utc": "2027-11-01T02:53Z",
-      "type": "earthrise",
-      "horizons_utc": "2027-11-01T02:53Z",
-      "difference_min": -0.047,
-      "horizons_true_disk_utc": "2027-11-01T03:10Z",
-      "difference_true_disk_min": -16.5908,
-      "disk_radius_deg": 0.9408
+      "utc": "2027-08-07T02:34Z",
+      "type": "sunrise",
+      "horizons_utc": "2027-08-07T02:34Z",
+      "difference_min": -0.1347,
+      "horizons_fixed_disk_utc": "2027-08-07T02:25Z",
+      "difference_fixed_disk_min": 8.755,
+      "disk_radius_deg": 0.263
     },
     {
-      "utc": "2027-11-02T07:04Z",
+      "utc": "2027-08-11T18:55Z",
+      "type": "earthrise",
+      "horizons_utc": "2027-08-11T18:55Z",
+      "difference_min": -0.0403,
+      "horizons_fixed_disk_utc": "2027-08-11T17:52Z",
+      "difference_fixed_disk_min": 62.8161,
+      "disk_radius_deg": 0.9136
+    },
+    {
+      "utc": "2027-08-22T20:45Z",
+      "type": "sunset",
+      "horizons_utc": "2027-08-22T20:45Z",
+      "difference_min": 0.1618,
+      "horizons_fixed_disk_utc": "2027-08-22T20:54Z",
+      "difference_fixed_disk_min": -9.0523,
+      "disk_radius_deg": 0.2631
+    },
+    {
+      "utc": "2027-09-02T13:36Z",
+      "type": "earthset",
+      "horizons_utc": "2027-09-02T13:36Z",
+      "difference_min": 0.1181,
+      "horizons_fixed_disk_utc": "2027-09-02T12:25Z",
+      "difference_fixed_disk_min": 70.9821,
+      "disk_radius_deg": 0.9971
+    },
+    {
+      "utc": "2027-09-04T21:54Z",
       "type": "sunrise",
-      "horizons_utc": "2027-11-02T07:04Z",
-      "difference_min": 0.0044,
-      "horizons_true_disk_utc": "2027-11-02T07:06Z",
-      "difference_true_disk_min": -1.3935,
+      "horizons_utc": "2027-09-04T21:54Z",
+      "difference_min": -0.1392,
+      "horizons_fixed_disk_utc": "2027-09-04T21:47Z",
+      "difference_fixed_disk_min": 6.8819,
+      "disk_radius_deg": 0.2646
+    },
+    {
+      "utc": "2027-09-07T21:48Z",
+      "type": "earthrise",
+      "horizons_utc": "2027-09-07T21:48Z",
+      "difference_min": -0.0668,
+      "horizons_fixed_disk_utc": "2027-09-07T20:59Z",
+      "difference_fixed_disk_min": 49.0533,
+      "disk_radius_deg": 0.922
+    },
+    {
+      "utc": "2027-09-21T23:30Z",
+      "type": "sunset",
+      "horizons_utc": "2027-09-21T23:29Z",
+      "difference_min": 0.1865,
+      "horizons_fixed_disk_utc": "2027-09-21T23:36Z",
+      "difference_fixed_disk_min": -6.4023,
+      "disk_radius_deg": 0.2652
+    },
+    {
+      "utc": "2027-09-29T23:08Z",
+      "type": "earthset",
+      "horizons_utc": "2027-09-29T23:08Z",
+      "difference_min": 0.0696,
+      "horizons_fixed_disk_utc": "2027-09-29T21:55Z",
+      "difference_fixed_disk_min": 73.1681,
+      "disk_radius_deg": 0.9966
+    },
+    {
+      "utc": "2027-10-03T22:03Z",
+      "type": "sunrise",
+      "horizons_utc": "2027-10-03T22:03Z",
+      "difference_min": -0.1468,
+      "horizons_fixed_disk_utc": "2027-10-03T21:59Z",
+      "difference_fixed_disk_min": 4.2367,
+      "disk_radius_deg": 0.2667
+    },
+    {
+      "utc": "2027-10-04T23:43Z",
+      "type": "earthrise",
+      "horizons_utc": "2027-10-04T23:43Z",
+      "difference_min": -0.0789,
+      "horizons_fixed_disk_utc": "2027-10-04T23:13Z",
+      "difference_fixed_disk_min": 29.4905,
+      "disk_radius_deg": 0.9335
+    },
+    {
+      "utc": "2027-10-21T19:57Z",
+      "type": "sunset",
+      "horizons_utc": "2027-10-21T19:57Z",
+      "difference_min": 0.1671,
+      "horizons_fixed_disk_utc": "2027-10-21T20:01Z",
+      "difference_fixed_disk_min": -3.2521,
+      "disk_radius_deg": 0.2675
+    },
+    {
+      "utc": "2027-10-27T04:56Z",
+      "type": "earthset",
+      "horizons_utc": "2027-10-27T04:55Z",
+      "difference_min": 0.0479,
+      "horizons_fixed_disk_utc": "2027-10-27T03:56Z",
+      "difference_fixed_disk_min": 59.6451,
+      "disk_radius_deg": 0.9868
+    },
+    {
+      "utc": "2027-11-01T03:10Z",
+      "type": "earthrise",
+      "horizons_utc": "2027-11-01T03:10Z",
+      "difference_min": -0.0575,
+      "horizons_fixed_disk_utc": "2027-11-01T02:53Z",
+      "difference_fixed_disk_min": 16.4862,
+      "disk_radius_deg": 0.9407
+    },
+    {
+      "utc": "2027-11-02T07:05Z",
+      "type": "sunrise",
+      "horizons_utc": "2027-11-02T07:06Z",
+      "difference_min": -0.1569,
+      "horizons_fixed_disk_utc": "2027-11-02T07:04Z",
+      "difference_fixed_disk_min": 1.241,
       "disk_radius_deg": 0.269
     },
     {
       "utc": "2027-11-20T07:25Z",
       "type": "sunset",
       "horizons_utc": "2027-11-20T07:25Z",
-      "difference_min": 0.0377,
-      "horizons_true_disk_utc": "2027-11-20T07:25Z",
-      "difference_true_disk_min": 0.6809,
+      "difference_min": 0.1955,
+      "horizons_fixed_disk_utc": "2027-11-20T07:25Z",
+      "difference_fixed_disk_min": -0.4477,
       "disk_radius_deg": 0.2695
     },
     {
-      "utc": "2027-11-23T05:40Z",
+      "utc": "2027-11-23T06:24Z",
       "type": "earthset",
-      "horizons_utc": "2027-11-23T05:40Z",
-      "difference_min": 0.104,
-      "horizons_true_disk_utc": "2027-11-23T06:24Z",
-      "difference_true_disk_min": -43.3117,
-      "disk_radius_deg": 0.9773
+      "horizons_utc": "2027-11-23T06:24Z",
+      "difference_min": 0.1195,
+      "horizons_fixed_disk_utc": "2027-11-23T05:40Z",
+      "difference_fixed_disk_min": 43.5352,
+      "disk_radius_deg": 0.9771
     },
     {
-      "utc": "2027-11-28T09:10Z",
+      "utc": "2027-11-28T09:29Z",
       "type": "earthrise",
-      "horizons_utc": "2027-11-28T09:10Z",
-      "difference_min": -0.0567,
-      "horizons_true_disk_utc": "2027-11-28T09:29Z",
-      "difference_true_disk_min": -18.945,
-      "disk_radius_deg": 0.9391
+      "horizons_utc": "2027-11-28T09:29Z",
+      "difference_min": -0.1025,
+      "horizons_fixed_disk_utc": "2027-11-28T09:10Z",
+      "difference_fixed_disk_min": 18.7858,
+      "disk_radius_deg": 0.939
     }
   ]
 }

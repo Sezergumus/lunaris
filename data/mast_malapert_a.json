@@ -13,24 +13,24 @@
   {
    "mast_m": 2.0,
    "mean_horizon_deg": 4.815,
-   "sun_visible_pct": 38.95,
-   "longest_darkness_h": 451.072,
+   "sun_visible_pct": 38.942,
+   "longest_darkness_h": 451.17,
    "earth_visible_pct": 100.0,
    "longest_earth_outage_h": 0.0
   },
   {
    "mast_m": 5.0,
    "mean_horizon_deg": 4.562,
-   "sun_visible_pct": 39.475,
-   "longest_darkness_h": 447.38,
+   "sun_visible_pct": 39.466,
+   "longest_darkness_h": 447.477,
    "earth_visible_pct": 100.0,
    "longest_earth_outage_h": 0.0
   },
   {
    "mast_m": 10.0,
    "mean_horizon_deg": 4.221,
-   "sun_visible_pct": 40.095,
-   "longest_darkness_h": 442.454,
+   "sun_visible_pct": 40.086,
+   "longest_darkness_h": 442.552,
    "earth_visible_pct": 100.0,
    "longest_earth_outage_h": 0.0
   }

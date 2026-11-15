@@ -28,8 +28,8 @@
   "outcome": "operated from landing to local sunset; never woke up after the night"
  },
  "model": {
-  "sunset_after_landing": "2023-09-04T07:17Z",
-  "next_sunrise": "2023-09-19T22:38Z",
+  "sunset_after_landing": "2023-09-04T07:15Z",
+  "next_sunrise": "2023-09-19T22:39Z",
   "sunlit_days_after_landing": 11.78,
   "sunrise_to_wake_up_attempt_days": 2.06
  },
@@ -91,7 +91,7 @@
     "duration_days": 12.0,
     "power": {
      "sunlit_pct": 39.236,
-     "mean_solar_fraction_pct": 39.353,
+     "mean_solar_fraction_pct": 39.352,
      "longest_darkness_h": 173.0,
      "dark_at_landing": false,
      "partial_disk_h": 3.0,
@@ -254,31 +254,31 @@
  ],
  "dates": {
   "requested": "2023-08-23T12:33Z",
-  "nearest_earlier": "2023-08-23T00:00Z",
-  "nearest_later": "2023-08-24T00:00Z",
-  "slip_tolerance_days": 0,
+  "nearest_earlier": "2023-08-22T12:33Z",
+  "nearest_later": "2023-08-24T12:33Z",
+  "slip_tolerance_days": 1,
   "low_risk_now": true,
-  "low_risk_dates": 20,
+  "low_risk_dates": 18,
   "windows": [
    {
-    "start": "2023-07-22T00:00Z",
-    "end": "2023-07-26T00:00Z",
-    "days": 5
-   },
-   {
-    "start": "2023-08-21T00:00Z",
-    "end": "2023-08-24T00:00Z",
+    "start": "2023-07-22T12:33Z",
+    "end": "2023-07-25T12:33Z",
     "days": 4
    },
    {
-    "start": "2023-09-19T00:00Z",
-    "end": "2023-09-23T00:00Z",
+    "start": "2023-08-20T12:33Z",
+    "end": "2023-08-24T12:33Z",
     "days": 5
    },
    {
-    "start": "2023-10-18T00:00Z",
-    "end": "2023-10-23T00:00Z",
-    "days": 6
+    "start": "2023-09-19T12:33Z",
+    "end": "2023-09-22T12:33Z",
+    "days": 4
+   },
+   {
+    "start": "2023-10-18T12:33Z",
+    "end": "2023-10-22T12:33Z",
+    "days": 5
    }
   ]
  }
