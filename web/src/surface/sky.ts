@@ -235,11 +235,11 @@ export class SkyLayer {
     this.overlay.add(this.hiddenTracks);
   }
 
-  /** Planner labels: guide lines and the tracks of the Sun and the Earth. */
-  setGuides(visible: boolean) {
-    this.guides.visible = visible;
-    this.tracks.visible = visible;
-    this.hiddenTracks.visible = visible;
+  /** Guide lines (Planner) and the tracks of the Sun and the Earth (both modes). */
+  setGuides(guides: boolean, tracks: boolean) {
+    this.guides.visible = guides;
+    this.tracks.visible = tracks;
+    this.hiddenTracks.visible = tracks;
   }
 
   /**

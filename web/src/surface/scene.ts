@@ -510,9 +510,12 @@ export class SurfaceScene {
     return this.projectVector(point.clone().sub(this.cameraPosition()));
   }
 
-  /** Planner labels: guide lines, the bodies' tracks, and the stretches of skyline that block them. */
+  /**
+   * Planner labels: guide lines and the stretches of skyline that block a body. The bodies'
+   * tracks show in both modes.
+   */
   setGuides(visible: boolean) {
-    this.sky.setGuides(visible);
+    this.sky.setGuides(visible, true);
     this.blockerScene.visible = visible;
     this.requestRender();
   }

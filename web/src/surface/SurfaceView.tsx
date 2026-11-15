@@ -183,7 +183,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
   /** The drone camera needs a terrain mesh; without one the view stays first person. */
   const droneRef = useRef(false);
   const [overlay, setOverlay] = useState<GroundOverlay>("off");
-  /** Planner: where the Sun stands at the start of each mission day, along its track. */
+  /** Where the Sun stands at the start of each mission day, along its track. */
   const [dayMarks, setDayMarks] = useState<DayMark[]>([]);
   const dayMarksRef = useRef<DayMark[]>([]);
   const daysRef = useRef<HTMLDivElement>(null);
@@ -247,7 +247,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       // From far away the labels of neighbours 125 m apart pile up: only the best spot keeps its own.
       placeBeaconLabels(beaconsRef.current, scene.beaconProjections(), drone && scene.cameraDistanceM > DRONE_LABELS_WITHIN_M);
       placeHere(hereRef.current, drone && !flightRef.current ? scene.observerProjection() : null);
-      placeDayMarks(daysRef.current, drone || modeRef.current !== "plan" ? null : dayMarksRef.current.map((mark) => scene.project(mark.azimuthDeg, mark.elevationDeg)));
+      placeDayMarks(daysRef.current, drone ? null : dayMarksRef.current.map((mark) => scene.project(mark.azimuthDeg, mark.elevationDeg)));
       if (readoutRef.current && drone) {
         readoutRef.current.textContent = `Drone · ${formatDistance(scene.cameraDistanceM)} away · looking ${COMPASS[Math.round(m.headingDeg / 45) % 8]}`;
       } else if (readoutRef.current) {
@@ -751,7 +751,7 @@ function placeBeaconLabels(el: HTMLDivElement | null, projections: { x: number; 
   });
 }
 
-/** Planner: the day labels along the Sun's track; null hides them all. */
+/** The day labels along the Sun's track; null hides them all. */
 function placeDayMarks(el: HTMLDivElement | null, projections: { x: number; y: number; inView: boolean }[] | null) {
   if (!el) return;
   el.querySelectorAll<HTMLElement>(".surface__day").forEach((label) => {
