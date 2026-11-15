@@ -53,6 +53,37 @@ horizon-uncertainty score, then:
    (`dark=140&slope=20`: risk 100 -> 59; reset -> 100), not on a phone-sized screen. Mission
    length is not a slider (the timeline's 14 d / lunar day control owns the window).
 
+**Model review, 2026-11-15 afternoon (backend + engine, no UI change; Kerem asked for a
+critical review of the formulas):** three correctness fixes, in both engines, `npm run
+validate` passes, backtest passes:
+
+1. Disk radii from the distances (`lunar_sky.body_geometry`, `skyFromVectors`): Sun
+   0.262-0.272, Earth 0.90-1.02 deg instead of a fixed 0.27 / 0.95. Used by `risk`,
+   `metrics`, `mast`, `events`, `grid`, `nearby`, `backtest` and the UI's rise/set times.
+   `HorizonView.tsx` still draws the disks at the mean size (UI, untouched).
+2. Ground-side solar conjunction: the old test (Sun within 2 deg of the Earth seen from the
+   lander) only fires near full Moon; the Sun-Earth-probe angle (Sun within 2 deg of the
+   Moon seen from the Earth, near new Moon) was missing. Both now count as conjunction
+   (16 h a year below 2 deg).
+3. `date_alternatives` midnight quirk fixed: the landing-date scan is anchored at the
+   landing's time of day (`scan_landing_dates(..., anchor=)`), so the requested landing is a
+   scan row. Midnight landings (all reference files) are unchanged.
+
+Effect, landing 2026-12-16: no score or level changed; low-risk dates per year Mons Mouton
+22 -> 21 (the May 2027 window is gone), ridge 12 -> 11 (10 with the map error); yearly Sun
+visibility down 0.1 point at three sites. Two rule changes were measured but **not made**
+(see "Open decisions").
+
+**Browser check, 2026-11-15 (Kerem's Mac, dev server with `VITE_TERRAIN_API` = live API):**
+Malapert A (slope 13.1, 100/0/100, best spot 559 m NW risk 63) and the Mons Mouton slip
+(A 0, B +7 d 100, 51 % Sun, 6.6 d dark) match the backend. Custom point (-85.3, 31): the
+live service answered (snapped centre 31.01 E, slope 9.8 = API 9.755), risk 95; the 5x5
+scan gave "559 m SW, risk 53, Sun +4 pts", identical to `grid --grid 5 --grid-step 250` in
+Python. Phone size (375x812): no horizontal scroll; the inspector opens as a sheet only from
+a tap on a site (a URL load leaves it closed). The landing-date strip counts all dates to
+2030 (Mons Mouton 98 of 1478), not one year. `.claude/launch.json` (dev server for the
+desktop app preview) is untracked.
+
 The risk-card additions of the evening are visual changes in the frontend's area, made with
 Kerem's approval; tell Sezer. Still open from Kerem's idea list: a battery state-of-charge
 model as an extra indicator (not started; no sourced Wh / W numbers).
@@ -168,6 +199,17 @@ has its explainer lines (`Explainer.tsx`, an info tooltip in the inspector heade
 complete was not checked in the running app by the backend side. Ask Sezer.
 **Open decisions (user/team; do not decide silently):**
 
+- **Darkness rule (proposed 2026-11-15, not decided).** `longest_darkness_h` counts only
+  samples with no Sun at all, so a sliver of 1 % of the disk restarts the battery clock.
+  Counting runs below `min_solar_fraction` (no usable Sun) instead: Chandrayaan-3 on
+  2026-12-16 28 -> 36 (low -> medium), 37 -> 36 low-risk dates; ridge 12 -> 10; others
+  unchanged. Physically the stricter rule is right for a load that needs half the disk.
+- **Link line of sight (proposed 2026-11-15, not decided).** Comm needs only the Earth's
+  upper limb above the terrain, but the DSN station can be anywhere on the Earth's disk
+  (up to ~1.9 deg lower). Requiring the Earth's center: ridge low-risk dates 12 -> 1,
+  Mons Mouton 22 -> 17, longest ridge outage 55 -> 69 h; others unchanged. The exact rule
+  needs the station's own direction (a station vector table, ~1.3 MB in the browser).
+
 - **Decided 2026-11-15 (Kerem): one surface rule everywhere.** The surface score uses the
   95th-percentile slope within the landing precision (`landing_precision_m`, 100 m) from
   the 60 m LOLA slope map, computed as for a grid point (`value_within`). `horizon` writes
@@ -178,9 +220,12 @@ complete was not checked in the running app by the backend side. Ask Sezer.
   Shackleton, ridge, Mons Mouton, Malapert A, Chandrayaan-3). `horizon_*` (additive only),
   `grid_*` (60 m slopes, `horizon_range_km` kept), `risk_*`, `ranking.json` were
   regenerated; `npm run validate` passes; the backtest still passes (file unchanged). The
-  1000 m statistics stay in the file as context and for the height error. Not changed:
-  `nearby` (ring search, CLI only, not read by the UI) still judges derived slope within
-  `--ellipse` 1000 m; `nearby_*.json` were not regenerated. What moved, landing 2026-12-16:
+  1000 m statistics stay in the file as context and for the height error. The ring search
+  `nearby` follows the same rule since 2026-11-15 (slope map within `landing_precision_m`,
+  `precision_m` and `slope_source` in `nearby_*.json`, `ellipse_m` gone); its centres now
+  equal `risk_*.json` exactly. New ring results, landing 2026-12-16: Malapert A best 2 km SE
+  risk 0, 52 low-risk dates (was 5 km N, 58); Mons Mouton best 1 km SW risk 0, 42 dates
+  (site itself 0, 22); ridge: the site itself, 100. What moved, landing 2026-12-16:
   Mons Mouton 18 -> 0 (the slip story is now 0 -> 100 -> 0); connecting ridge surface
   100 -> 0 (overall still 100 by comm, but 12 low-risk landing dates in the year instead
   of 0, 9 with the map height error); Shackleton surface 87 -> 8 (overall 100);
@@ -220,8 +265,6 @@ complete was not checked in the running app by the backend side. Ask Sezer.
   (`nearby` and `mast` need the DEM, local or remote).
 - `risk` counts whole hourly samples; `metrics` interpolates events. Small differences
   between the two are expected.
-- `nearby` uses DEM-derived slope within `--ellipse` (1000 m), `risk` the slope map within
-  the landing precision (100 m) → the centre's surface score differs (Mons Mouton 23 vs 0).
 - `npm run validate` reads `web/public/data`; run `npm run data` first after regenerating
   backend files, or it compares against stale copies.
 - CSV writers use LF line endings on purpose (CRLF created whole-file diffs in git).
@@ -238,9 +281,6 @@ complete was not checked in the running app by the backend side. Ask Sezer.
 - `fastapi`/`uvicorn` are in `api/requirements.txt` only (installed in Kerem's `.venv`).
 - After pulling frontend work run `npm install` in `web/` (new dependencies such as
   `radix-ui`, `lucide-react`); it may touch `package-lock.json`, do not commit that by accident.
-- `date_alternatives` matches the landing against the scan's midnight dates: with a landing
-  time that is not 00:00 the "Requested date" line can say "NOT low risk" although the
-  window itself scores low (seen in `backtest --profile solar_lander`). Trust the slip table.
 - `read_window` with `decimation > 1` reads the GeoTIFF's overviews, whose pixel grid is
   not aligned with the window: the result is shifted by up to half a coarse pixel (against
   the true block average at Mons Mouton: max 16 m at 240 m pixels, 938 m at 3 840 m).
@@ -638,8 +678,9 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 
 Per sample: `solar_fraction` = visible share of the Sun's disk after terrain AND after the
 Earth's disk (Earth-caused eclipse, circle overlap); `comm` = Earth's upper limb clears
-terrain AND some DSN complex has the Moon above 10° AND Sun–Earth separation ≥ 2° (solar
-conjunction); `low_elevation` = Earth center < 2° above terrain (degraded, not an outage).
+terrain AND some DSN complex has the Moon above 10° AND no solar conjunction (Sun–Earth
+separation seen from the lander ≥ 2° AND Sun–Moon separation seen from the Earth ≥ 2°);
+disk radii per sample from the distances (`lunar_sky.body_geometry`); `low_elevation` = Earth center < 2° above terrain (degraded, not an outage).
 Window indicators: usable-Sun %, longest darkness, grazing-Sun hours, Earth-eclipse hours,
 link %, longest outage, contact on the worst day (fewest contact hours in any 24 h block
 counted from the landing, whole blocks only), hours lost to terrain / station gap / conjunction.
@@ -709,8 +750,7 @@ shorter outage limit. Over the year Mons Mouton has 21 days below 8 h, the ridge
 Alternatives: `dates` block = nearest low-risk landing date before/after, slip tolerance
 (days the landing can slip and stay low-risk), list of low-risk landing windows. `rank`
 compares the preset sites. `nearby` evaluates rings around a site with one shared DEM window;
-it uses slope derived from the DEM for every candidate, so the centre's surface score can
-differ slightly from `risk` (which uses LDSM).
+it judges slope like `risk` and `grid` (slope map within the landing precision).
 
 Covered risk items: terrain eclipse, continuous darkness/battery, eclipse by Earth, grazing
 Sun/partial disk, Earth occultation, solar RF conjunction, low-elevation multipath indicator,
@@ -780,7 +820,14 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
   moves the events: Sun by 1-5 min (median) at 69-85 S but up to 110 min at Shackleton's
   latitude; Earth by about 45-60 min (median), up to 115 min. Near the pole the bodies
   cross the horizon so slowly that 0.05 deg is an hour. A radius from the distance in
-  `ephemeris_vectors.csv` would remove it; not done (it changes both engines' numbers).
+  `ephemeris_vectors.csv` would remove it; **done 2026-11-15** (see the model review in the
+  handoff).
+- **Rise/set after the disk-radius fix** (2026-11-15, `events`, both sides with the disk of
+  the instant). Sphere: Earth median 0.0 / max 0.1 min, Sun max 0.2 min except near the pole
+  (ridge 3.7, Shackleton 1.7 min, about 0.001 deg there: our 696 000 km solar radius
+  against Horizons' own value). Terrain: Sun max 26 min (ridge), 17 (Mons Mouton), under
+  2 min at the other two; Earth max 0.9 min. Horizons with the old fixed radii against the
+  same events: Earth median 44-62 min, max 116 min; Sun max 109 min (Shackleton).
 
 ### One year from 2026-12-01, terrain vs ideal sphere (observer 2 m above ground)
 
@@ -801,8 +848,8 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
 
 | Site             | Usable Sun | Longest dark | Link  | Longest outage | Slope p95 | Risk (power/comm/surface) | Low-risk landing dates per year |
 | ---------------- | ---------- | ------------ | ----- | -------------- | --------- | ------------------------- | ------------------------------- |
-| Connecting ridge | 100%       | 0 h          | 83.3% | 2.3 d          | 2.7°      | 0 / 100 / 0               | 12 of 352                       |
-| Mons Mouton      | 100%       | 0 h          | 99.7% | 1 h            | 3.3°      | 0 / 0 / 0 → low           | 22                              |
+| Connecting ridge | 100%       | 0 h          | 83.3% | 2.3 d          | 2.7°      | 0 / 100 / 0               | 11 of 352                       |
+| Mons Mouton      | 100%       | 0 h          | 99.7% | 1 h            | 3.3°      | 0 / 0 / 0 → low           | 21                              |
 | Malapert A       | 81.0%      | 2.6 d        | 99.7% | 1 h            | 13.1°     | 100 / 0 / 100             | 0                               |
 | Chandrayaan-3    | 89.9%      | 32 h         | 99.7% | 1 h            | 1.2°      | 28 / 0 / 0 → low          | 37                              |
 | Shackleton floor | 0%         | 14 d         | 0%    | 14 d           | 5.4°      | 100 / 100 / 8             | 0                               |
@@ -815,16 +862,16 @@ Slip example (Mons Mouton): +0 d risk 0; +7 d Sun 51 %, 6.6 d dark → 100; +14 
 
 Ranking for that date: mons_mouton 0 (low, slip tolerance 1 d), chandrayaan3 28 (low),
 the other three 100. Mons Mouton low-risk landing windows: 14–17 Dec 2026, 13–15 Jan 2027,
-then short windows in May, Aug, Sep, Oct, Nov 2027 (22 dates in total).
+then short windows in Aug, Sep, Oct, Nov 2027 (21 dates in total since the disk-radius fix).
 
 Nearby search (rings to 10 km), landing 2026-12-16:
 
-- Malapert A, 1 km ellipse: every point within 10 km is limited by slope; best is 5 km N,
-  risk 58 (medium). With `--ellipse 300`: 2 km E → risk 3 (low), 100 % Sun, 43 low-risk dates
-  in the year (the site itself: risk 100, none).
+- Malapert A (slope within 100 m, 2026-11-15): best is 2 km SE, risk 0, 100 % Sun, 52
+  low-risk dates in the year (the site itself: risk 100, none). With the old 1 km ellipse
+  every point within 10 km was limited by slope (best 5 km N, risk 58).
 - Connecting ridge: no low-risk point within 10 km (comm outage or slope); 1 km N drops to
   14 % Sun — extreme position sensitivity near the pole.
-- Mons Mouton: the site itself is the best of its 33 candidates.
+- Mons Mouton: site risk 0 (22 dates); 1 km SW is also 0 with 42 dates and 3 d slip tolerance.
 
 Mast height (2 → 10 m), Sun visible over the year: connecting ridge 82.7 → 95.7 % (longest
 dark 9.7 → 3.1 d); Mons Mouton 45.6 → 46.6 %; Malapert A 39.0 → 40.1 %.
@@ -864,8 +911,6 @@ Terrain sensitivity (hypothetical uniform horizon, one year): each 1° of horizo
 ## Limitations
 
 - Site coordinates are approximate; near the pole results change strongly within ~1 km.
-- The Sun's and the Earth's disk radii are fixed (0.27 / 0.95 deg); the Earth's really
-  varies 0.90-1.00 deg, which shifts Earthrise / Earthset by up to about 2 h near the pole.
 - Hourly sampling: events are accurate to minutes by interpolation in `metrics`, but `risk`
   counts whole samples (durations in 1 h units; DSN gaps shorter than 1 h are missed).
 - Power uses the visible solar-disk fraction only (no panel orientation, no thermal model).
@@ -891,14 +936,13 @@ backtest, horizon uncertainty, the daily contact rule, mission-limit sliders, th
    "Mission limits" card. Ask him whether phase 8 is complete.
 3. **Team decisions** (see "Open decisions"; the slope rule is decided): default mission profile and the unsourced numbers in it (24 h for `solar_lander`, 8 h of
    daily contact); the demo story; the connecting ridge longitude.
-4. **Frontend, if time allows:** terrain-service status from `/health`; try the custom-point
-   nearby scan and saved points against the live API in a browser; a phone-sized check of
-   the new cards. (Nearby search, heat map and saved points are built, see the handoff.)
+4. **Frontend, if time allows:** terrain-service status from `/health`; saved points
+   against the live API in a browser (custom point and nearby scan were checked
+   2026-11-15). (Nearby search, heat map and saved points are built, see the handoff.)
 5. **Backend, if time allows:** horizon uncertainty for custom points (the API would have to
-   return `horizon_range_km` and a height error); the `date_alternatives` midnight quirk;
-   a `validate` check that the Python and TypeScript presets are equal; a battery
-   state-of-charge indicator (no sourced Wh / W numbers); disk radii of the Sun and the
-   Earth from their distance instead of fixed values (see "Validation").
+   return `horizon_range_km` and a height error); a `validate` check that the Python and
+   TypeScript presets are equal; a battery state-of-charge indicator (no sourced Wh / W
+   numbers); the two rule proposals under "Open decisions".
 6. **Before the demo:** call `/health` once to wake the service (first request about 4 s);
    check the Google Cloud trial credit.
 7. **Last 5–6 hours:** no new features; bug fixing, demo story, presentation, submission,
