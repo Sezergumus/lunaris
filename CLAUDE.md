@@ -84,6 +84,10 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   wake the service; the horizon chart marks the skyline that hides the Sun or the Earth and
   says why (`hv__why`, distance from `horizonRangeKm`, built-in sites only). Clicked through
   in headless Edge on the dev server, no page errors; not deployed yet.
+- 2026-11-15 ~05:00 (Sezer, frontend): `todo.md` plans an educational Explorer mode
+  (`mode=explore`: intro, guided tour, optional game) and a first-person surface view built
+  from the skyline and grid files with three.js. Proposed, not started; phases, cut rules
+  and the claims the data does not support are in that file.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
