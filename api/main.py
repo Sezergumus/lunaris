@@ -18,12 +18,14 @@ Settings (environment variables):
   LUNAR_TERRAIN_REMOTE_SLOPE  set to 1 when that source also holds the slope map
                         (LDSM_60S_60MPP_ADJ.TIF); otherwise slope is derived from the heights
   LUNARIS_CORS_ORIGINS  comma-separated list of allowed web origins (default: *)
-  LUNARIS_MAX_JOBS      horizon computations allowed at the same time (default: 2)
+  LUNARIS_MAX_JOBS      horizon computations allowed at the same time (default: 2); further
+                        requests wait for a free slot, answers already cached never wait
+  LUNARIS_JOB_WAIT_S    how long a request waits for a slot before HTTP 429 (default: 30)
 """
 import os
 import sys
 import threading
-from functools import lru_cache
+from collections import OrderedDict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -36,6 +38,8 @@ import lunar_terrain as lt  # noqa: E402
 
 MAX_GRID = 5
 MAX_JOBS = int(os.environ.get("LUNARIS_MAX_JOBS", "2"))
+JOB_WAIT_S = float(os.environ.get("LUNARIS_JOB_WAIT_S", "30"))
+CACHE_SIZE = 256
 # A horizon never changes for a given coordinate, so answers can be cached for good.
 CACHE_HEADER = "public, max-age=31536000, immutable"
 
@@ -47,6 +51,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 _jobs = threading.BoundedSemaphore(MAX_JOBS)
+_cache = OrderedDict()  # request key -> JSON body, least recently used first
+_cache_lock = threading.Lock()
+
+
+def _cached(key):
+    with _cache_lock:
+        body = _cache.get(key)
+        if body is not None:
+            _cache.move_to_end(key)
+        return body
+
+
+def _store(key, body):
+    with _cache_lock:
+        _cache[key] = body
+        _cache.move_to_end(key)
+        while len(_cache) > CACHE_SIZE:
+            _cache.popitem(last=False)
 
 
 def _source(name):
@@ -63,11 +85,11 @@ def health():
                   "remote slope map" if lt.slope_map_available() else "derived from height"),
         "roughness": _source("roughness"),
         "max_grid": MAX_GRID,
+        "max_jobs": MAX_JOBS,
         "coverage": "60S to the south pole",
     }
 
 
-@lru_cache(maxsize=256)
 def _horizon_json(lat, lon, mast, grid, step, precision):
     return lt.grid_to_json(lt.compute_grid(lat, lon, n=grid, step_m=step, mast_m=mast,
                                            precision_m=precision))
@@ -92,13 +114,19 @@ def horizon(
     if snap:
         lat, lon = lt.snap_to_pixel(lat, lon)
     key = (round(lat, 7), round(lon, 7), mast, grid, step, precision)
-    if not _jobs.acquire(blocking=False):
-        raise HTTPException(429, "terrain service is busy; retry shortly",
-                            headers={"Retry-After": "3"})
-    try:
-        body = _horizon_json(*key)
-    except ValueError as error:
-        raise HTTPException(422, str(error)) from error
-    finally:
-        _jobs.release()
+    body = _cached(key)
+    if body is None:
+        # Computations are CPU-heavy, so only MAX_JOBS run at once; the others wait their turn.
+        if not _jobs.acquire(timeout=JOB_WAIT_S):
+            raise HTTPException(429, "terrain service is busy; retry shortly",
+                                headers={"Retry-After": "3"})
+        try:
+            body = _cached(key)  # an identical request may have finished while this one waited
+            if body is None:
+                body = _horizon_json(*key)
+                _store(key, body)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        finally:
+            _jobs.release()
     return Response(body, media_type="application/json", headers={"Cache-Control": CACHE_HEADER})
