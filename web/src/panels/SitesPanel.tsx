@@ -13,6 +13,7 @@ import { Button, IconButton } from "../ui/Button.tsx";
 import { NumberField } from "../ui/NumberField.tsx";
 import { formatDays, formatUtcDate, parseDecimal } from "../ui/format.ts";
 import { MissionParameters } from "./MissionParameters.tsx";
+import { Stories } from "./Stories.tsx";
 
 interface SitesPanelProps {
   ref?: Ref<HTMLElement>;
@@ -89,6 +90,8 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
                   <SiteRow key={row.place.id} {...row} placeA={placeA} placeB={placeB} hovered={hoveredKey === row.hoverKey} onHover={onHover} onChoose={onChoose} />
                 ))}
               </ul>
+
+              <Stories sites={sites} onChoose={onChoose} />
 
               <SavedPoints placeA={placeA} placeB={placeB} onChoose={onChoose} />
 

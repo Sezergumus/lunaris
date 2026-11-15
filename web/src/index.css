@@ -538,6 +538,28 @@ svg {
   font-size: 13px;
 }
 
+/* ---------- Stories ---------- */
+
+/* Title only (the teaser is in the tooltip), so the rows are tighter than a site's. */
+.story-row {
+  padding-block: 7px;
+}
+
+/* Same width as a site's dot, so the titles line up with the site names above. */
+.story-row__icon {
+  display: grid;
+  place-items: center;
+  width: 10px;
+  flex: none;
+  color: var(--accent);
+}
+
+.story-row__icon svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
 /* ---------- Saved points ---------- */
 
 .section-label__count {

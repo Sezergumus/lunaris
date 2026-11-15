@@ -16,6 +16,7 @@ import { useSiteScores } from "./state/siteScores.ts";
 import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
 import type { LimitKey } from "./state/limits.ts";
 import { getSavedPoint, openSavedPoint, useSavedPoints } from "./state/savedPoints.ts";
+import { OPENING_SITE } from "./state/stories.ts";
 import { readUrl, syncUrl } from "./state/url.ts";
 import { useViews } from "./state/view.ts";
 import { Sheet, type SheetState } from "./ui/Sheet.tsx";
@@ -88,12 +89,16 @@ export default function App() {
   useEffect(() => {
     if (!tables || sites.length === 0) return;
     if (!getScenario().limits) {
+      // A first visit (nothing in the link) opens on a site, so the panels are never empty.
+      const firstVisit = window.location.search === "";
       const url = readUrl(sites);
       actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, url.startMs, url.windowHours);
       if (url.mastM !== null) actions.setMast(url.mastM);
       if (url.profileKey) actions.setProfile(url.profileKey);
       for (const [key, value] of Object.entries(url.limitOverrides)) actions.setLimit(key as LimitKey, value);
+      const opening = sites.find((site) => site.key === OPENING_SITE);
       if (url.placeA) actions.selectPlace(url.placeA);
+      else if (firstVisit && opening) actions.selectPlace(sitePlace(opening));
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
       if (url.placeA && url.slipDays !== 0) actions.slip(url.slipDays);
     }
