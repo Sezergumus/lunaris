@@ -95,9 +95,11 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   full-resolution window, not decimated reads (see the pitfall below); checks and numbers
   are under "Phase B" in `todo.md`. Also done: `horizon_range_km` for every point of
   `grid_<site>.json` (merged into the existing files, slopes untouched, 0.76 MB each now)
-  and in `compute_grid` / `grid_to_json`, so `/horizon` returns it **after a redeploy; the
-  live service was not redeployed** and does not send it yet (`horizon_range_km?` in
-  `TerrainPoint`). With it the mast estimate and the horizon uncertainty become possible
+  and in `compute_grid` / `grid_to_json`, so `/horizon` returns it. **The live service was redeployed on
+  2026-11-15 ~10:45** (revision `lunaris-terrain-00004-ggx`) and sends it: Mons Mouton with
+  `snap=false` gives the ranges and horizon of `horizon_mons_mouton.json` exactly, slope
+  3.298 (`horizon_range_km?` stays optional in `TerrainPoint` for cached older answers).
+  With it the mast estimate and the horizon uncertainty become possible
   for grid points and custom points; no UI code uses it yet. The frontend phases (0 to 9) are not started; an AI agent on Sezer's machine works
   through them unattended (its instructions are at the top of `todo.md`) and writes a
   summary at the end of that file.

@@ -123,7 +123,7 @@ site: `python lunar_sky.py patch --site mons_mouton` → `data/terrain_<site>.js
 - [x] Optional: `horizon_range_km` for every point of `grid_<site>.json` (720 values per
       point, km to 2 decimals, as in `horizon_<site>.json`). It enables the mast estimate
       after a hop (phase 6). `compute_grid` / `grid_to_json` now return it, so the terrain
-      service does too once it is redeployed (the live service does not yet; the field is
+      service does too (live service redeployed 2026-11-15 and checked; the field is
       optional in `TerrainPoint`). The five files were not regenerated: the ranges were
       merged into them, so slopes and every other value are unchanged (a full re-run would
       switch the slopes to the 60 m map, an open team decision in `CLAUDE.md`). Checked:
