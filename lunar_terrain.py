@@ -418,7 +418,8 @@ def compute_grid(lat, lon, n=1, step_m=125.0, mast_m=2.0, precision_m=100.0):
     The height windows are read once and shared by every point. Returns a
     dict with `points` (center first, then row by row from the south-west)
     and the settings used. Each point holds its position, the offsets from
-    the center, ground height, the horizon profile, the slope at the point
+    the center, ground height, the horizon profile with the distance of the
+    terrain that sets it, the slope at the point
     and the 95th-percentile slope within `precision_m` (landing precision).
     Raises ValueError if the center is outside the height grid.
     """
@@ -456,6 +457,7 @@ def compute_grid(lat, lon, n=1, step_m=125.0, mast_m=2.0, precision_m=100.0):
             "mast_m": mast_m,
             "azimuth_step_deg": float(horizon["azimuth_deg"][1] - horizon["azimuth_deg"][0]),
             "horizon_deg": horizon["horizon_deg"],
+            "horizon_range_km": horizon["horizon_range_km"],
             "slope_deg": value_within(slope, px, py, precision_m),
             "slope_at_point_deg": None if math.isnan(at_point) else at_point,
             "slope_derived_deg": value_within(derived, px, py, precision_m),
@@ -489,6 +491,7 @@ def grid_to_json(doc, indent=None):
         "ground_height_m": number(p["ground_height_m"], 2),
         "mast_m": p["mast_m"], "azimuth_step_deg": p["azimuth_step_deg"],
         "horizon_deg": [round(float(v), 4) for v in p["horizon_deg"]],
+        "horizon_range_km": [round(float(v), 2) for v in p["horizon_range_km"]],
         "slope_deg": number(p["slope_deg"], 3),
         "slope_at_point_deg": number(p["slope_at_point_deg"], 3),
         "slope_derived_deg": number(p["slope_derived_deg"], 3),

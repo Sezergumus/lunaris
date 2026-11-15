@@ -26,6 +26,8 @@ export interface TerrainPoint {
   mast_m: number;
   azimuth_step_deg: number;
   horizon_deg: number[];
+  /** Distance of the terrain that sets the horizon at each azimuth, km. Absent in answers of an older service. */
+  horizon_range_km?: number[];
   /** 95th-percentile slope within the landing precision; the value used for the surface score. */
   slope_deg: number | null;
   slope_at_point_deg: number | null;
