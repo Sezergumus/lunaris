@@ -77,6 +77,13 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
 - Checked in headless Chromium against the dev server without a terrain service (custom
   points sphere-only there): live-API paths (custom scan, saved terrain from the service)
   are not tried in a browser yet. Not checked on a phone-sized screen.
+- 2026-11-15 morning (Sezer): plain-language verdict under the risk score
+  (`panels/verdict.ts`); "Stories" in the sites panel (`state/stories.ts`, four one-click
+  comparisons that reset the mission parameters); a first visit without a query opens on
+  Mons Mouton; copy-link button in the inspector header; `/health` called on page load to
+  wake the service; the horizon chart marks the skyline that hides the Sun or the Earth and
+  says why (`hv__why`, distance from `horizonRangeKm`, built-in sites only). Clicked through
+  in headless Edge on the dev server, no page errors; not deployed yet.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
