@@ -1,5 +1,5 @@
 import { Fragment, createContext, useContext, useMemo, type ReactNode, type Ref } from "react";
-import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Maximize2, Radio, RectangleHorizontal, RectangleVertical, X } from "lucide-react";
+import { BatteryFull, BatteryWarning, Bookmark, BookmarkCheck, Radio, RectangleHorizontal, RectangleVertical, Rotate3d, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { nextChange, panelYield, type Transitions } from "../engine/events.ts";
 import { analyzeWindow } from "../engine/risk.ts";
@@ -69,14 +69,34 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
       {views.map((view) => (
         <section key={view.tag} className="inspector__scene">
           <Summary view={view} tagged={comparing} />
-          <div className="hv-wrap">
-            <HorizonView view={view} compact={comparing} />
-            {view.tag === "A" ? (
-              <IconButton className="hv-wrap__expand" label="Stand here: open the 3D surface view" size="sm" tipSide="left" onClick={() => modeActions.setView("surface")}>
-                <Maximize2 aria-hidden="true" />
-              </IconButton>
-            ) : null}
-          </div>
+          {view.tag === "A" ? (
+            // The whole chart opens the surface view on a click; the button is the keyboard
+            // and screen-reader way in, so the wrapper itself is not focusable.
+            <div className="hv-wrap hv-wrap--open" onClick={() => modeActions.setView("surface")}>
+              <HorizonView view={view} compact={comparing} />
+              <span className="hv-wrap__hint" aria-hidden="true">
+                Click to stand here in 3D
+              </span>
+              <Tip label="Stand here: open the 3D surface view" side="left">
+                <Button
+                  className="hv-wrap__expand"
+                  variant="accent"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    modeActions.setView("surface");
+                  }}
+                >
+                  <Rotate3d aria-hidden="true" />
+                  3D view
+                </Button>
+              </Tip>
+            </div>
+          ) : (
+            <div className="hv-wrap">
+              <HorizonView view={view} compact={comparing} />
+            </div>
+          )}
         </section>
       ))}
 

@@ -198,7 +198,44 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.45);
+  gap: 5px;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+/* Scenario A's chart opens the surface view on a click. */
+.hv-wrap--open {
+  cursor: pointer;
+  border-radius: 8px;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 150ms var(--ease-out);
+}
+
+.hv-wrap__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 150ms var(--ease-out);
+}
+
+@media (hover: hover) {
+  .hv-wrap--open:hover {
+    outline-color: var(--accent);
+  }
+
+  .hv-wrap--open:hover .hv-wrap__hint {
+    opacity: 1;
+  }
 }
 
 .hv svg {

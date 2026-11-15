@@ -541,6 +541,22 @@ svg {
   }
 }
 
+/*
+ * Top of the map between the panels: the bottom holds the map's legend and scale, and the
+ * zoom buttons sit in the top-right corner.
+ */
+.surface-launcher {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  justify-self: center;
+  gap: 7px;
+  padding-inline: 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+
 .hud__error {
   grid-column: 2;
   grid-row: 1;

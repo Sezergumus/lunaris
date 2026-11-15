@@ -11,6 +11,7 @@ import { RiskBadge } from "./panels/RiskBadge.tsx";
 import { MissionParametersPanel } from "./panels/MissionParameters.tsx";
 import { MobileDock, type SheetId } from "./panels/MobileDock.tsx";
 import { SitesPanel } from "./panels/SitesPanel.tsx";
+import { SurfaceLauncher } from "./panels/SurfaceLauncher.tsx";
 import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { betterSpot, neighbourPlace, offsetText, useNearby } from "./state/nearby.ts";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
@@ -414,6 +415,7 @@ export default function App() {
             Sun and Earth tables could not be loaded ({tablesError}).
           </p>
         ) : null}
+        {!mobile && placeA && views.length > 0 && !surfaceOpen ? <SurfaceLauncher place={placeA} /> : null}
       </div>
     </div>
   );

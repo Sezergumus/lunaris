@@ -1,5 +1,5 @@
 import type { Ref } from "react";
-import { ChevronUp, Info, MapPin, SlidersHorizontal, Telescope } from "lucide-react";
+import { ChevronUp, Info, MapPin, Rotate3d, SlidersHorizontal, Telescope } from "lucide-react";
 import { modeActions } from "../state/mode.ts";
 import { parametersChanged, placeTitle, useScenario, type Place } from "../state/scenario.ts";
 
@@ -34,6 +34,11 @@ export function MobileDock({ ref, placeA, onOpen }: MobileDockProps) {
       ) : (
         <span className="dock__hint">Tap the map to pick a point</span>
       )}
+      {placeA ? (
+        <button type="button" className="dock__button dock__button--icon" onClick={() => modeActions.setView("surface")} aria-label="Open the 3D view">
+          <Rotate3d aria-hidden="true" />
+        </button>
+      ) : null}
       <button type="button" className="dock__button dock__button--icon" onClick={() => modeActions.setMode("explore")} aria-label="Open the Explorer">
         <Telescope aria-hidden="true" />
       </button>
