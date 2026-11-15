@@ -585,24 +585,27 @@ def run_nearby(a, key, label, lat, lon, sky_path):
                                "lat": float(lat2), "lon": float((lon2 + 180.0) % 360.0 - 180.0)})
 
     reach = max(radii_km) * 1000.0
-    x, y = lt.latlon_to_xy(lat, lon)
+    precision = profile["landing_precision_m"]
+    x, y = (float(v) for v in lt.latlon_to_xy(lat, lon))
     near = lt.read_window("height_m", x, y, lt.NEAR_RADIUS_M + reach)
     far = lt.read_window("height_m", x, y, lt.FAR_RADIUS_M + reach, lt.FAR_DECIMATION)
+    # Same surface rule as `risk` and `grid`: 95th-percentile slope within the
+    # landing precision, from the LOLA slope map when it is available.
+    slope_map, slope_source = lt.slope_grid(x, y, reach + precision, near)
     angles = compute_points([(c["lat"], c["lon"]) for c in candidates], times, a.kernels)
 
     for c, ang in zip(candidates, angles):
         horizon = lt.compute_horizon(c["lat"], c["lon"], mast_m=a.mast, near=near, far=far)
-        cx, cy = lt.latlon_to_xy(c["lat"], c["lon"])
-        slope = lt._slope_stats(lt._disk_values(near, lt.slope_from_heights(near),
-                                                float(cx), float(cy), a.ellipse))
-        surface = {"slope_derived_deg": slope}
+        cx, cy = (float(v) for v in lt.latlon_to_xy(c["lat"], c["lon"]))
+        slope = lt.value_within(slope_map, cx, cy, precision)
+        surface = {"slope_landing_deg": {"radius_m": precision, "source": slope_source, "p95": slope}}
         series = lr.build_series(times, ang["sun_alt"], ang["earth_alt"], ang["sun_az"],
                                  ang["earth_az"], horizon=horizon, stations=stations, profile=profile)
         ev = lr.evaluate(series, surface, landing)
         w, sc, d = ev["window"], ev["score"], ev["dates"]
         c.update({
             "ground_height_m": horizon["ground_height_m"],
-            "slope_p95_deg": slope["p95"],
+            "slope_p95_deg": slope,
             "sunlit_pct": w["power"]["sunlit_pct"],
             "longest_darkness_h": w["power"]["longest_darkness_h"],
             "comm_pct": w["comm"]["available_pct"],
@@ -622,8 +625,8 @@ def run_nearby(a, key, label, lat, lon, sky_path):
     with open(path, "w") as f:
         f.write(lr.to_json({
             "site": {"key": key, "name": label, "lat": lat, "lon": lon},
-            "landing": landing, "profile": profile, "mast_m": a.mast, "ellipse_m": a.ellipse,
-            "slope_source": "derived from the 60 m LOLA DEM",
+            "landing": landing, "profile": profile, "mast_m": a.mast, "precision_m": precision,
+            "slope_source": slope_source,
             "best_for_date": best, "most_slip_tolerant": robust, "most_low_risk_dates": flexible,
             "candidates": candidates,
         }) + "\n")
@@ -637,7 +640,7 @@ def run_nearby(a, key, label, lat, lon, sky_path):
         return f"{c['distance_km']:g} km {compass[int(c['bearing_deg'] // 45)]}"
 
     print(f"{label}  ({lat}, {lon}); landing {lm.format_time(landing)}, "
-          f"{profile['duration_days']:g}-day mission, slope within {a.ellipse:.0f} m")
+          f"{profile['duration_days']:g}-day mission, slope within {precision:g} m ({slope_source})")
     print(f"  {'point':>12s} {'lat':>8s} {'lon':>8s} {'height':>7s} {'slope95':>8s} {'sunlit':>7s} "
           f"{'dark max':>9s} {'comm':>6s} {'risk':>5s} {'driver':>8s} {'slip tol.':>10s} {'low-risk dates':>15s}")
     for c in sorted(candidates, key=lambda c: (c["risk_overall"], -c["slip_tolerance_days"],
