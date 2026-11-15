@@ -301,6 +301,20 @@ def risk_level(score):
     return "low" if score < 33.0 else "medium" if score < 66.0 else "high"
 
 
+def surface_slope(surface):
+    """Slope (deg) and radius (m) the surface score is judged on.
+
+    The 95th-percentile slope within the landing precision when the horizon
+    file has it (`slope_landing_deg`); files without it fall back to the
+    statistics of the whole landing ellipse.
+    """
+    landing = surface.get("slope_landing_deg")
+    if landing and landing.get("p95") is not None:
+        return landing["p95"], landing["radius_m"]
+    stats = surface.get("slope_lola_deg") or surface["slope_derived_deg"]
+    return stats["p95"], surface.get("radius_m")
+
+
 def score_window(window, profile, surface=None):
     """Risk scores (0-100) for a window from `analyze_window`.
 
@@ -314,8 +328,7 @@ def score_window(window, profile, surface=None):
                _shortfall_risk(cm["worst_day_contact_h"], profile["min_daily_contact_h"]))
     slope = None
     if surface is not None:
-        stats = surface.get("slope_lola_deg") or surface["slope_derived_deg"]
-        slope = _limit_risk(stats["p95"], profile["max_slope_deg"])
+        slope = _limit_risk(surface_slope(surface)[0], profile["max_slope_deg"])
     present = [v for v in (power, comm, slope) if v is not None]
     overall = max(present)
     driver = ("power", "comm", "surface")[[power, comm, slope].index(overall)]

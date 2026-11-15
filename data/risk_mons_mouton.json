@@ -55,10 +55,10 @@
  "score": {
   "power": 0.0,
   "comm": 0.0,
-  "surface": 17.84,
-  "overall": 17.84,
+  "surface": 0.0,
+  "overall": 0.0,
   "level": "low",
-  "driver": "surface"
+  "driver": "power"
  },
  "slips": [
   {
@@ -97,10 +97,10 @@
    "score": {
     "power": 0.0,
     "comm": 0.0,
-    "surface": 17.84,
-    "overall": 17.84,
+    "surface": 0.0,
+    "overall": 0.0,
     "level": "low",
-    "driver": "surface"
+    "driver": "power"
    }
   },
   {
@@ -139,7 +139,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 17.84,
+    "surface": 0.0,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -181,7 +181,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 17.84,
+    "surface": 0.0,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -223,7 +223,7 @@
    "score": {
     "power": 100.0,
     "comm": 0.0,
-    "surface": 17.84,
+    "surface": 0.0,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -265,10 +265,10 @@
    "score": {
     "power": 0.0,
     "comm": 0.0,
-    "surface": 17.84,
-    "overall": 17.84,
+    "surface": 0.0,
+    "overall": 0.0,
     "level": "low",
-    "driver": "surface"
+    "driver": "power"
    }
   }
  ],
@@ -469,7 +469,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -480,7 +480,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -491,7 +491,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -502,7 +502,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -799,7 +799,7 @@
    "longest_comm_outage_h": 4.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -810,7 +810,7 @@
    "longest_comm_outage_h": 4.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -821,7 +821,7 @@
    "longest_comm_outage_h": 6.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -2108,7 +2108,7 @@
    "longest_comm_outage_h": 13.0,
    "risk_power": 0.0,
    "risk_comm": 8.333,
-   "risk_overall": 17.84,
+   "risk_overall": 8.333,
    "level": "low"
   },
   {
@@ -3098,7 +3098,7 @@
    "longest_comm_outage_h": 11.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3395,7 +3395,7 @@
    "longest_comm_outage_h": 13.0,
    "risk_power": 0.0,
    "risk_comm": 8.333,
-   "risk_overall": 17.84,
+   "risk_overall": 8.333,
    "level": "low"
   },
   {
@@ -3406,7 +3406,7 @@
    "longest_comm_outage_h": 2.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3417,7 +3417,7 @@
    "longest_comm_outage_h": 2.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3428,7 +3428,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3714,7 +3714,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3725,7 +3725,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3736,7 +3736,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3747,7 +3747,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -3758,7 +3758,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 12.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 12.0,
    "level": "low"
   },
   {
@@ -4044,7 +4044,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -4055,7 +4055,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -4066,7 +4066,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -4077,7 +4077,7 @@
    "longest_comm_outage_h": 1.0,
    "risk_power": 0.0,
    "risk_comm": 0.0,
-   "risk_overall": 17.84,
+   "risk_overall": 0.0,
    "level": "low"
   },
   {
@@ -4232,10 +4232,10 @@
   "score": {
    "power": 0.0,
    "comm": 0.0,
-   "surface": 17.84,
-   "overall": 17.84,
+   "surface": 0.0,
+   "overall": 0.0,
    "level": "low",
-   "driver": "surface"
+   "driver": "power"
   },
   "low_risk_dates": 22
  }

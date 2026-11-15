@@ -55,7 +55,7 @@
  "score": {
   "power": 100.0,
   "comm": 100.0,
-  "surface": 87.1,
+  "surface": 8.08,
   "overall": 100.0,
   "level": "high",
   "driver": "power"
@@ -97,7 +97,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 87.1,
+    "surface": 8.08,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -139,7 +139,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 87.1,
+    "surface": 8.08,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -181,7 +181,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 87.1,
+    "surface": 8.08,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -223,7 +223,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 87.1,
+    "surface": 8.08,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -265,7 +265,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 87.1,
+    "surface": 8.08,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -4196,7 +4196,7 @@
   "score": {
    "power": 100.0,
    "comm": 100.0,
-   "surface": 87.1,
+   "surface": 8.08,
    "overall": 100.0,
    "level": "high",
    "driver": "power"

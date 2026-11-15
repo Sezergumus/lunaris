@@ -38,7 +38,7 @@ export interface SiteData {
   sky: SkySeries;
   horizon: Horizon;
   groundHeightM: number;
-  /** 95th-percentile slope inside the landing ellipse, from the LOLA slope map. */
+  /** 95th-percentile slope within the landing precision (the radius below), from the LOLA slope map. */
   slopeP95Deg: number | null;
   slopeRadiusM: number | null;
 }
@@ -121,7 +121,7 @@ export interface SiteTerrain {
   /** Observer height above ground the horizon was computed for, meters. */
   mastM: number;
   groundHeightM: number;
-  /** 95th-percentile slope inside the landing ellipse, from the LOLA slope map. */
+  /** 95th-percentile slope within the landing precision (the radius below), from the LOLA slope map. */
   slopeP95Deg: number | null;
   slopeRadiusM: number | null;
   /** Largest LOLA height error inside the landing ellipse, meters; null when unknown. */
@@ -139,8 +139,8 @@ export function loadSiteTerrain(key: string): Promise<SiteTerrain> {
       horizonRangeKm: doc.horizon_range_km,
       mastM: doc.mast_m,
       groundHeightM: doc.ground_height_m,
-      slopeP95Deg: doc.surface?.slope_lola_deg?.p95 ?? null,
-      slopeRadiusM: doc.surface?.radius_m ?? null,
+      slopeP95Deg: doc.surface?.slope_landing_deg?.p95 ?? doc.surface?.slope_lola_deg?.p95 ?? null,
+      slopeRadiusM: doc.surface?.slope_landing_deg ? doc.surface.slope_landing_deg.radius_m : (doc.surface?.radius_m ?? null),
       heightErrorM: doc.surface?.height_error_m?.max ?? null,
     }));
     terrainCache.set(key, pending);
@@ -177,8 +177,8 @@ export async function loadDataset(): Promise<Dataset> {
       sky: { startMs, stepHours, count, sunAz, sunAlt, earthAz, earthAlt },
       horizon: { stepDeg: doc.azimuth_step_deg, horizonDeg: doc.horizon_deg },
       groundHeightM: doc.ground_height_m,
-      slopeP95Deg: doc.surface?.slope_lola_deg?.p95 ?? null,
-      slopeRadiusM: doc.surface?.radius_m ?? null,
+      slopeP95Deg: doc.surface?.slope_landing_deg?.p95 ?? doc.surface?.slope_lola_deg?.p95 ?? null,
+      slopeRadiusM: doc.surface?.slope_landing_deg ? doc.surface.slope_landing_deg.radius_m : (doc.surface?.radius_m ?? null),
     };
   });
 

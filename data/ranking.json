@@ -55,10 +55,10 @@
    "score": {
     "power": 0.0,
     "comm": 0.0,
-    "surface": 17.84,
-    "overall": 17.84,
+    "surface": 0.0,
+    "overall": 0.0,
     "level": "low",
-    "driver": "surface"
+    "driver": "power"
    },
    "dates": {
     "requested": "2026-12-16T00:00Z",
@@ -262,7 +262,7 @@
    "score": {
     "power": 100.0,
     "comm": 100.0,
-    "surface": 87.1,
+    "surface": 8.08,
     "overall": 100.0,
     "level": "high",
     "driver": "power"
@@ -317,19 +317,60 @@
    "score": {
     "power": 0.0,
     "comm": 100.0,
-    "surface": 100.0,
+    "surface": 0.0,
     "overall": 100.0,
     "level": "high",
     "driver": "comm"
    },
    "dates": {
     "requested": "2026-12-16T00:00Z",
-    "nearest_earlier": null,
-    "nearest_later": null,
+    "nearest_earlier": "2026-12-14T00:00Z",
+    "nearest_later": "2027-01-10T00:00Z",
     "slip_tolerance_days": 0,
     "low_risk_now": false,
-    "low_risk_dates": 0,
-    "windows": []
+    "low_risk_dates": 12,
+    "windows": [
+     {
+      "start": "2026-12-14T00:00Z",
+      "end": "2026-12-14T00:00Z",
+      "days": 1
+     },
+     {
+      "start": "2027-01-10T00:00Z",
+      "end": "2027-01-10T00:00Z",
+      "days": 1
+     },
+     {
+      "start": "2027-02-06T00:00Z",
+      "end": "2027-02-07T00:00Z",
+      "days": 2
+     },
+     {
+      "start": "2027-07-20T00:00Z",
+      "end": "2027-07-20T00:00Z",
+      "days": 1
+     },
+     {
+      "start": "2027-08-16T00:00Z",
+      "end": "2027-08-16T00:00Z",
+      "days": 1
+     },
+     {
+      "start": "2027-09-12T00:00Z",
+      "end": "2027-09-13T00:00Z",
+      "days": 2
+     },
+     {
+      "start": "2027-10-09T00:00Z",
+      "end": "2027-10-10T00:00Z",
+      "days": 2
+     },
+     {
+      "start": "2027-11-05T00:00Z",
+      "end": "2027-11-06T00:00Z",
+      "days": 2
+     }
+    ]
    }
   },
   {

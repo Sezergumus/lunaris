@@ -69,7 +69,7 @@ for (const site of manifest.sites) {
   const horizonDoc = JSON.parse(readFileSync(join(publicData, `horizon_${site.key}.json`), "utf8"));
   const [sunAz, sunAlt, earthAz, earthAlt] = int32Columns(`sky_${site.key}.bin`, 4, manifest.skyScale);
   const profile: Profile = expected.profile;
-  const slope: number | null = horizonDoc.surface?.slope_lola_deg?.p95 ?? null;
+  const slope: number | null = horizonDoc.surface?.slope_landing_deg?.p95 ?? horizonDoc.surface?.slope_lola_deg?.p95 ?? null;
 
   const series = buildSeries(
     { startMs: Date.parse(manifest.start), stepHours: manifest.stepMinutes / 60, count, sunAz, sunAlt, earthAz, earthAlt },

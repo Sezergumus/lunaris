@@ -1474,6 +1474,7 @@
    "pct_below_5deg": 16.343,
    "pct_below_10deg": 56.686
   },
+  "slope_lola_pixel_m": 60.0,
   "height_error_m": {
    "site": 0.526,
    "median": 0.346,
@@ -1483,6 +1484,11 @@
    "site": 46.504,
    "median": 35.298,
    "max": 161.779
+  },
+  "slope_landing_deg": {
+   "radius_m": 100.0,
+   "source": "LOLA slope map (LDSM), 60 m/pixel",
+   "p95": 13.109
   },
   "psr": null
  }

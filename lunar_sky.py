@@ -814,9 +814,9 @@ def run_risk(a, key, label, lat, lon, sky_path):
     print(f"    solar conjunction (< {profile['conjunction_deg']:g} deg)  : {lm.format_duration(cm['conjunction_h'])}")
     print(f"    low elevation (< {profile['low_elevation_deg']:g} deg)      : {lm.format_duration(cm['low_elevation_h'])}")
     if surface is not None:
-        sl = surface["slope_lola_deg"]
-        print(f"  Surface: slope within {surface['radius_m']:.0f} m: median {sl['median']:.1f}, "
-              f"95th pct {sl['p95']:.1f} deg (limit {profile['max_slope_deg']:g})")
+        slope_deg, slope_radius_m = lr.surface_slope(surface)
+        print(f"  Surface: 95th-percentile slope within {slope_radius_m:.0f} m: {slope_deg:.1f} deg "
+              f"(limit {profile['max_slope_deg']:g})")
         if "psr" in surface:
             print("  " + describe_psr(surface["psr"]))
 
@@ -1134,7 +1134,10 @@ def run_horizon(a, key, label, lat, lon):
     import lunar_terrain as lt
 
     horizon = lt.compute_horizon(lat, lon, mast_m=a.mast)
-    surface = lt.surface_properties(lat, lon, radius_m=a.ellipse)
+    import lunar_risk as lr
+
+    precision = a.precision or lr.DEFAULT_PROFILE["landing_precision_m"]
+    surface = lt.surface_properties(lat, lon, radius_m=a.ellipse, precision_m=precision)
     surface["psr"] = lt.psr_access(lat, lon)
     path = os.path.join(a.out, f"horizon_{key}.json")
     os.makedirs(a.out, exist_ok=True)
@@ -1154,6 +1157,9 @@ def run_horizon(a, key, label, lat, lon):
         print(f"  Slope within {a.ellipse:.0f} m ({title}): median {s['median']:.1f}, "
               f"95th pct {s['p95']:.1f}, max {s['max']:.1f} deg; "
               f"{s['pct_below_10deg']:.0f}% below 10 deg")
+    landing = surface["slope_landing_deg"]
+    print(f"  Slope for the surface score: {landing['p95']:.1f} deg (95th pct within "
+          f"{landing['radius_m']:.0f} m, {landing['source']})")
     print(f"  DEM height error  : {surface['height_error_m']['site']:.2f} m at site, "
           f"max {surface['height_error_m']['max']:.2f} m")
     print(f"  DEM effective res.: {surface['effective_resolution_m']['site']:.0f} m at site, "

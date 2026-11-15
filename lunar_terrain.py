@@ -260,11 +260,15 @@ def _disk_values(grid, values, x, y, radius_m):
     return picked[~np.isnan(picked)]
 
 
-def surface_properties(lat, lon, radius_m=1000.0, near=None):
+def surface_properties(lat, lon, radius_m=1000.0, near=None, precision_m=100.0):
     """Surface statistics inside a circle of `radius_m` around the site.
 
     Slope is reported twice: from the LOLA slope map (LDSM) and derived from
     the 60 m height grid (about 120 m baseline), so the two can be compared.
+    `slope_landing_deg` is the value the surface score uses: the
+    95th-percentile slope within the landing precision `precision_m`, computed
+    exactly as for a grid point (`compute_grid`), so a site and the center of
+    its grid get the same surface score.
     """
     x, y = latlon_to_xy(lat, lon)
     x, y = float(x), float(y)
@@ -288,6 +292,9 @@ def surface_properties(lat, lon, radius_m=1000.0, near=None):
         else:
             out[name] = {"site": float(grid.sample(x, y)),
                          "median": float(np.median(values)), "max": float(values.max())}
+    slope, source = slope_grid(x, y, precision_m)
+    out["slope_landing_deg"] = {"radius_m": precision_m, "source": source,
+                                "p95": value_within(slope, x, y, precision_m)}
     return out
 
 
