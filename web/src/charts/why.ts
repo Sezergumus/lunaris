@@ -47,11 +47,13 @@ export function obstruction(data: PlaceData, kind: "sun" | "earth", at: Instant)
   return { kind, az, byTerrain: alt + radius > 0, hidden, horizonDeg, alt, rangeKm: rangeAt(data, az), visibleShare };
 }
 
-export function sentence(o: Obstruction): string {
+/** `brief` leaves the angles out (the Explorer's wording). */
+export function sentence(o: Obstruction, brief = false): string {
   const name = o.kind === "sun" ? "Sun" : "Earth";
   const where = o.rangeKm !== null ? ` ${formatDistance(o.rangeKm * 1000)} away` : "";
   if (!o.byTerrain) return o.kind === "sun" ? "The Sun is below the horizon." : "The Earth is below the horizon: no direct link.";
   if (!o.hidden) return `Terrain${where} covers ${Math.round((1 - o.visibleShare) * 100)}% of the Sun's disk.`;
+  if (brief) return `Terrain${where} hides the ${name}${o.kind === "earth" ? ": no direct link" : ""}.`;
   const consequence = o.kind === "sun" ? "on flat ground it would be up" : "no direct link, though on flat ground it would be up";
   return `Terrain${where} rises to ${formatAngle(o.horizonDeg, 1)} and hides the ${name} at ${formatAngle(o.alt, 1)}: ${consequence}.`;
 }

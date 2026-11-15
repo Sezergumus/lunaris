@@ -269,7 +269,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
           scene.setBlockers(marks);
         }
       } else {
-        if (whyRef.current) whyRef.current.textContent = blocked.map(sentence).join(" ");
+        if (whyRef.current) whyRef.current.textContent = blocked.map((o) => sentence(o, true)).join(" ");
         writeEarthCard(earthCardRef.current, at, v.data.series.earthRadius[i] ?? EARTH_RADIUS_DEG, tablesRef.current, v.data.series.profile.station_min_elevation_deg);
         placePsrPin(psrRef.current, scene, v.data);
       }
@@ -679,12 +679,12 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = 
       )}
       <div ref={readoutRef} className="surface__readout" aria-hidden="true" />
       <p className="surface__caption">
-        {drone ? "Drone view: from up here the camera can see a Sun or an Earth that the terrain hides from the lander; labels and scores are those of the place itself. The lander is a generic model at true size, not a specific vehicle. " : ""}
+        {drone ? "Drone view: labels and scores are the lander's, not the camera's. Lander model is generic. " : ""}
         {terrain === "mesh"
-          ? "Measured: terrain (LOLA, 60 m pixels), Sun and Earth (JPL ephemeris), the risk model's skyline. Illustrative: light, glare, stars, the Earth's map, and the fine ground texture (the terrain data has no rocks or craters smaller than about 60 m)."
+          ? "Measured: terrain (LOLA, 60 m), Sun and Earth positions. Illustrative: lighting, stars, Earth's map, fine ground detail."
           : terrain === "loading"
             ? "Loading the terrain…"
-            : "No 3D terrain for this point: the dark band is the risk model's skyline (measured); Sun and Earth from the JPL ephemeris (the Earth's map is illustrative)."}
+            : "No 3D terrain for this point: the dark band is its measured skyline."}
       </p>
     </div>
   );

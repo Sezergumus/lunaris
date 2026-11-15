@@ -213,7 +213,7 @@ function BlockerMarks({ view, frame, id }: { view: ScenarioView; frame: Frame; i
 
 /** One line per body the terrain or the horizon keeps from view, updated with the timeline. */
 function WhyCaption({ view }: { view: ScenarioView }) {
-  const lines = useObstructions(view).map(sentence);
+  const lines = useObstructions(view).map((o) => sentence(o));
   if (lines.length === 0) return null;
   return (
     <figcaption className="hv__why" aria-live="polite">

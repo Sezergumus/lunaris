@@ -97,7 +97,7 @@ export function Game({ view, sites, nearby }: GameProps) {
     setPhase({ name: "playing", outcome });
   };
 
-  const rule = view ? `Rule: the lander runs on sunlight. If it spends more than ${view.data.series.profile.battery_survival_h} h in a row without any Sun, the battery runs out.` : "";
+  const rule = view ? `Rule: the lander runs on sunlight. More than ${view.data.series.profile.battery_survival_h} h without Sun and the battery dies.` : "";
 
   if (phase.name === "done" && view) {
     const { outcome } = phase;

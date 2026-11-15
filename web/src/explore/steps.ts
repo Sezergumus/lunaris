@@ -62,26 +62,26 @@ export const INTRO: { scene: Scene; caption: (a: ScenarioView, b: ScenarioView |
     if (share < 0.25) {
       return {
         lead: `You are standing on ${where}. In this whole lunar day the Sun never climbs higher than ${degrees(sun.maxElevationDeg)}.`,
-        detail: "Drag to look around. The Sun does not rise and set here the way it does on Earth: it circles the sky, just above the skyline.",
+        detail: "Drag to look around. The Sun circles the sky just above the skyline.",
       };
     }
     if (share < 0.5) {
       return {
         lead: `One day and night here lasts ${days(LUNAR_DAY_HOURS)} Earth days. Watch the Sun go once around the horizon.`,
-        detail: `This time it stays above the skyline for ${days(sun.upHours)} days; the longest stretch without any Sun is ${days(sun.longestDarkH)} days.`,
+        detail: `The longest stretch without any Sun is ${days(sun.longestDarkH)} days.`,
       };
     }
     if (share < 0.75) {
       return {
         lead: `The Earth hangs in the ${earth.direction}, between ${degrees(earth.minElevationDeg)} and ${degrees(earth.maxElevationDeg)} above the horizon, and hardly moves.`,
-        detail: `It is in view ${pct(earth.visibleShare)} of the time: a direct radio link to Earth needs it above the skyline.`,
+        detail: "A radio link to Earth needs it above the skyline.",
       };
     }
     if (!b) return { lead: "Near the equator the Sun climbs high every day." };
     const equator = sunFacts(b, LUNAR_DAY_HOURS);
     return {
       lead: `At the Apollo 11 site near the equator the Sun climbs to ${degrees(equator.maxElevationDeg, 0)}; here only to ${degrees(sun.maxElevationDeg)}.`,
-      detail: "That low Sun is why near the pole a small rise of the ground can decide between sunlight and darkness.",
+      detail: "With a Sun this low, a small hill decides between light and darkness.",
     };
   },
 };
@@ -115,7 +115,7 @@ export const TOUR: TourStep[] = [
       const apart = formatDistance(surfaceDistanceM(a.data.lat, a.data.lon, b.data.lat, b.data.lon));
       return {
         lead: `On the ridge the Sun is above the skyline ${pct(ridge.upHours / ridge.hours)} of these 14 days; on the crater floor ${apart} away, ${pct(floor.upHours / floor.hours)}.`,
-        detail: `From the floor the crater walls rise at least ${degrees(walls)} in every direction, and the Sun never gets higher than ${degrees(floor.maxElevationDeg)}. Switch to B to stand on the floor.`,
+        detail: `The crater walls rise at least ${degrees(walls)} all around, higher than the Sun ever gets. Switch to B to stand on the floor.`,
       };
     },
   },
@@ -131,7 +131,7 @@ export const TOUR: TourStep[] = [
       const battery = b.data.series.profile.battery_survival_h;
       return {
         lead: `Landing on ${formatUtcDate(a.startMs)}: ${risk(a)}. The same landing ${Math.round((b.startMs - a.startMs) / DAY_MS)} days later: ${risk(b)}.`,
-        detail: `A week later the mission runs into the night: ${days(dark)} days without usable Sun, against a battery that lasts ${battery} h. Switch to B and press play.`,
+        detail: `A week later the mission runs into the night: ${days(dark)} days of darkness, but the battery lasts ${battery} h. Switch to B and press play.`,
       };
     },
   },
