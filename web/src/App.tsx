@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { fetchTerrainHealth, terrainConfigured } from "./data/terrain.ts";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
-import { ExplorerShell } from "./explore/ExplorerShell.tsx";
+import { Explorer } from "./explore/Explorer.tsx";
 import { SurfaceStage } from "./surface/SurfaceStage.tsx";
 import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type MapSavedPin, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
@@ -16,7 +16,7 @@ import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { betterSpot, neighbourPlace, offsetText, useNearby } from "./state/nearby.ts";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
 import { useSiteScores } from "./state/siteScores.ts";
-import { actions, customPlace, getScenario, placeTitle, sitePlace, useScenario, type Place } from "./state/scenario.ts";
+import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
 import type { LimitKey } from "./state/limits.ts";
 import { leaveLevel, getMode, modeActions, useMode } from "./state/mode.ts";
 import { getSavedPoint, openSavedPoint, useSavedPoints } from "./state/savedPoints.ts";
@@ -117,19 +117,14 @@ export default function App() {
       for (const [key, value] of Object.entries(url.limitOverrides)) actions.setLimit(key as LimitKey, value);
       const opening = sites.find((site) => site.key === OPENING_SITE);
       if (url.placeA) actions.selectPlace(url.placeA);
-      else if ((firstVisit || url.mode.mode === "explore") && opening) actions.selectPlace(sitePlace(opening));
+      else if (firstVisit && opening) actions.selectPlace(sitePlace(opening));
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
       if (url.placeA && url.slipDays !== 0) actions.slip(url.slipDays);
     }
     return syncUrl();
   }, [tables, sites]);
 
-  // The Explorer always has a place on its stage: the opening site when nothing is selected.
-  useEffect(() => {
-    if (mode !== "explore" || getScenario().placeA || !getScenario().limits) return;
-    const opening = sites.find((site) => site.key === OPENING_SITE);
-    if (opening) actions.selectPlace(sitePlace(opening));
-  }, [mode, sites]);
+
 
   // Narrow screens: the map is full screen and each panel opens as a bottom sheet, one at a
   // time. Wide screens ignore this state (the sheets are `display: contents` there).
@@ -356,11 +351,7 @@ export default function App() {
         getInsets={getInsets}
       />
 
-      {mode === "explore" ? (
-        <ExplorerShell title={placeA ? placeTitle(placeA) : null}>
-          {views.length > 0 ? <SurfaceStage view={views[0]} /> : <p className="explorer__empty">Loading the Moon…</p>}
-        </ExplorerShell>
-      ) : null}
+      {mode === "explore" ? <Explorer views={views} sites={sites} nearby={nearby} /> : null}
 
       {mode === "plan" && surfaceOpen && views.length > 0 ? (
         <div className="surface-overlay">

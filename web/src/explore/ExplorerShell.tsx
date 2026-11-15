@@ -71,7 +71,7 @@ function Transport({ children }: { children?: ReactNode }) {
       </IconButton>
       <div className="explorer__clock">
         <span className="explorer__day">
-          Day {day.toFixed(1)} of {(windowHours / 24).toFixed(0)}
+          Day {day.toFixed(1)} of {Number.isInteger(windowHours / 24) ? windowHours / 24 : (windowHours / 24).toFixed(1)}
         </span>
         <span className="explorer__utc">{formatUtcDateTime(startMs + offsetMs)} UTC</span>
       </div>

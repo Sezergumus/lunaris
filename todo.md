@@ -262,27 +262,27 @@ Estimates are for one developer working with Claude.
 
 ### Phase 3: Explorer intro, "Stand on the Moon" (about 1.5 h)
 
-- [ ] Opens the surface view full screen at the opening site and plays one lunar day (708 h).
-- [ ] Captions tied to the cursor, values from the data: highest Sun elevation in the window,
+- [x] Opens the surface view full screen at the opening site and plays one lunar day (708 h).
+- [x] Captions tied to the cursor, values from the data: highest Sun elevation in the window,
       length of the day, where the Earth hangs.
-- [ ] Contrast with the equator from the Apollo 11 reference (sphere model): highest Sun
+- [x] Contrast with the equator from the Apollo 11 reference (sphere model): highest Sun
       elevation there against here; one day here = 29.5 Earth days.
-- [ ] Small inset: the Sun's path over the day, pole against equator, on one elevation axis.
-- [ ] `Start the tour` and `Skip to Planner`.
+- [x] Small inset: the Sun's path over the day, pole against equator, on one elevation axis.
+- [x] `Start the tour` and `Skip to Planner`.
 
 `feat(web): add the Explorer introduction`
 
 ### Phase 4: guided tour (about 1.5 h)
 
-- [ ] `explore/steps.ts`: each step = a story (place, date, comparison), one sentence, where
+- [x] `explore/steps.ts`: each step = a story (place, date, comparison), one sentence, where
       to look, how much of the window to play.
-- [ ] Step 1, why the south pole: Mons Mouton against Apollo 11.
-- [ ] Step 2, ridge or crater floor: connecting ridge against Shackleton (a wall of 20–24°
+- [x] Step 1, why the south pole: Mons Mouton against Apollo 11.
+- [x] Step 2, ridge or crater floor: connecting ridge against Shackleton (a wall of 20–24°
       all around, the Sun never clears it).
-- [ ] Step 3, a one-week slip: Mons Mouton on the planned date and 7 days later, same view.
-- [ ] Step 4, 500 m matters: Malapert A and its best nearby spot.
-- [ ] Step card: Back, Next, progress dots, `Open in Planner` (same scenario, `mode` removed).
-- [ ] Each step is a shareable URL (`mode=explore&step=…`).
+- [x] Step 3, a one-week slip: Mons Mouton on the planned date and 7 days later, same view.
+- [x] Step 4, 500 m matters: Malapert A and its best nearby spot.
+- [x] Step card: Back, Next, progress dots, `Open in Planner` (same scenario, `mode` removed).
+- [x] Each step is a shareable URL (`mode=explore&step=…`).
 
 `feat(web): add the guided tour`
 

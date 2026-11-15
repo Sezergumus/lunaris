@@ -24,15 +24,17 @@ interface SurfaceViewProps {
   view: ScenarioView;
   /** Shows a close button (the Planner's overlay). */
   onClose?: () => void;
+  /** Where the camera turns when a place opens; default: the Sun, or the Earth while the Sun is down. */
+  look?: "sun" | "earth";
 }
 
 /** Signed difference a - b of two azimuths, -180..180. */
 const azDiff = (a: number, b: number) => ((((a - b) % 360) + 540) % 360) - 180;
 
-export default function SurfaceView({ view, onClose }: SurfaceViewProps) {
+export default function SurfaceView({ view, onClose, look }: SurfaceViewProps) {
   const [supported] = useState(webgl2Available);
   if (!supported) return <Fallback view={view} reason="This browser cannot draw the 3D view (no WebGL 2)." />;
-  return <SurfaceCanvas view={view} onClose={onClose} />;
+  return <SurfaceCanvas view={view} onClose={onClose} look={look} />;
 }
 
 export function Fallback({ view, reason }: { view: ScenarioView; reason: string }) {
@@ -44,7 +46,7 @@ export function Fallback({ view, reason }: { view: ScenarioView; reason: string 
   );
 }
 
-function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
+function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const compassRef = useRef<HTMLDivElement>(null);
@@ -152,12 +154,13 @@ function SurfaceCanvas({ view, onClose }: SurfaceViewProps) {
     };
   }, [placeKey, data.lat, data.lon]);
 
-  // A new place opens looking at the Sun, or at the Earth when the Sun is down.
+  // A new place opens looking at the Sun (or as asked), at the Earth when the Sun is down.
   useEffect(() => {
     const at = sampleAt(data.series, data.sky, viewRef.current.startMs + getScenario().offsetMs);
-    const target = at.sunVisible || !at.earthVisible ? { az: at.sunAz, el: at.sunAlt } : { az: at.earthAz, el: at.earthAlt };
+    const earth = look === "earth" || (look === undefined && !at.sunVisible && at.earthVisible);
+    const target = earth ? { az: at.earthAz, el: at.earthAlt } : { az: at.sunAz, el: at.sunAlt };
     modeActions.look(target.az, Math.max(-5, Math.min(20, target.el)));
-  }, [data.place.id, data.series, data.sky]);
+  }, [data.place.id, data.series, data.sky, look]);
 
   const lookAt = (body: "sun" | "earth") => {
     const v = viewRef.current;

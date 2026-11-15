@@ -148,6 +148,130 @@
   }
 }
 
+.explorer__story {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.explorer__words {
+  flex: 1 1 320px;
+  max-width: 72ch;
+}
+
+.explorer__words p {
+  margin: 0;
+}
+
+.explorer__words p + p {
+  margin-top: 4px;
+  color: var(--text-2);
+}
+
+.explorer__step-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent) !important;
+  margin-bottom: 2px !important;
+}
+
+.explorer__dots {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.explorer__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fill-press);
+}
+
+.explorer__dot[data-current] {
+  background: var(--accent);
+}
+
+.explorer__actions .btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Sun path, pole against equator. */
+.inset {
+  margin: 0;
+  flex: 0 0 auto;
+  width: 260px;
+}
+
+.inset svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.inset__grid {
+  stroke: var(--separator);
+}
+
+.inset__tick {
+  fill: var(--text-3);
+  font-size: 9px;
+  text-anchor: end;
+}
+
+.inset__line {
+  fill: none;
+  stroke-width: 1.6;
+}
+
+.inset__line--pole {
+  stroke: var(--sun);
+}
+
+.inset__line--equator {
+  stroke: var(--text-3);
+  stroke-dasharray: 3 2;
+}
+
+.inset__cursor {
+  stroke: var(--text);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.inset__legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.inset__key::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  margin-right: 5px;
+  vertical-align: middle;
+  background: var(--sun);
+}
+
+.inset__key--equator::before {
+  background: var(--text-3);
+}
+
+@media (max-width: 759px) {
+  .inset {
+    width: 100%;
+    max-width: 320px;
+  }
+}
+
 /* The Planner's panels step aside while the Explorer is open. */
 .hud[hidden] {
   display: none;

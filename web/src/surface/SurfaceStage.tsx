@@ -25,11 +25,11 @@ function ChartFallback({ view, note }: { view: ScenarioView; note: string }) {
   );
 }
 
-export function SurfaceStage({ view, onClose }: { view: ScenarioView; onClose?: () => void }) {
+export function SurfaceStage({ view, onClose, look }: { view: ScenarioView; onClose?: () => void; look?: "sun" | "earth" }) {
   return (
     <ChunkBoundary fallback={<ChartFallback view={view} note="The 3D view could not be loaded. The horizon chart shows the same skyline, Sun and Earth." />}>
       <Suspense fallback={<ChartFallback view={view} note="Loading the 3D view…" />}>
-        <SurfaceView view={view} onClose={onClose} />
+        <SurfaceView view={view} onClose={onClose} look={look} />
       </Suspense>
     </ChunkBoundary>
   );
