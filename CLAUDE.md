@@ -240,8 +240,8 @@ complete was not checked in the running app by the backend side. Ask Sezer.
 - The terrain-sensitivity experiment (hypothetical uniform horizons by latitude) was a
   throwaway script; only its result table is kept below.
 
-**Not validated yet:** rise/set event times against Horizons; Mazarico 2011 percentages
-quoted from memory; DSN station coordinates approximate.
+**Not validated yet:** Mazarico 2011 percentages quoted from memory; DSN station
+coordinates approximate. (Rise/set times were checked on 2026-11-15, see "Validation".)
 
 ## Challenge (summary)
 
@@ -556,6 +556,7 @@ python lunar_sky.py sites                                   # list built-in site
 python lunar_sky.py compute  --site malapert_a --start 2026-12-01 --days 365
 python lunar_sky.py horizons --site malapert_a --start 2026-12-01 --days 30   # JPL Horizons table
 python lunar_sky.py compare  --site malapert_a               # Skyfield vs Horizons
+python lunar_sky.py events   --site malapert_a --terrain     # rise/set times vs one-minute Horizons tables (needs the network)
 python lunar_sky.py metrics  --site malapert_a --at 2026-12-10T12:00   # ideal sphere; --mask 2 (deg)
 python lunar_sky.py horizon  --site malapert_a               # terrain horizon + surface (--mast 2 --ellipse 1000)
 python lunar_sky.py metrics  --site malapert_a --terrain     # uses data/horizon_<site>.json
@@ -581,6 +582,7 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 | `skyfield_<site>.csv`                                | `utc, sun_az_deg, sun_alt_deg, earth_az_deg, earth_alt_deg` (hourly, 1 year)                                                                                                                    |
 | `horizons_<site>.csv`                                | same columns from JPL Horizons (validation, December 2026 only)                                                                                                                                 |
 | `metrics_<site>.json`, `metrics_<site>_terrain.json` | per track `sun`/`earth`/`both`: `summary`, `events`, `windows` (+ `status` with `--at`)                                                                                                         |
+| `events_<site>.json`, `events_<site>_terrain.json`   | every rise/set of `metrics` against a one-minute Horizons table: per event both times and the difference, `summary` (median, 95th percentile, max), and the same with Horizons' disk radius |
 | `horizon_<site>.json`                                | `horizon_deg` and `horizon_range_km` per azimuth (0.5° step), `ground_height_m`, `surface` (slope stats from LOLA LDSM and derived from DEM, `height_error_m`, `effective_resolution_m`, `psr`) |
 | `dsn_moon.csv`                                       | `utc, goldstone_alt_deg, madrid_alt_deg, canberra_alt_deg` (site independent)                                                                                                                   |
 | `risk_<site>.json`                                   | `horizon_uncertainty` (same mission on the horizon raised by the map's height error), `profile`, `window` (power + comm indicators), `score`, `slips` (0/+7/+14/+21/+28 d), `dates` (nearest low-risk dates, slip tolerance, low-risk windows), `scan` (every landing date)           |
@@ -747,7 +749,27 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
   with slip tolerance 0-1 day. Observed dates are from press reports of ISRO statements; the
   official sunset time was not found. Comm in the model is DSN, the mission used ISRO/ESA
   stations too, so only the power side is really tested.
-- **Not validated:** rise/set event times against Horizons.
+- **Rise/set times against Horizons** (2026-11-15, `python lunar_sky.py events --site <key>
+  [--terrain]`, results in `data/events_<site>[_terrain].json`). Every event that `metrics`
+  finds in the hourly Skyfield table is located again in a one-minute Horizons table with
+  the same rule. One year, all sites, |difference|:
+
+  | Horizon | Events | Sun, median / max | Earth, median / max |
+  | ------- | ------ | ----------------- | ------------------- |
+  | sphere  | 161 (81 Sun, 80 Earth) | 0.0 / 0.2 min | 0.0 / 0.1 min |
+  | terrain | 165 (113 Sun, 52 Earth) | 0.0-0.2 / 15.1 min | 0.0-0.2 / 1.1 min |
+
+  With terrain the larger differences (95th percentile 7 min at the ridge and Mons Mouton,
+  about 1 min at Malapert A and Chandrayaan-3) come from the skyline changing inside one
+  hourly step, not from the ephemeris. The Mons Mouton sunset 2026-12-30T08:27Z is the
+  same minute in Horizons. No event lacked a counterpart. Not covered: events shorter than
+  one hour that the hourly table misses altogether.
+- **Finding, fixed disk radius:** the same check with the disk radius Horizons reports for
+  the instant (Sun 0.262-0.272 deg, Earth 0.90-1.00 deg, against our fixed 0.27 / 0.95)
+  moves the events: Sun by 1-5 min (median) at 69-85 S but up to 110 min at Shackleton's
+  latitude; Earth by about 45-60 min (median), up to 115 min. Near the pole the bodies
+  cross the horizon so slowly that 0.05 deg is an hour. A radius from the distance in
+  `ephemeris_vectors.csv` would remove it; not done (it changes both engines' numbers).
 
 ### One year from 2026-12-01, terrain vs ideal sphere (observer 2 m above ground)
 
@@ -828,6 +850,8 @@ Terrain sensitivity (hypothetical uniform horizon, one year): each 1° of horizo
 ## Limitations
 
 - Site coordinates are approximate; near the pole results change strongly within ~1 km.
+- The Sun's and the Earth's disk radii are fixed (0.27 / 0.95 deg); the Earth's really
+  varies 0.90-1.00 deg, which shifts Earthrise / Earthset by up to about 2 h near the pole.
 - Hourly sampling: events are accurate to minutes by interpolation in `metrics`, but `risk`
   counts whole samples (durations in 1 h units; DSN gaps shorter than 1 h are missed).
 - Power uses the visible solar-disk fraction only (no panel orientation, no thermal model).
@@ -861,7 +885,8 @@ backtest, horizon uncertainty, the daily contact rule, mission-limit sliders, th
 5. **Backend, if time allows:** horizon uncertainty for custom points (the API would have to
    return `horizon_range_km` and a height error); the `date_alternatives` midnight quirk;
    a `validate` check that the Python and TypeScript presets are equal; a battery
-   state-of-charge indicator (no sourced Wh / W numbers); rise/set times against Horizons.
+   state-of-charge indicator (no sourced Wh / W numbers); disk radii of the Sun and the
+   Earth from their distance instead of fixed values (see "Validation").
 6. **Before the demo:** call `/health` once to wake the service (first request about 4 s);
    check the Google Cloud trial credit.
 7. **Last 5–6 hours:** no new features; bug fixing, demo story, presentation, submission,
