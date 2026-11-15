@@ -31,6 +31,10 @@
   flex: none;
 }
 
+.inspector__actions [data-copied] {
+  color: var(--success);
+}
+
 .inspector__header {
   display: flex;
   align-items: flex-start;

@@ -11,6 +11,7 @@ import { useInstant, type ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { Tip } from "../ui/Tooltip.tsx";
 import { formatAngle, formatDuration, formatHours, formatUtcDate, formatUtcDayTime } from "../ui/format.ts";
+import { CopyLink } from "./CopyLink.tsx";
 import { Explainer } from "./Explainer.tsx";
 import "./panels.css";
 
@@ -53,6 +54,7 @@ export function InspectorPanel({ ref, views, children }: InspectorPanelProps) {
           </div>
         )}
         <div className="inspector__actions">
+          <CopyLink />
           <Explainer views={views} />
           <IconButton className="inspector__close" label={comparing ? "Close scenario A" : "Close"} size="sm" tipSide="left" onClick={() => actions.selectPlace(null)}>
             <X aria-hidden="true" />
