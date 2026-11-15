@@ -21,6 +21,8 @@ Subcommands:
             center, valid for any site                  -> data/ephemeris_vectors.csv
   grid      Terrain horizon and slope for a square of
             points around a site (needs the LOLA DEM)   -> data/grid_<site>.json
+  patch     Nested terrain height windows around a site
+            for the 3D surface view (needs the LOLA DEM) -> data/terrain_<site>.json, .bin
 
 Example:
   python lunar_sky.py compute  --site malapert_a --start 2026-12-01 --days 30
@@ -36,6 +38,7 @@ Example:
   python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16
   python lunar_sky.py vectors  --start 2026-12-01 --days 1491
   python lunar_sky.py grid     --site malapert_a --grid 9 --grid-step 125
+  python lunar_sky.py patch    --site malapert_a
 
 Notes:
 - compute/horizons angles are relative to the local horizontal plane of an
@@ -329,7 +332,7 @@ def compare(sky, hor):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("cmd", choices=["compute", "horizons", "compare", "metrics", "horizon", "dsn", "risk", "mast",
-                                  "rank", "nearby", "vectors", "grid", "backtest", "sites"])
+                                  "rank", "nearby", "vectors", "grid", "patch", "backtest", "sites"])
     p.add_argument("--site", default="malapert_a", help="built-in site key, or a name for custom coordinates")
     p.add_argument("--lat", type=float, help="custom latitude (degrees, north positive)")
     p.add_argument("--lon", type=float, help="custom longitude (degrees, east positive)")
@@ -446,6 +449,9 @@ def main():
 
     elif a.cmd == "grid":
         run_grid(a, key, label, lat, lon, sky_path)
+
+    elif a.cmd == "patch":
+        run_patch(a, key, label, lat, lon)
 
 
 def parse_instant(text):
@@ -987,6 +993,28 @@ def run_mast(a, key, label, lat, lon, sky_path):
         print(f"  {r['mast_m']:5.0f}m {r['mean_horizon_deg']:+12.2f}d {r['sun_visible_pct']:11.1f}% "
               f"{lm.format_duration(r['longest_darkness_h']):>13s} {r['earth_visible_pct']:13.1f}% "
               f"{lm.format_duration(r['longest_earth_outage_h']):>15s}")
+
+
+def run_patch(a, key, label, lat, lon):
+    """Nested terrain height windows for the 3D surface view (needs the LOLA DEM)."""
+    import lunar_terrain as lt
+
+    try:
+        patch = lt.compute_patch(lat, lon)
+    except ValueError as error:
+        sys.exit(f"{label}: {error}")
+    os.makedirs(a.out, exist_ok=True)
+    json_path = os.path.join(a.out, f"terrain_{key}.json")
+    bin_path = os.path.join(a.out, f"terrain_{key}.bin")
+    lt.save_patch(json_path, bin_path, {"key": key, "name": label, "lat": lat, "lon": lon}, patch)
+    print("wrote:", json_path)
+    print("wrote:", bin_path, f"({os.path.getsize(bin_path)} bytes)")
+    print(f"{label}  ({lat}, {lon}), ground height {patch['ground_height_m']:+.0f} m")
+    for index, grid in enumerate(patch["levels"]):
+        size = grid.data.shape[0]
+        print(f"  Level {index}: {size} x {size} pixels of {grid.pixel_m:g} m "
+              f"({size * grid.pixel_m / 1000:.1f} km wide), "
+              f"height {grid.data.min():+.0f} .. {grid.data.max():+.0f} m")
 
 
 def run_horizon(a, key, label, lat, lon):

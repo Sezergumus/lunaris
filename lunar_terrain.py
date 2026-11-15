@@ -497,6 +497,67 @@ def grid_to_json(doc, indent=None):
     return json.dumps(out, indent=indent, separators=None if indent else (",", ":"))
 
 
+# ---------------------------------------------------------------- patches
+# Nested height windows for the 3D surface view: (decimation, radius_m). Every
+# level is centered on the 60 m pixel corner nearest the site and covers the
+# middle quarter (per side) of the next one.
+PATCH_LEVELS = ((1, 7_680.0), (4, 30_720.0), (16, 122_880.0), (64, 245_760.0))
+
+
+def compute_patch(lat, lon):
+    """Nested square height windows around (lat, lon), finest first.
+
+    Returns the ground height at the point (bilinear, as in the horizon) and
+    one `Grid` per entry of `PATCH_LEVELS`. Raises ValueError when a window
+    is cut by the edge of the DEM or holds a pixel without data.
+
+    One full-resolution window is read and every level is the exact block
+    average of its pixels, so a coarse pixel equals the mean of the finer
+    pixels it covers and neighbouring levels meet without a step. (A
+    decimated `read_window` takes the file's overviews, whose pixel grid is
+    not aligned with the window: up to half a coarse pixel of shift.)
+    """
+    x_site, y_site = latlon_to_xy(lat, lon)
+    radius_m = max(radius for _, radius in PATCH_LEVELS)
+    full = read_window("height_m", x_site, y_site, radius_m)
+    size = 2 * int(round(radius_m / full.pixel_m))
+    if full.data.shape != (size, size):
+        raise ValueError(
+            f"the terrain patch is cut by the edge of the DEM "
+            f"({full.data.shape[1]} x {full.data.shape[0]} pixels instead of {size} x {size})")
+    if not np.isfinite(full.data).all():
+        raise ValueError("the terrain patch holds pixels without data")
+    levels = []
+    for decimation, level_radius_m in PATCH_LEVELS:
+        half = int(round(level_radius_m / full.pixel_m))
+        n = 2 * half // decimation
+        block = full.data[size // 2 - half:size // 2 + half, size // 2 - half:size // 2 + half]
+        data = block.reshape(n, decimation, n, decimation).mean(axis=(1, 3), dtype=np.float64)
+        levels.append(Grid(data.astype(np.float32),
+                           full.x0 + (size // 2 - half) * full.pixel_m,
+                           full.y0 - (size // 2 - half) * full.pixel_m,
+                           full.pixel_m * decimation))
+    return {"ground_height_m": float(levels[0].sample(x_site, y_site)), "levels": levels}
+
+
+def save_patch(json_path, bin_path, site, patch):
+    """Write the patch: heights as little-endian Float32 (levels one after the
+    other, each row by row from the top), and a JSON description of the levels."""
+    with open(bin_path, "wb") as f:
+        for grid in patch["levels"]:
+            f.write(np.ascontiguousarray(grid.data, dtype="<f4").tobytes())
+    doc = {
+        "site": site,
+        "source": "LOLA " + PRODUCTS["height_m"] + " (pgda.gsfc.nasa.gov/products/90)",
+        "ground_height_m": round(patch["ground_height_m"], 2),
+        "levels": [{"pixel_m": float(g.pixel_m), "size": int(g.data.shape[0]),
+                    "x0": float(g.x0), "y0": float(g.y0)} for g in patch["levels"]],
+    }
+    with open(json_path, "w") as f:
+        json.dump(doc, f, indent=1)
+        f.write("\n")
+
+
 # -------------------------------------------------------------------- I/O
 def save_horizon(path, site, horizon, surface=None):
     doc = {

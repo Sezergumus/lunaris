@@ -1,0 +1,36 @@
+{
+ "site": {
+  "key": "chandrayaan3",
+  "name": "Chandrayaan-3 (Shiv Shakti)",
+  "lat": -69.37,
+  "lon": 32.32
+ },
+ "source": "LOLA LDEM_60S_60MPP_ADJ.TIF (pgda.gsfc.nasa.gov/products/90)",
+ "ground_height_m": 528.63,
+ "levels": [
+  {
+   "pixel_m": 60.0,
+   "size": 256,
+   "x0": 330420.0,
+   "y0": 542100.0
+  },
+  {
+   "pixel_m": 240.0,
+   "size": 256,
+   "x0": 307380.0,
+   "y0": 565140.0
+  },
+  {
+   "pixel_m": 960.0,
+   "size": 256,
+   "x0": 215220.0,
+   "y0": 657300.0
+  },
+  {
+   "pixel_m": 3840.0,
+   "size": 128,
+   "x0": 92340.0,
+   "y0": 780180.0
+  }
+ ]
+}

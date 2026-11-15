@@ -7,11 +7,13 @@
 //                       one table for every coordinate (custom points, nearby spots)
 //   stations.bin        like dsn.bin, on the time axis of vectors.bin
 //   grid_<site>.json    horizon and slope for a square of points around each site (copy)
+//   terrain_<site>.json nested height windows around each site for the 3D surface view
+//   terrain_<site>.bin  (description and Float32 heights, copies; fetched only on demand)
 //   manifest.json       time axes, scales and the list of sites
 //
 // Integer scaling keeps every decimal the backend wrote, so the browser works on exactly the
 // same numbers as the Python code. Nothing here is hard-coded to a date range or site list.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -108,7 +110,14 @@ for (const file of readdirSync(source).sort()) {
   const gridPath = join(source, `grid_${key}.json`);
   const hasGrid = existsSync(gridPath);
   if (hasGrid) writeFileSync(join(target, `grid_${key}.json`), JSON.stringify(JSON.parse(readFileSync(gridPath, "utf8"))));
-  sites.push({ ...horizon.site, grid: hasGrid });
+  const patchJson = join(source, `terrain_${key}.json`);
+  const patchBin = join(source, `terrain_${key}.bin`);
+  const hasTerrain = existsSync(patchJson) && existsSync(patchBin);
+  if (hasTerrain) {
+    writeFileSync(join(target, `terrain_${key}.json`), JSON.stringify(JSON.parse(readFileSync(patchJson, "utf8"))));
+    copyFileSync(patchBin, join(target, `terrain_${key}.bin`));
+  }
+  sites.push({ ...horizon.site, grid: hasGrid, terrain: hasTerrain });
 }
 
 const manifest = {
