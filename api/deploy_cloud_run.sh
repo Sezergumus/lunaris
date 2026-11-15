@@ -14,6 +14,7 @@ REGION="${2:-europe-west1}"
 SERVICE="${3:-lunaris-terrain}"
 [ -n "$PROJECT" ] || { echo "usage: $0 <project-id> [<region>] [<service>]"; exit 1; }
 TERRAIN_URL="${LUNAR_TERRAIN_URL:-https://storage.googleapis.com/lunaris-lola-601609650151}"
+MAX_JOBS="${LUNARIS_MAX_JOBS:-2}"
 cd "$(dirname "$0")/.."
 
 STAGE="$(mktemp -d)"
@@ -23,8 +24,12 @@ cp api/Dockerfile "$STAGE/Dockerfile"
 cp requirements.txt lunar_terrain.py "$STAGE/"
 cp api/__init__.py api/main.py api/requirements.txt api/start.sh "$STAGE/api/"
 
-# Two instances at most and two computations each keep a traffic spike from costing money.
+# Five instances at most (ten computations at once) keep a traffic spike from costing much.
+# Cloud Run's request concurrency must equal the service's own job limit (LUNARIS_MAX_JOBS):
+# with a higher value Cloud Run hands one instance requests it can only refuse with 429, and
+# it starts the second instance only when the first is near that higher value. With equal
+# values a third request goes to another instance, and beyond that Cloud Run queues it.
 gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --source "$STAGE" \
-  --allow-unauthenticated --memory 2Gi --cpu 2 --concurrency 8 --max-instances 2 --timeout 120 \
-  --set-env-vars "LUNAR_TERRAIN_URL=$TERRAIN_URL,LUNAR_TERRAIN_REMOTE_SLOPE=1,LUNARIS_CORS_ORIGINS=${LUNARIS_CORS_ORIGINS:-*}"
+  --allow-unauthenticated --memory 2Gi --cpu 2 --concurrency "$MAX_JOBS" --max-instances 5 --timeout 120 \
+  --set-env-vars "LUNAR_TERRAIN_URL=$TERRAIN_URL,LUNAR_TERRAIN_REMOTE_SLOPE=1,LUNARIS_MAX_JOBS=$MAX_JOBS,LUNARIS_CORS_ORIGINS=${LUNARIS_CORS_ORIGINS:-*}"
 gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)'
