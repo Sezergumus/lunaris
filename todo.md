@@ -10,8 +10,9 @@ View") in the Lunaris web UI (`web/`). Written 2026-11-15 ~05:45 local from a re
 code and the data files. A new session must be able to implement it from this file and
 `CLAUDE.md` alone.
 
-**Status:** approved by Sezer and Kerem. Phase B is done (files in `data/`); the frontend
-phases are not started. One commit per phase (Conventional
+**Status:** approved by Sezer and Kerem. Phase B and frontend phases 0 to 9 are done
+(2026-11-15, Kerem's Mac; see "Summary"). One box is open: the frame-rate check on
+integrated graphics (phase 2). One commit per phase (Conventional
 Commits, English, no AI attribution, no push unless asked). Tick the boxes as the work lands.
 
 **Who does what:** phase B is backend (Kerem, local DEM). Everything else is frontend
@@ -335,12 +336,12 @@ Estimates are for one developer working with Claude.
 
 ### Phase 9: wrap-up (about 1 h)
 
-- [ ] Phone-sized screen: touch look, sheet layout, captions readable, frame rate acceptable.
-- [ ] Keyboard: every control reachable, visible focus, Escape closes.
-- [ ] Bundle: `three` and the patches only on demand; Planner first load unchanged.
-- [ ] `npm run validate`, `npm run lint`, `npm run build`.
-- [ ] Two Explorer screenshots for the slides.
-- [ ] `CLAUDE.md` handoff: what was built, known limits.
+- [x] Phone-sized screen: touch look, sheet layout, captions readable, frame rate acceptable.
+- [x] Keyboard: every control reachable, visible focus, Escape closes.
+- [x] Bundle: `three` and the patches only on demand; Planner first load unchanged.
+- [x] `npm run validate`, `npm run lint`, `npm run build`.
+- [x] Two Explorer screenshots for the slides.
+- [x] `CLAUDE.md` handoff: what was built, known limits.
 
 `docs: record the Explorer mode in the session handoff`
 
@@ -375,4 +376,97 @@ After every phase: `npm run validate`, `npm run lint`, `npm run build`, then in 
 
 ## Summary
 
-To be written by the agent when every phase is done (see "Instructions for the AI agent").
+Built on 2026-11-15 on Kerem's Mac (not by the unattended agent on Sezer's machine), one
+commit per phase on `main`, each pushed: `8dabc15` (0), `7b915b0` (1), `9151f9f` (2),
+`8365782` (3 and 4 together), `a393544` (5), `2fb38b2` (6), `a901e4a` (7), `025d584` (8),
+then the wrap-up commit.
+
+**What was built**
+
+- Phase 0: `state/mode.ts` (mode, view, step, camera heading / pitch / field of view),
+  `mode`, `view`, `step` (1-based) in the URL. Going one level deeper pushes a history entry
+  (`history.state.lunarisPushed`), so Escape and the back button leave the Explorer or the
+  surface view. `Planner | Explorer` in the sites header, a telescope button in the mobile
+  dock. `usePlayback` moved from the timeline to `App`.
+- Phase 1: `surface/` (lazy chunk with three.js 0.187): `geometry.ts` (vertices on the
+  sphere, the formulas above), `terrain.ts` (levels, skipped inner cells), `sky.ts` (Sun,
+  Earth with its phase, glare, stars, the curtain), `scene.ts` (draw order, per-level
+  planes), `SurfaceView.tsx` (look controls, compass, edge markers, caption),
+  `SurfaceStage.tsx` (lazy load, horizon-chart fallback). Disk sizes per sample from the
+  engine. Entry: expand button on the inspector's horizon chart (`view=surface`).
+- Phase 2: `surface/shadow.ts`, a GPU march per level as specified (R32F height textures,
+  RGBA32F positions, RGBA8 targets), recomputed when the Sun moves, at most every 50 ms.
+  The mast's shadow with its true length.
+- Phase 3 and 4: `explore/Explorer.tsx`, `steps.ts` (intro and four steps), `facts.ts`
+  (every number in the copy), `SunPathInset.tsx`. Each step applies its own scenario
+  (`applyScene`, mission parameters back to defaults), plays it and can switch the stage
+  between A and B.
+- Phase 5: hop registry in `state/nearby.ts` (`hopOrigin`); `terrainFromPoint` keeps
+  `horizon_range_km`; beacons, flight and "Back to <site>" in the surface view.
+- Phase 6: the Planner's `MastControl` inside the surface view, with a reason when fixed.
+- Phase 7: per-station columns in `loadSkyTables` (`stations`), `psr` in `SiteTerrain`,
+  `charts/why.ts` (moved out of `HorizonView`), Planner guides / tracks / blocking skyline,
+  Explorer Earth card / PSR pin / "why" caption, center readout.
+- Phase 8: `explore/game.ts`, `explore/Game.tsx` (step 5 of the Explorer).
+- Phase 9: the Explorer is a lazy chunk too (19 kB); phone layout (inset hidden, compact
+  mast panel); key codes for zoom; screenshots in `docs/screenshots/`.
+
+**Decisions taken without asking**
+
+- Entering the Explorer (or a step) replaces the scenario on screen with the step's own;
+  "Open in Planner" keeps it. The Planner's previous scenario is not restored.
+- The ground within 60 to 150 m of the observer takes the engine's lit share instead of the
+  shadow texture, so the view and the metric cards cannot disagree under the feet.
+- Terrain light is gated by the lowest point of the skyline, not by 0 deg (high ground sees
+  the Sun below the horizontal).
+- The Earth's distance in the Earth card comes from its apparent disk size (the same
+  ephemeris), not from a new table.
+- Tracks and guide lines are drawn before the curtain, so the skyline hides them; the
+  blocking stretch of skyline is drawn over the terrain.
+- No beacons in the game (the best spot would give the answer away). The game's "dark" is
+  the engine's (no part of the Sun's disk), so its result matches the risk card's longest
+  darkness against the battery.
+- The skyline curtain is dark grey, not the terrain's colour; the far mesh covers it nearly
+  everywhere.
+
+**Checked (browser pane on the dev server, live terrain API in `.env.local`; screenshots
+force frames while the pane is hidden)**
+
+- Mons Mouton: the Sun label turns "behind terrain" between 08:20 and 08:29 on 30 Dec, the
+  sunset in `metrics_mons_mouton_terrain.json` is 08:28 (after the disk-radius fix), and
+  the metric card switches in the same minute.
+- Shackleton: walls about 20 deg all round, all ground in shadow, Sun and Earth behind
+  terrain. Malapert A: observer in shadow, stars out, only a distant ridge lit.
+- Tour numbers equal the backend: slip 0 -> 100 with 6.6 days dark; Malapert A 100 -> 63 at
+  559 m NW; ridge 100 % Sun against 0 % on the floor, walls >= 19.8 deg.
+- Hop to Malapert A's best spot: the place, the mesh and the beacons follow; "Back to
+  Malapert A" returns. Mast 10 m on the ridge: "recomputed by the terrain service".
+- Game at Malapert A, 16 Dec: fails on day 2.1 (landed in shadow); the hint "375 m S" then
+  survives 14 days.
+- Ridge: PSR pin 796 m S, slope up to 8 deg (backend: 0.80 km, 7.7 deg); Earth card
+  distance and light delay; DSN stations.
+- Phone size (375 x 812): Explorer layout, no horizontal scroll, touch drag turns the view;
+  keyboard: arrows turn the view, focus ring visible, Escape leaves.
+- `npm run validate`, `npm run lint` (0 warnings), `npm run build` after every phase.
+  Planner first load 677 kB (674 kB before; three.js 579 kB and the Explorer 19 kB are
+  separate chunks).
+
+**Known problems / not checked**
+
+- Frame rate during playback on integrated graphics not measured (the pane was hidden, so
+  `requestAnimationFrame` was throttled). The shadow pass is the expensive part (four
+  256 x 256 targets, up to 420 steps per texel); lower `MAX_STEPS` or the update rate if it
+  stutters.
+- Custom points and points of a live 5 x 5 grid have no height patch: curtain only, no
+  beacons. Apollo 11 and custom points: curtain only, as designed.
+- The Planner's surface overlay on a phone (between the dock and the top) was not looked at.
+- Surface brightness is tuned by eye; near the observer the 60 m ground looks smooth.
+- The 3D view's Sun and Earth sizes follow the ephemeris; the horizon chart still draws
+  the mean sizes (it was not touched).
+
+**How to try it**
+
+- `http://localhost:5173/?mode=explore` (intro), `...&step=1` to `step=4` (tour), `step=5`
+  (game).
+- Planner: select a site, press the expand button on the horizon chart
+  (`?site=malapert_a&date=2026-12-16&view=surface`).

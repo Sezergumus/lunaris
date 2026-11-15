@@ -131,9 +131,14 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   `snap=false` gives the ranges and horizon of `horizon_mons_mouton.json` exactly, slope
   3.298 (`horizon_range_km?` stays optional in `TerrainPoint` for cached older answers).
   With it the mast estimate and the horizon uncertainty become possible
-  for grid points and custom points; no UI code uses it yet. The frontend phases (0 to 9) are not started; an AI agent on Sezer's machine works
-  through them unattended (its instructions are at the top of `todo.md`) and writes a
-  summary at the end of that file.
+  for grid points and custom points (used since phase 5 for hops). **Frontend phases 0 to 9
+  of `todo.md` are done (2026-11-15 ~12:45, Kerem's Mac with Claude, pushed phase by
+  phase):** Explorer mode (intro, four-step tour, landing game), the first-person 3D surface
+  view with GPU terrain shadows, hops between grid points, mast lift, labels per mode.
+  What was built, decisions, checks and open points are in the "Summary" of `todo.md`;
+  slide screenshots in `docs/screenshots/`. Tell Sezer; his machine's unattended agent was
+  NOT run for these phases (do not start it now, it would redo them). Open: frame rate on
+  integrated graphics during playback; the Planner's 3D overlay on a phone.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
@@ -194,7 +199,9 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
 
 **Next action (backend):** ask Kerem what he wants next; the current list is in "Next steps"
 at the end of this file (item 1 is connecting the deployed site to the live API).
-**Next action (frontend):** the design is decided and planned in `frontend-plan.md`. Phase 8
+**Next action (frontend):** demo rehearsal of the Explorer (`?mode=explore`) and the 3D
+view on the deployed site after Sezer redeploys; the older note follows. The design is
+decided and planned in `frontend-plan.md`. Phase 8
 has its explainer lines (`Explainer.tsx`, an info tooltip in the inspector header) and URL state (`state/url.ts`); whether phase 8 is
 complete was not checked in the running app by the backend side. Ask Sezer.
 **Open decisions (user/team; do not decide silently):**
