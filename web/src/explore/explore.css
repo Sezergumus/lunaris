@@ -1,0 +1,154 @@
+/* ---------- Explorer: one stage, a caption area and a transport ---------- */
+
+.explorer {
+  position: fixed;
+  inset: 0;
+  /* Above the map's own panes (Leaflet uses z-index up to 1000 inside the map). */
+  z-index: 1100;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg);
+}
+
+.explorer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-panel);
+}
+
+.explorer__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.explorer__name {
+  font-weight: 650;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.explorer__place {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer__stage {
+  position: relative;
+  min-height: 0;
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  background: #000;
+  display: grid;
+  place-items: center;
+}
+
+/* The fallback chart, enlarged to the stage. */
+.explorer__stage > .hv {
+  width: min(100%, 1100px);
+  padding: 16px;
+}
+
+.explorer__empty {
+  color: var(--text-2);
+  padding: 24px;
+  text-align: center;
+}
+
+.explorer__bottom {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-panel);
+}
+
+.explorer__caption {
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 70ch;
+}
+
+.explorer__caption p {
+  margin: 0;
+}
+
+.explorer__caption p + p {
+  margin-top: 4px;
+  color: var(--text-2);
+}
+
+.explorer__transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.explorer__clock {
+  display: grid;
+  line-height: 1.25;
+  min-width: 11em;
+}
+
+.explorer__day {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.explorer__utc {
+  color: var(--text-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.explorer__progress {
+  flex: 1 1 120px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill-press);
+  overflow: hidden;
+}
+
+.explorer__progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.explorer__actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 759px) {
+  .explorer {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .explorer__header {
+    padding: 8px 10px;
+  }
+
+  .explorer__name {
+    font-size: 14px;
+  }
+
+  .explorer__caption {
+    font-size: 14px;
+  }
+}
+
+/* The Planner's panels step aside while the Explorer is open. */
+.hud[hidden] {
+  display: none;
+}

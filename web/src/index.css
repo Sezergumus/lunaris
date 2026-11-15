@@ -202,6 +202,22 @@ svg {
   padding: 20px 20px 18px;
 }
 
+.sidebar__mode {
+  padding: 0 20px 12px;
+}
+
+.sidebar__mode .seg {
+  width: 100%;
+}
+
+.sidebar__mode .seg__list {
+  width: 100%;
+}
+
+.sidebar__mode .seg__item {
+  flex: 1;
+}
+
 .brand__mark {
   width: 30px;
   height: 30px;

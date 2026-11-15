@@ -7,7 +7,6 @@ import { sampleAt } from "../engine/events.ts";
 import { sampleIndex } from "../engine/sky.ts";
 import type { PlaceData } from "../state/placeData.ts";
 import { SPEEDS, WINDOW_DAYS, actions, placeTitle, startOfB, useScenario } from "../state/scenario.ts";
-import { usePlayback } from "../state/usePlayback.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { DatePicker } from "../ui/DatePicker.tsx";
 import { InlineNumberField } from "../ui/NumberField.tsx";
@@ -32,7 +31,6 @@ interface TimelineBarProps {
 }
 
 export function TimelineBar({ ref, a, b, macroExtra, summary }: TimelineBarProps) {
-  usePlayback();
   const limits = useScenario((s) => s.limits);
   const startMs = useScenario((s) => s.startMs);
   const startB = useScenario(startOfB);

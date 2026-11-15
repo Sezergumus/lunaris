@@ -13,6 +13,7 @@ import { Button, IconButton } from "../ui/Button.tsx";
 import { NumberField } from "../ui/NumberField.tsx";
 import { formatDays, formatUtcDate, parseDecimal } from "../ui/format.ts";
 import { MissionParameters } from "./MissionParameters.tsx";
+import { ModeSwitch } from "./ModeSwitch.tsx";
 import { Stories } from "./Stories.tsx";
 
 interface SitesPanelProps {
@@ -76,6 +77,12 @@ export function SitesPanel({ ref, sites, loadError, placeA, placeB, hoveredKey, 
           </IconButton>
         </div>
       </header>
+
+      {collapsed ? null : (
+        <div className="sidebar__mode">
+          <ModeSwitch />
+        </div>
+      )}
 
       {collapsed ? null : (
         <>

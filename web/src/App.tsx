@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { loadSites, type SiteInfo } from "./data/load.ts";
 import { fetchTerrainHealth, terrainConfigured } from "./data/terrain.ts";
+import { HorizonView } from "./charts/HorizonView.tsx";
 import { RiskStrip } from "./charts/RiskStrip.tsx";
+import { ExplorerShell } from "./explore/ExplorerShell.tsx";
 import { MoonMap, type Insets, type MapCandidate, type MapPick, type MapPoint, type MapSavedPin, type PinRisk } from "./map/MoonMap.tsx";
 import { CompareSummary } from "./panels/CompareSummary.tsx";
 import { InspectorPanel } from "./panels/InspectorPanel.tsx";
@@ -14,11 +16,13 @@ import { TimelineBar } from "./panels/TimelineBar.tsx";
 import { betterSpot, neighbourPlace, offsetText, useNearby } from "./state/nearby.ts";
 import { usePlaceSeries, useSkyTables } from "./state/placeData.ts";
 import { useSiteScores } from "./state/siteScores.ts";
-import { actions, customPlace, getScenario, sitePlace, useScenario, type Place } from "./state/scenario.ts";
+import { actions, customPlace, getScenario, placeTitle, sitePlace, useScenario, type Place } from "./state/scenario.ts";
 import type { LimitKey } from "./state/limits.ts";
+import { leaveLevel, getMode, modeActions, useMode } from "./state/mode.ts";
 import { getSavedPoint, openSavedPoint, useSavedPoints } from "./state/savedPoints.ts";
 import { OPENING_SITE } from "./state/stories.ts";
 import { readUrl, syncUrl } from "./state/url.ts";
+import { usePlayback } from "./state/usePlayback.ts";
 import { useViews } from "./state/view.ts";
 import { Sheet, type SheetState } from "./ui/Sheet.tsx";
 import { MOBILE_QUERY, useMediaQuery } from "./ui/useMediaQuery.ts";
@@ -77,6 +81,9 @@ export default function App() {
   const views = useViews(a, b);
   const siteScores = useSiteScores(tables, sites);
   const nearby = useNearby(tables, a);
+  const mode = useMode((m) => m.mode);
+  // Mounted here, not in the timeline: the Explorer plays the window without the Planner's panels.
+  usePlayback();
 
   // Start-up: the site list and the tables arrive separately; the scenario in the URL is
   // applied once both are known. The date range comes from the table, never from code.
@@ -102,18 +109,26 @@ export default function App() {
       // A first visit (nothing in the link) opens on a site, so the panels are never empty.
       const firstVisit = window.location.search === "";
       const url = readUrl(sites);
+      modeActions.restore(url.mode);
       actions.init({ minMs: tables.vectors.startMs, maxMs: tables.endMs }, url.startMs, url.windowHours);
       if (url.mastM !== null) actions.setMast(url.mastM);
       if (url.profileKey) actions.setProfile(url.profileKey);
       for (const [key, value] of Object.entries(url.limitOverrides)) actions.setLimit(key as LimitKey, value);
       const opening = sites.find((site) => site.key === OPENING_SITE);
       if (url.placeA) actions.selectPlace(url.placeA);
-      else if (firstVisit && opening) actions.selectPlace(sitePlace(opening));
+      else if ((firstVisit || url.mode.mode === "explore") && opening) actions.selectPlace(sitePlace(opening));
       if (url.placeA && url.placeB) actions.compareWith(url.placeB);
       if (url.placeA && url.slipDays !== 0) actions.slip(url.slipDays);
     }
     return syncUrl();
   }, [tables, sites]);
+
+  // The Explorer always has a place on its stage: the opening site when nothing is selected.
+  useEffect(() => {
+    if (mode !== "explore" || getScenario().placeA || !getScenario().limits) return;
+    const opening = sites.find((site) => site.key === OPENING_SITE);
+    if (opening) actions.selectPlace(sitePlace(opening));
+  }, [mode, sites]);
 
   // Narrow screens: the map is full screen and each panel opens as a bottom sheet, one at a
   // time. Wide screens ignore this state (the sheets are `display: contents` there).
@@ -146,6 +161,12 @@ export default function App() {
     const onKey = (event: KeyboardEvent) => {
       // Escape inside a popover or a menu closes that, not the panel.
       if (event.key !== "Escape" || (event.target as HTMLElement).closest("[role='dialog'], [role='menu']")) return;
+      // The Explorer and the surface view are left first, one level at a time.
+      const m = getMode();
+      if (m.mode === "explore" || m.view === "surface") {
+        leaveLevel();
+        return;
+      }
       // One step back at a time: an open sheet first, then the comparison, then the selection.
       if (sheetRef.current) showSheet(null);
       else if (getScenario().placeB) actions.clearComparison();
@@ -334,7 +355,13 @@ export default function App() {
         getInsets={getInsets}
       />
 
-      <div className="hud" data-sheet={sheet?.id}>
+      {mode === "explore" ? (
+        <ExplorerShell title={placeA ? placeTitle(placeA) : null}>
+          {views.length > 0 ? <HorizonView view={views[0]} /> : <p className="explorer__empty">Loading the Moon…</p>}
+        </ExplorerShell>
+      ) : null}
+
+      <div className="hud" data-sheet={sheet?.id} hidden={mode === "explore"}>
         <Sheet label="Sites" state={sheetState("sites")} onStateChange={onSheetState("sites")}>
           <SitesPanel
             ref={sidebarRef}

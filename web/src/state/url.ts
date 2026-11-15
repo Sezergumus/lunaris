@@ -3,11 +3,15 @@
 // `window` is the mission length in hours (1 to 60 days), `slip` may be negative (B before A).
 // Limits changed by hand travel as dark / sun / outage / contact / slope (state/limits.ts).
 // A custom point is written as `lat,lon` (for example site=-85.3,31), the reference as `apollo11`.
+// The Explorer adds `mode=explore`, the surface view `view=surface`, a tour step `step=2`
+// (1-based in the URL). Going one level deeper pushes a history entry, so the browser's back
+// button leaves it again (state/mode.ts).
 import type { SiteInfo } from "../data/load.ts";
 import { MAST_RANGE_M } from "../engine/mast.ts";
 import { PROFILE_PRESETS, type ProfileKey } from "../engine/risk.ts";
 import { isoDay } from "../ui/format.ts";
 import { LIMITS, type LimitOverrides } from "./limits.ts";
+import { getMode, modeActions, subscribeMode, type ModeState } from "./mode.ts";
 import { getSavedPoint, savedPlace } from "./savedPoints.ts";
 import { APOLLO_11, WINDOW_HOURS, customPlace, getScenario, sitePlace, subscribeScenario, validWindowHours, type Place } from "./scenario.ts";
 
@@ -41,6 +45,29 @@ export interface UrlScenario {
   mastM: number | null;
   profileKey: ProfileKey | null;
   limitOverrides: LimitOverrides;
+  mode: Pick<ModeState, "mode" | "view" | "step">;
+}
+
+function readModeParams(params: URLSearchParams): Pick<ModeState, "mode" | "view" | "step"> {
+  const mode = params.get("mode") === "explore" ? "explore" : "plan";
+  const step = Number(params.get("step"));
+  return {
+    mode,
+    view: params.get("view") === "surface" ? "surface" : "map",
+    step: mode === "explore" && Number.isInteger(step) && step >= 1 ? step - 1 : null,
+  };
+}
+
+/** What the app keeps in `history.state`. */
+export interface HistoryEntry {
+  lunarisDepth: number;
+  /** Created by the app going one level deeper: back stays in the app. */
+  lunarisPushed: boolean;
+}
+
+/** Levels above the plain Planner: the Explorer, and the surface view on top. */
+function depthOf(m: Pick<ModeState, "mode" | "view">): number {
+  return (m.mode === "explore" ? 1 : 0) + (m.view === "surface" ? 1 : 0);
 }
 
 export function readUrl(sites: SiteInfo[]): UrlScenario {
@@ -58,6 +85,7 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
     if (value >= limit.min && value <= limit.max) limitOverrides[limit.key] = value;
   }
   return {
+    mode: readModeParams(params),
     limitOverrides,
     placeA: paramToPlace(params.get("site"), sites),
     placeB: paramToPlace(params.get("compare"), sites),
@@ -69,12 +97,15 @@ export function readUrl(sites: SiteInfo[]): UrlScenario {
   };
 }
 
-/** Keeps the address bar in step with the scenario. Returns the unsubscribe function. */
+/** Keeps the address bar in step with the scenario and the mode. Returns the unsubscribe function. */
 export function syncUrl(): () => void {
   let last = "";
+  // The page's own entry is never pushed: back from it leaves the app as before.
+  let first = true;
   const write = () => {
     const s = getScenario();
     if (!s.limits) return;
+    const m = getMode();
     const params = new URLSearchParams();
     if (s.placeA) params.set("site", placeToParam(s.placeA));
     params.set("date", isoDay(s.startMs));
@@ -87,12 +118,37 @@ export function syncUrl(): () => void {
       const value = s.limitOverrides[limit.key];
       if (value !== undefined) params.set(limit.param, String(value));
     }
+    if (m.mode === "explore") params.set("mode", "explore");
+    if (m.view === "surface") params.set("view", "surface");
+    if (m.mode === "explore" && m.step !== null) params.set("step", String(m.step + 1));
     const query = params.toString();
     // The store also changes on every playback frame; the URL only when the scenario does.
     if (query === last) return;
     last = query;
-    window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
+    const url = `${window.location.pathname}?${query}`;
+    const depth = depthOf(m);
+    const entry = (window.history.state as HistoryEntry | null) ?? { lunarisDepth: 0, lunarisPushed: false };
+    // One level deeper: a new entry, so back returns to where the user came from.
+    if (!first && depth > (entry.lunarisDepth ?? 0)) {
+      window.history.pushState({ lunarisDepth: depth, lunarisPushed: true } satisfies HistoryEntry, "", url);
+    } else {
+      window.history.replaceState({ lunarisDepth: depth, lunarisPushed: !first && entry.lunarisPushed === true } satisfies HistoryEntry, "", url);
+    }
+    first = false;
+  };
+  // Back / forward: take the mode from the entry, keep the scenario as it is now.
+  const onPop = () => {
+    modeActions.restore(readModeParams(new URLSearchParams(window.location.search)));
+    last = "";
+    write();
   };
   write();
-  return subscribeScenario(write);
+  const offScenario = subscribeScenario(write);
+  const offMode = subscribeMode(write);
+  window.addEventListener("popstate", onPop);
+  return () => {
+    offScenario();
+    offMode();
+    window.removeEventListener("popstate", onPop);
+  };
 }

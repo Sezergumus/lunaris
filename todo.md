@@ -225,11 +225,11 @@ Estimates are for one developer working with Claude.
 
 ### Phase 0: mode switch (about 45 min)
 
-- [ ] `state/mode.ts` and the `mode` / `view` / `step` parameters in `state/url.ts`.
-- [ ] `Planner | Explorer` control in the sites panel header and in the mobile dock.
-- [ ] Explorer shell: the Planner panels step aside; one stage, a caption area, a transport
+- [x] `state/mode.ts` and the `mode` / `view` / `step` parameters in `state/url.ts`.
+- [x] `Planner | Explorer` control in the sites panel header and in the mobile dock.
+- [x] Explorer shell: the Planner panels step aside; one stage, a caption area, a transport
       (play, pause, restart).
-- [ ] Escape and the browser's back button leave the mode.
+- [x] Escape and the browser's back button leave the mode.
 
 `feat(web): add the Explorer mode switch`
 
