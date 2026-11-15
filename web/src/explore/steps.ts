@@ -23,6 +23,8 @@ export interface Scene {
   windowHours: number;
   /** Playback speed, simulated hours per second. */
   speed: number;
+  /** Start playing at once (default); the game waits for its Land button. */
+  autoplay?: boolean;
 }
 
 export interface Caption {
@@ -175,5 +177,8 @@ export function applyScene(scene: Scene, sites: SiteInfo[]) {
   const placeB = scene.compare ? resolve(scene.compare, sites) : null;
   if (placeB) actions.compareWith(placeB);
   else if (scene.slipDays) actions.slip(scene.slipDays);
-  actions.setPlaying(true);
+  if (scene.autoplay !== false) actions.setPlaying(true);
 }
+
+/** The landing game starts at the IM-1 area, where the site itself does not survive 16 Dec. */
+export const GAME_SCENE: Scene = { site: "malapert_a", date: "2026-12-16", windowHours: 336, speed: 72, autoplay: false };

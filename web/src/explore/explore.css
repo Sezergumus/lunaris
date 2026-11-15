@@ -272,6 +272,78 @@
   }
 }
 
+/* Landing game. */
+.game {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.game__pick {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.game__sites {
+  display: grid;
+  gap: 4px;
+}
+
+.game__site {
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.game__site[aria-checked="true"] {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.game__grid {
+  display: grid;
+  gap: 2px;
+  width: 117px;
+}
+
+.game__cell {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--fill-press);
+  cursor: pointer;
+}
+
+.game__cell[data-center] {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.game__cell[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.game__cell:focus-visible {
+  outline: 2px solid var(--accent-ring);
+}
+
+.game__buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* The Planner's panels step aside while the Explorer is open. */
 .hud[hidden] {
   display: none;

@@ -10,7 +10,8 @@ import { Button } from "../ui/Button.tsx";
 import { Segmented } from "../ui/Segmented.tsx";
 import { ExplorerShell } from "./ExplorerShell.tsx";
 import { SunPathInset } from "./SunPathInset.tsx";
-import { INTRO, LUNAR_DAY_HOURS, TOUR, applyScene } from "./steps.ts";
+import { Game } from "./Game.tsx";
+import { GAME_SCENE, INTRO, LUNAR_DAY_HOURS, TOUR, applyScene } from "./steps.ts";
 
 interface ExplorerProps {
   views: ScenarioView[];
@@ -27,13 +28,15 @@ interface ExplorerProps {
 export function Explorer({ views, sites, nearby }: ExplorerProps) {
   const step = useMode((m) => m.step);
   const ready = useScenario((s) => s.limits !== null) && sites.length > 0;
-  const tour = step !== null ? TOUR[Math.min(step, TOUR.length - 1)] : null;
+  // Steps 0..n-1 are the tour, step n is the landing game.
+  const game = step !== null && step >= TOUR.length;
+  const tour = step !== null && !game ? TOUR[step] : null;
 
   // Every step starts from its own scenario.
   useEffect(() => {
     if (!ready) return;
-    applyScene(tour ? tour.scene : INTRO.scene, sites);
-  }, [ready, tour, sites]);
+    applyScene(game ? GAME_SCENE : tour ? tour.scene : INTRO.scene, sites);
+  }, [ready, tour, game, sites]);
 
   // "500 m matters": scenario B is the best nearby spot, once the grid is scored.
   const result = nearby.state.status === "ready" ? nearby.state.result : null;
@@ -52,7 +55,9 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
   const offsetMs = useScenario((s) => s.offsetMs);
 
   let caption = null;
-  if (a) {
+  if (game) {
+    caption = <Game view={a} sites={sites} nearby={result} />;
+  } else if (a) {
     const words = tour ? tour.caption(a, b) : INTRO.caption(a, b, offsetMs / 3600000);
     const inset = (tour?.inset || !tour) && b ? <SunPathInset pole={a} equator={b} hours={tour ? tour.scene.windowHours : LUNAR_DAY_HOURS} /> : null;
     caption = (
@@ -67,7 +72,14 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
     );
   }
 
-  const controls = tour ? (
+  const controls = game ? (
+    <>
+      <Dots count={TOUR.length + 1} current={step!} />
+      <Button size="sm" onClick={() => modeActions.setStep(TOUR.length - 1)}>
+        <ArrowLeft aria-hidden="true" /> Back to the tour
+      </Button>
+    </>
+  ) : tour ? (
     <>
       {b ? (
         <Segmented
@@ -81,15 +93,13 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
           ]}
         />
       ) : null}
-      <Dots count={TOUR.length} current={step!} />
+      <Dots count={TOUR.length + 1} current={step!} />
       <Button size="sm" onClick={() => modeActions.setStep(step! > 0 ? step! - 1 : null)}>
         <ArrowLeft aria-hidden="true" /> Back
       </Button>
-      {step! < TOUR.length - 1 ? (
-        <Button size="sm" variant="accent" onClick={() => modeActions.setStep(step! + 1)}>
-          Next <ArrowRight aria-hidden="true" />
-        </Button>
-      ) : null}
+      <Button size="sm" variant="accent" onClick={() => modeActions.setStep(step! + 1)}>
+        {step! < TOUR.length - 1 ? "Next" : "Play: keep a lander alive"} <ArrowRight aria-hidden="true" />
+      </Button>
       <Button size="sm" onClick={() => modeActions.setMode("plan")}>
         <MapIcon aria-hidden="true" /> Open in Planner
       </Button>
@@ -108,7 +118,8 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
   return (
     <ExplorerShell title={onStage ? placeTitle(onStage.data.place) : null} caption={caption} actionsSlot={controls}>
       {onStage ? (
-        <SurfaceStage view={onStage} look={tour?.look ?? "sun"} nearby={onStage === a ? result : null} mode="explore" />
+        // No beacons in the game: the best spot would give the answer away.
+        <SurfaceStage view={onStage} look={tour?.look ?? "sun"} nearby={onStage === a && !game ? result : null} mode="explore" />
       ) : (
         <p className="explorer__empty">Loading the Moon…</p>
       )}

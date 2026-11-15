@@ -323,13 +323,13 @@ Estimates are for one developer working with Claude.
 
 ### Phase 8: mini game, "Keep the lander alive for 14 days" (2 to 4 h)
 
-- [ ] Pick one of the 81 points and a landing date.
-- [ ] Rule from the existing profile, stated on screen as a game rule: the lander fails when
+- [x] Pick one of the 81 points and a landing date.
+- [x] Rule from the existing profile, stated on screen as a game rule: the lander fails when
       continuous darkness exceeds `battery_survival_h`. No watt-hour model (no sourced numbers).
-- [ ] The result plays as a time-lapse in the surface view and stops at the failure:
+- [x] The result plays as a time-lapse in the surface view and stops at the failure:
       `Day 4: the Sun set behind the ridge; the battery lasted 50 h`.
-- [ ] Hint from the engine: `bestPoint` ("try 375 m SE") or `scanLandingDates` ("try 16 Dec").
-- [ ] Result: days survived, and `Open in Planner` for the same point and date.
+- [x] Hint from the engine: `bestPoint` ("try 375 m SE") or `scanLandingDates` ("try 16 Dec").
+- [x] Result: days survived, and `Open in Planner` for the same point and date.
 
 `feat(web): add the landing game`
 
