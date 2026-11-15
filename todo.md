@@ -288,15 +288,15 @@ Estimates are for one developer working with Claude.
 
 ### Phase 5: hopping between grid points (about 2 h)
 
-- [ ] Registry of which grid a hopped-to place came from, so `useNearby` keeps the 81 points
+- [x] Registry of which grid a hopped-to place came from, so `useNearby` keeps the 81 points
       after a hop (today the grid is lost once the place is no longer the site itself).
-- [ ] Beacons (upright markers) for the eight nearest points and the best spot; label
+- [x] Beacons (upright markers) for the eight nearest points and the best spot; label
       `125 m NE · Risk 18`. From 2 m eye height a point 125 m away is only 0.9° below the
       horizontal, so flat ground markers would not be readable.
-- [ ] Click: the camera moves over the mesh to the point; the engine horizon and the scores
+- [x] Click: the camera moves over the mesh to the point; the engine horizon and the scores
       of that point take over.
-- [ ] `Back to the site center`; the map pin follows the hop.
-- [ ] Planner: beacons coloured by risk level. Explorer: only the best spot is marked.
+- [x] `Back to the site center`; the map pin follows the hop.
+- [x] Planner: beacons coloured by risk level. Explorer: only the best spot is marked.
 
 `feat(web): hop between nearby points in the surface view`
 

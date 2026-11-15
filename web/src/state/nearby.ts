@@ -42,6 +42,37 @@ export interface Nearby {
 /** Grids already received, by place id, for the lifetime of the page. */
 const customGrids = new Map<string, TerrainGrid>();
 
+/** Where a hopped-to point came from: the place whose grid it belongs to, and its own grid point. */
+export interface HopOrigin {
+  origin: Place;
+  grid: TerrainGrid;
+  point: TerrainPoint;
+}
+
+/** Grid points opened as places of their own, by place id (lifetime of the page). */
+const hops = new Map<string, HopOrigin>();
+
+/** The grid a place was hopped to from, if any: its nearby search keeps the same points. */
+export function hopOrigin(placeId: string): HopOrigin | null {
+  return hops.get(placeId) ?? null;
+}
+
+/** The grid point nearest to a position (the place itself, after a hop). */
+function nearestScored(scored: ScoredPoint[], lat: number | null, lon: number | null): ScoredPoint {
+  if (lat === null || lon === null) return scored[0];
+  let best = scored[0];
+  let bestD = Infinity;
+  const k = Math.cos((lat * Math.PI) / 180);
+  for (const entry of scored) {
+    const d = (entry.point.lat - lat) ** 2 + ((entry.point.lon - lon) * k) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = entry;
+    }
+  }
+  return best;
+}
+
 interface GridState {
   placeId: string;
   grid: TerrainGrid | null;
@@ -59,7 +90,7 @@ export function useNearby(tables: SkyTables | null, data: PlaceData | null): Nea
   const profile = useEffectiveProfile();
 
   const precision = profile.landing_precision_m;
-  const scannable = Boolean(place && place.kind === "custom" && data && terrainConfigured() && insideTerrainCoverage(data.lat, data.lon));
+  const scannable = Boolean(place && place.kind === "custom" && !hopOrigin(place.id) && data && terrainConfigured() && insideTerrainCoverage(data.lat, data.lon));
   const lat = data?.lat ?? null;
   const lon = data?.lon ?? null;
 
@@ -100,7 +131,8 @@ export function useNearby(tables: SkyTables | null, data: PlaceData | null): Nea
   }, [place]);
 
   const current = place && loaded?.placeId === place.id ? loaded : null;
-  const grid = current?.grid ?? (place?.kind === "custom" ? (customGrids.get(place.id) ?? null) : null);
+  const hop = place ? hopOrigin(place.id) : null;
+  const grid = hop?.grid ?? current?.grid ?? (place?.kind === "custom" ? (customGrids.get(place.id) ?? null) : null);
   // A custom point waits for the answer to its latest press.
   const waiting = place?.kind === "custom" && attempt !== null && !grid && current?.attempt !== attempt;
 
@@ -108,8 +140,9 @@ export function useNearby(tables: SkyTables | null, data: PlaceData | null): Nea
     if (!tables || !grid) return null;
     const scored = scoreGrid(grid, tables.vectors, tables.stationMaxAlt, profile, startMs);
     if (!scored || scored.length === 0) return null;
-    return { grid, scored, center: scored[0], best: bestPoint(scored)! };
-  }, [tables, grid, profile, startMs]);
+    // After a hop the grid's center is elsewhere: "here" is the point the place stands on.
+    return { grid, scored, center: hop ? nearestScored(scored, lat, lon) : scored[0], best: bestPoint(scored)! };
+  }, [tables, grid, profile, startMs, hop, lat, lon]);
 
   const error = current?.error ?? null;
   // One object per change, so the map redraws its dots only when the scores move.
@@ -146,7 +179,12 @@ export function offsetText(point: TerrainPoint): string {
  * is remembered, so selecting it needs no request.
  */
 export function neighbourPlace(origin: Place, point: TerrainPoint, grid: TerrainGrid): Place {
-  const place = { ...customPlace(point.lat, point.lon), name: `${placeTitle(origin)} · ${offsetText(point)}` };
+  // A hop from a hopped-to point is still named after (and offset from) the grid's own place.
+  const root = hopOrigin(origin.id)?.origin ?? origin;
+  const center = point.east_m === 0 && point.north_m === 0;
+  if (center && root.kind === "site") return root;
+  const place = { ...customPlace(point.lat, point.lon), name: center ? placeTitle(root) : `${placeTitle(root)} · ${offsetText(point)}` };
   rememberTerrain(place.id, terrainFromPoint(point, grid), { lat: point.lat, lon: point.lon });
+  hops.set(place.id, { origin: root, grid, point });
   return place;
 }

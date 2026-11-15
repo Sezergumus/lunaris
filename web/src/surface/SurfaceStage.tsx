@@ -2,6 +2,7 @@
 // horizon chart while it loads or when it cannot start. Imports nothing from three.js.
 import { Component, Suspense, lazy, type ReactNode } from "react";
 import { HorizonView } from "../charts/HorizonView.tsx";
+import type { NearbyResult } from "../state/nearby.ts";
 import type { ScenarioView } from "../state/view.ts";
 
 const SurfaceView = lazy(() => import("./SurfaceView.tsx"));
@@ -25,11 +26,19 @@ function ChartFallback({ view, note }: { view: ScenarioView; note: string }) {
   );
 }
 
-export function SurfaceStage({ view, onClose, look }: { view: ScenarioView; onClose?: () => void; look?: "sun" | "earth" }) {
+interface SurfaceStageProps {
+  view: ScenarioView;
+  onClose?: () => void;
+  look?: "sun" | "earth";
+  nearby?: NearbyResult | null;
+  beacons?: "plan" | "explore";
+}
+
+export function SurfaceStage({ view, onClose, look, nearby, beacons }: SurfaceStageProps) {
   return (
     <ChunkBoundary fallback={<ChartFallback view={view} note="The 3D view could not be loaded. The horizon chart shows the same skyline, Sun and Earth." />}>
       <Suspense fallback={<ChartFallback view={view} note="Loading the 3D view…" />}>
-        <SurfaceView view={view} onClose={onClose} look={look} />
+        <SurfaceView view={view} onClose={onClose} look={look} nearby={nearby} beacons={beacons} />
       </Suspense>
     </ChunkBoundary>
   );

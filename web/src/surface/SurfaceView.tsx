@@ -1,18 +1,20 @@
 // First-person view from the surface: real LOLA terrain, the Sun and the Earth where the
 // ephemeris puts them, and the skyline the risk model uses. Lazy entry point (three.js lives
 // in this chunk only).
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Earth, Sun, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { CornerUpLeft, Earth, Sun, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
 import { loadSiteTerrainPatch } from "../data/load.ts";
 import { sampleAt } from "../engine/events.ts";
 import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG } from "../engine/risk.ts";
 import { getMode, modeActions, subscribeMode } from "../state/mode.ts";
-import { getScenario, subscribeScenario } from "../state/scenario.ts";
+import { pointDistanceM } from "../engine/grid.ts";
+import { betterSpot, hopOrigin, neighbourPlace, offsetText, type NearbyResult } from "../state/nearby.ts";
+import { actions, getScenario, placeTitle, subscribeScenario } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { formatAngle } from "../ui/format.ts";
-import { SurfaceScene, webgl2Available } from "./scene.ts";
+import { SurfaceScene, webgl2Available, type BeaconSpec } from "./scene.ts";
 import "./surface.css";
 
 const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
@@ -26,15 +28,30 @@ interface SurfaceViewProps {
   onClose?: () => void;
   /** Where the camera turns when a place opens; default: the Sun, or the Earth while the Sun is down. */
   look?: "sun" | "earth";
+  /** Scored grid around the place: nearby points become beacons one can hop to. */
+  nearby?: NearbyResult | null;
+  /** Planner: the eight nearest points and the best spot, coloured by risk. Explorer: the best spot only. */
+  beacons?: "plan" | "explore";
+}
+
+const LEVEL_COLOR = { low: "#30d158", medium: "#ffd60a", high: "#ff453a" } as const;
+const BEST_COLOR = "#0a84ff";
+const FLIGHT_MS = 900;
+const NEAREST_BEACONS = 8;
+
+interface Beacon extends BeaconSpec {
+  label: string;
+  /** Hop target. */
+  index: number;
 }
 
 /** Signed difference a - b of two azimuths, -180..180. */
 const azDiff = (a: number, b: number) => ((((a - b) % 360) + 540) % 360) - 180;
 
-export default function SurfaceView({ view, onClose, look }: SurfaceViewProps) {
+export default function SurfaceView({ view, onClose, look, nearby, beacons }: SurfaceViewProps) {
   const [supported] = useState(webgl2Available);
   if (!supported) return <Fallback view={view} reason="This browser cannot draw the 3D view (no WebGL 2)." />;
-  return <SurfaceCanvas view={view} onClose={onClose} look={look} />;
+  return <SurfaceCanvas view={view} onClose={onClose} look={look} nearby={nearby} beacons={beacons} />;
 }
 
 export function Fallback({ view, reason }: { view: ScenarioView; reason: string }) {
@@ -46,7 +63,7 @@ export function Fallback({ view, reason }: { view: ScenarioView; reason: string 
   );
 }
 
-function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
+function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode = "plan" }: SurfaceViewProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const compassRef = useRef<HTMLDivElement>(null);
@@ -54,6 +71,9 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
   const earthMarkRef = useRef<HTMLDivElement>(null);
   const readoutRef = useRef<HTMLDivElement>(null);
   const landerRef = useRef<HTMLDivElement>(null);
+  const beaconsRef = useRef<HTMLDivElement>(null);
+  /** Camera position while flying to a nearby point (scene frame of the current place). */
+  const flightRef = useRef<[number, number, number] | null>(null);
   const sceneRef = useRef<SurfaceScene | null>(null);
   const viewRef = useRef(view);
   const updateRef = useRef<() => void>(() => {});
@@ -88,6 +108,7 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
         earth: { azimuthDeg: at.earthAz, elevationDeg: at.earthAlt, radiusDeg: v.data.series.earthRadius[i] ?? EARTH_RADIUS_DEG },
         observerLit: at.solarFraction,
         eyeHeightM: v.data.mast.heightM,
+        eye: flightRef.current ?? undefined,
         headingDeg: m.headingDeg,
         pitchDeg: m.pitchDeg,
         fovDeg: m.fovDeg,
@@ -96,6 +117,7 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
       placeMark(sunMarkRef.current, scene.project(at.sunAz, at.sunAlt), at.sunVisible, m.headingDeg, at.sunAz);
       placeMark(earthMarkRef.current, scene.project(at.earthAz, at.earthAlt), at.earthVisible, m.headingDeg, at.earthAz);
       placeLanderLabel(landerRef.current, scene.landerShadowInfo());
+      placeBeaconLabels(beaconsRef.current, scene.beaconProjections());
       if (readoutRef.current) {
         readoutRef.current.textContent = `Looking ${COMPASS[Math.round(m.headingDeg / 45) % 8]} ${m.headingDeg.toFixed(0)}°, ${formatAngle(m.pitchDeg, 0)}`;
       }
@@ -127,7 +149,10 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
 
   // The skyline and the terrain of the place on screen.
   const { data } = view;
-  const placeKey = data.place.kind === "site" ? data.place.key : null;
+  // A hopped-to point stands on the terrain patch of the site its grid belongs to.
+  const hop = hopOrigin(data.place.id);
+  const placeKey = data.place.kind === "site" ? data.place.key : hop?.origin.kind === "site" ? hop.origin.key : null;
+  const groundM = data.terrain?.groundHeightM ?? null;
   useEffect(() => {
     sceneRef.current?.setHorizon(data.horizon);
     updateRef.current();
@@ -142,7 +167,7 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
     loadSiteTerrainPatch(placeKey).then(
       (patch) => {
         if (cancelled) return;
-        scene.setTerrain(patch, data.lat, data.lon, patch.groundHeightM);
+        scene.setTerrain(patch, data.lat, data.lon, data.place.kind === "site" || groundM === null ? patch.groundHeightM : groundM);
         setLoaded({ key: placeKey, kind: "mesh" });
       },
       () => {
@@ -152,7 +177,73 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [placeKey, data.lat, data.lon]);
+  }, [placeKey, data.lat, data.lon, data.place.kind, groundM]);
+
+  // Beacons: nearby grid points one can hop to.
+  const beaconList = useMemo((): Beacon[] => {
+    if (!nearby) return [];
+    const { scored, center } = nearby;
+    const best = betterSpot(nearby);
+    const here = center.point;
+    const away = (p: typeof here) => Math.hypot(p.east_m - here.east_m, p.north_m - here.north_m);
+    const picked = beaconMode === "explore" ? [] : scored.filter((entry) => entry !== center).sort((x, y) => away(x.point) - away(y.point)).slice(0, NEAREST_BEACONS);
+    if (best && !picked.includes(best)) picked.push(best);
+    return picked.map((entry) => {
+      const isBest = entry === best;
+      const rel = { ...entry.point, east_m: entry.point.east_m - here.east_m, north_m: entry.point.north_m - here.north_m };
+      const where = pointDistanceM(rel) < 1 ? "Grid center" : offsetText(rel);
+      return {
+        lat: entry.point.lat,
+        lon: entry.point.lon,
+        groundHeightM: entry.point.ground_height_m ?? 0,
+        color: isBest ? BEST_COLOR : beaconMode === "explore" ? "#ffffff" : LEVEL_COLOR[entry.score.level],
+        best: isBest,
+        label: `${isBest ? "Best spot · " : ""}${where} · Risk ${entry.score.overall.toFixed(0)}`,
+        index: nearby.scored.indexOf(entry),
+      };
+    });
+  }, [nearby, beaconMode]);
+
+  const terrainReady = loaded?.key === placeKey && loaded?.kind === "mesh";
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    scene.setBeacons(terrainReady ? beaconList : []);
+    updateRef.current();
+  }, [beaconList, terrainReady, data.lat, data.lon]);
+
+  /** Flies over the mesh to a grid point, then makes it the place on screen. */
+  const hopTo = (index: number) => {
+    const scene = sceneRef.current;
+    const entry = nearby?.scored[index];
+    if (!scene || !entry || !nearby || flightRef.current) return;
+    const origin = hop?.origin ?? data.place;
+    const arrive = () => {
+      flightRef.current = null;
+      scene.setBeaconsVisible(true);
+      actions.selectPlace(neighbourPlace(origin, entry.point, nearby.grid));
+    };
+    const target = scene.groundToScene(entry.point.lat, entry.point.lon, entry.point.ground_height_m ?? 0);
+    const eye = viewRef.current.data.mast.heightM;
+    if (!target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      arrive();
+      return;
+    }
+    scene.setBeaconsVisible(false);
+    if (beaconsRef.current) beaconsRef.current.hidden = true;
+    let t0 = -1;
+    const step = (now: number) => {
+      if (t0 < 0) t0 = now;
+      const t = Math.min(1, (now - t0) / FLIGHT_MS);
+      const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      // A gentle arc, so the camera does not skim through bumps on the way.
+      flightRef.current = [target.x * e, eye + (target.y - 0) * e + Math.sin(Math.PI * t) * 12, target.z * e];
+      updateRef.current();
+      if (t < 1) requestAnimationFrame(step);
+      else arrive();
+    };
+    requestAnimationFrame(step);
+  };
 
   // A new place opens looking at the Sun (or as asked), at the Earth when the Sun is down.
   useEffect(() => {
@@ -253,6 +344,16 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
         <span className="surface__mark-label">Earth</span>
       </div>
       <div ref={landerRef} className="surface__lander" aria-hidden="true" />
+      <div ref={beaconsRef} className="surface__beacons" key={data.place.id}>
+        {terrainReady
+          ? beaconList.map((beacon, i) => (
+              <button key={`${beacon.lat},${beacon.lon}`} type="button" className="surface__beacon" data-i={i} data-best={beacon.best || undefined} onClick={() => hopTo(beacon.index)}>
+                <span className="surface__beacon-dot" style={{ background: beacon.color }} aria-hidden="true" />
+                {beacon.label}
+              </button>
+            ))
+          : null}
+      </div>
       <div className="surface__tools">
         <Button size="sm" onClick={() => lookAt("sun")}>
           <Sun aria-hidden="true" /> Look at Sun
@@ -260,6 +361,11 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
         <Button size="sm" onClick={() => lookAt("earth")}>
           <Earth aria-hidden="true" /> Look at Earth
         </Button>
+        {hop ? (
+          <Button size="sm" onClick={() => actions.selectPlace(hop.origin.kind === "site" ? hop.origin : neighbourPlace(hop.origin, hop.grid.points[0], hop.grid))}>
+            <CornerUpLeft aria-hidden="true" /> Back to {placeTitle(hop.origin)}
+          </Button>
+        ) : null}
       </div>
       {onClose ? (
         <IconButton className="surface__close" label="Close the surface view" size="sm" tipSide="left" onClick={onClose}>
@@ -276,6 +382,19 @@ function SurfaceCanvas({ view, onClose, look }: SurfaceViewProps) {
       </p>
     </div>
   );
+}
+
+/** Beacon labels follow the tops of their poles; hidden while the pole is out of view. */
+function placeBeaconLabels(el: HTMLDivElement | null, projections: { x: number; y: number; inView: boolean }[]) {
+  if (!el) return;
+  el.querySelectorAll<HTMLElement>(".surface__beacon").forEach((button) => {
+    const p = projections[Number(button.dataset.i)];
+    button.hidden = !p || !p.inView;
+    if (p && p.inView) {
+      button.style.left = `${(p.x * 100).toFixed(2)}%`;
+      button.style.top = `${(p.y * 100).toFixed(2)}%`;
+    }
+  });
 }
 
 /** Label at the tip of the lander's shadow: its true length on flat ground. */

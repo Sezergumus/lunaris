@@ -75,7 +75,9 @@ function sphereReason(place: Place): string | null {
 export function terrainFromPoint(point: TerrainPoint, grid: TerrainGrid): SiteTerrain {
   return {
     horizon: pointHorizon(point),
-    horizonRangeKm: [],
+    // Grid files and the service carry the obstruction distances since 2026-11-15: they
+    // enable the mast estimate after a hop.
+    horizonRangeKm: point.horizon_range_km ?? [],
     mastM: point.mast_m,
     groundHeightM: point.ground_height_m ?? 0,
     slopeP95Deg: point.slope_deg,

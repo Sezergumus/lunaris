@@ -139,6 +139,41 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
+.surface__beacon {
+  position: absolute;
+  transform: translate(-50%, -100%) translateY(-4px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: rgba(10, 10, 14, 0.72);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.surface__beacon:hover,
+.surface__beacon:focus-visible {
+  background: rgba(40, 40, 48, 0.9);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+
+.surface__beacon[data-best] {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.surface__beacon-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
 .surface__tools {
   position: absolute;
   top: 34px;

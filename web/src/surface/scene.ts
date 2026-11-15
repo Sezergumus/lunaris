@@ -13,7 +13,7 @@
 import * as THREE from "three";
 import type { TerrainPatch } from "../data/load.ts";
 import type { Horizon } from "../engine/risk.ts";
-import { directionToScene, siteFrame } from "./geometry.ts";
+import { directionToScene, latLonToProjected, siteFrame, type SiteFrame } from "./geometry.ts";
 import { ShadowPass } from "./shadow.ts";
 import { SKY_DISTANCE, SkyLayer, type BodyState } from "./sky.ts";
 import { buildLevels, type LevelMesh } from "./terrain.ts";
@@ -34,6 +34,8 @@ export interface ViewState {
   observerLit: number;
   /** Observer height above the ground, meters. */
   eyeHeightM: number;
+  /** Camera position while flying to another point; default: eyeHeightM above the origin. */
+  eye?: [number, number, number];
   headingDeg: number;
   pitchDeg: number;
   /** Vertical field of view, degrees. */
@@ -111,6 +113,19 @@ export interface Projection {
   inView: boolean;
 }
 
+/** An upright marker for a nearby grid point. */
+export interface BeaconSpec {
+  lat: number;
+  lon: number;
+  groundHeightM: number;
+  color: string;
+  /** The best spot: taller. */
+  best: boolean;
+}
+
+/** Height of a beacon pole above the ground, meters (taller for the best spot). */
+export const BEACON_HEIGHT_M = { normal: 8, best: 14 } as const;
+
 export interface LanderShadow {
   /** True length on flat ground, meters; Infinity with the Sun on or below the horizontal. */
   lengthM: number;
@@ -130,6 +145,9 @@ export class SurfaceScene {
   private lastShadowMs = -Infinity;
   private shadowTimer = 0;
   private readonly landerScene = new THREE.Scene();
+  private siteFrame: SiteFrame | null = null;
+  private readonly beacons = new THREE.Group();
+  private beaconTops: THREE.Vector3[] = [];
   private readonly landerShadow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private frame = 0;
   private state: ViewState | null = null;
@@ -171,14 +189,17 @@ export class SurfaceScene {
   /** Height patches around (lat, lon), the observer's ground point; null = curtain only. */
   setTerrain(patch: TerrainPatch | null, latDeg: number, lonDeg: number, groundHeightM: number) {
     this.clearTerrain();
+    this.siteFrame = siteFrame(latDeg, lonDeg, groundHeightM);
     if (patch) {
-      const frame = siteFrame(latDeg, lonDeg, groundHeightM);
+      const frame = this.siteFrame;
       this.levels = buildLevels(patch, frame, terrainMaterial);
       for (const level of this.levels) {
         const scene = new THREE.Scene();
         scene.add(level.mesh);
         this.levelScenes.push(scene);
       }
+      // Beacons stand on the innermost level and are hidden by terrain in front of them.
+      this.levelScenes[0]?.add(this.beacons);
       try {
         this.shadows = new ShadowPass(patch, this.levels, latDeg, lonDeg, groundHeightM);
         this.levels.forEach((level, k) => {
@@ -193,6 +214,48 @@ export class SurfaceScene {
       this.shadowSun.set(Infinity, 0, 0);
     }
     this.requestRender();
+  }
+
+  /** Scene position of a point on the ground (or above it); null before a frame is known. */
+  groundToScene(latDeg: number, lonDeg: number, heightM: number): THREE.Vector3 | null {
+    if (!this.siteFrame) return null;
+    const { x, y } = latLonToProjected(latDeg, lonDeg);
+    const out = new Float32Array(3);
+    this.siteFrame.toScene(x, y, heightM, out, 0);
+    return new THREE.Vector3(out[0], out[1], out[2]);
+  }
+
+  /** Upright markers at nearby grid points; replaces the previous set. */
+  setBeacons(specs: BeaconSpec[]) {
+    for (const child of [...this.beacons.children]) {
+      const mesh = child as THREE.Mesh;
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+      this.beacons.remove(mesh);
+    }
+    this.beaconTops = [];
+    for (const spec of specs) {
+      const base = this.groundToScene(spec.lat, spec.lon, spec.groundHeightM);
+      if (!base) continue;
+      const height = spec.best ? BEACON_HEIGHT_M.best : BEACON_HEIGHT_M.normal;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, height, 8), new THREE.MeshBasicMaterial({ color: spec.color }));
+      pole.position.set(base.x, base.y + height / 2, base.z);
+      this.beacons.add(pole);
+      this.beaconTops.push(new THREE.Vector3(base.x, base.y + height, base.z));
+    }
+    this.requestRender();
+  }
+
+  /** Beacons step aside while the camera flies to one of them. */
+  setBeaconsVisible(visible: boolean) {
+    this.beacons.visible = visible;
+    this.requestRender();
+  }
+
+  /** Screen positions of the beacon tops, in the order of the last setBeacons call. */
+  beaconProjections(): Projection[] {
+    const eye = this.cameraPosition();
+    return this.beaconTops.map((top) => this.projectVector(top.clone().sub(eye)));
   }
 
   get hasTerrain(): boolean {
@@ -231,7 +294,7 @@ export class SurfaceScene {
     const lengthM = elevation > 0 ? s.eyeHeightM / Math.tan(elevation * DEG) : Infinity;
     const drawn = Math.min(lengthM, LANDER_SHADOW_CAP_M);
     const away = directionToScene(s.sun.azimuthDeg + 180, 0);
-    const tip = new THREE.Vector3(away[0] * drawn, -s.eyeHeightM, away[2] * drawn);
+    const tip = new THREE.Vector3(away[0] * drawn, 0, away[2] * drawn).sub(this.cameraPosition());
     return { lengthM, tip: this.projectVector(tip) };
   }
 
@@ -258,15 +321,22 @@ export class SurfaceScene {
     });
   }
 
+  private cameraPosition(): THREE.Vector3 {
+    const s = this.state;
+    if (!s) return new THREE.Vector3();
+    return s.eye ? new THREE.Vector3(...s.eye) : new THREE.Vector3(0, s.eyeHeightM, 0);
+  }
+
   private placeCamera() {
     const s = this.state;
     if (!s) return;
     this.camera.fov = s.fovDeg;
     this.camera.aspect = this.width / this.height;
-    this.camera.position.set(0, s.eyeHeightM, 0);
+    const eye = this.cameraPosition();
+    this.camera.position.copy(eye);
     const [dx, dy, dz] = directionToScene(s.headingDeg, s.pitchDeg);
     this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(dx, s.eyeHeightM + dy, dz);
+    this.camera.lookAt(eye.x + dx, eye.y + dy, eye.z + dz);
     this.camera.updateMatrixWorld();
   }
 
@@ -316,7 +386,7 @@ export class SurfaceScene {
     this.sky.update(this.camera.position, s.sun, s.earth, s.observerLit > 0.05 ? 0.12 : 0.9, s.observerLit);
 
     // The lander's shadow lies on the ground away from the Sun while the observer is sunlit.
-    const showLander = this.levels.length > 0 && s.observerLit > 0.05 && s.sun.elevationDeg > 0;
+    const showLander = this.levels.length > 0 && s.observerLit > 0.05 && s.sun.elevationDeg > 0 && !s.eye;
     this.landerShadow.visible = showLander;
     if (showLander) {
       const length = Math.min(s.eyeHeightM / Math.tan(s.sun.elevationDeg * DEG), LANDER_SHADOW_CAP_M);
