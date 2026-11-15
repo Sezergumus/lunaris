@@ -145,8 +145,8 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
   browser after the move to the bucket.
 - The local slope source changed on 2026-11-14 20:20: `LDSM_60S_60MPP_ADJ.tiff` (4.0 GB,
   60 m) is now in `data/lola` and is **picked before the 120 m map**, so `grid`, the API and
-  a re-run of `horizon` use 60 m slopes; `grid_<site>.json` in the repository was made with
-  the 120 m map and was not regenerated. Two `LDEC_*` files are also there (not used by any
+  `horizon` use 60 m slopes; every file in the repository is on the 60 m map since
+  2026-11-15. Two `LDEC_*` files are also there (not used by any
   code, product not identified).
 - Still to do: set `VITE_TERRAIN_API` to the URL in the Vercel project (Sezer) and redeploy
   the site; then restrict `LUNARIS_CORS_ORIGINS` to the site's origin (a list with commas
@@ -168,17 +168,24 @@ has its explainer lines (`Explainer.tsx`, an info tooltip in the inspector heade
 complete was not checked in the running app by the backend side. Ask Sezer.
 **Open decisions (user/team; do not decide silently):**
 
-- Slope source for scores. Kerem supplied local `LDSM_60S_120MPP_ADJ.tiff` and asked to use
-  it; `grid`/API use it when present. It is 120 m/pixel and reads lower than the 60 m map
-  stored in `horizon_<site>.json` (p95 within 1000 m: Shackleton 7.6 vs 9.4, ridge 14.3 vs
-  15.1, Malapert A 15.5 vs 15.9, Mons Mouton 5.3 vs 5.9, Chandrayaan-3 2.5 vs 3.2 deg).
-  `horizon_<site>.json` and the risk files were NOT regenerated, so they still carry the
-  60 m values; re-running `horizon` now would switch them to the 120 m map and move the
-  surface scores (Shackleton 87 -> about 51). Every grid point also carries
-  `slope_derived_deg` (from the 60 m heights) so either can be chosen.
-- Surface score radius: `risk` judges slope within the 1000 m ellipse of the horizon file,
-  `grid`/API within `landing_precision_m` (100 m). Same point, different surface score
-  (Mons Mouton 18 vs 0). Decide one rule for the UI.
+- **Decided 2026-11-15 (Kerem): one surface rule everywhere.** The surface score uses the
+  95th-percentile slope within the landing precision (`landing_precision_m`, 100 m) from
+  the 60 m LOLA slope map, computed as for a grid point (`value_within`). `horizon` writes
+  it as `surface.slope_landing_deg` (`radius_m`, `source`, `p95`) into
+  `horizon_<site>.json`; `lunar_risk.surface_slope` and `web/src/data/load.ts` read it and
+  fall back to the 1000 m statistics for a file without it. A site and the center of its
+  grid now have the same slope and score (5.404, 2.714, 3.298, 13.109, 1.230 deg for
+  Shackleton, ridge, Mons Mouton, Malapert A, Chandrayaan-3). `horizon_*` (additive only),
+  `grid_*` (60 m slopes, `horizon_range_km` kept), `risk_*`, `ranking.json` were
+  regenerated; `npm run validate` passes; the backtest still passes (file unchanged). The
+  1000 m statistics stay in the file as context and for the height error. Not changed:
+  `nearby` (ring search, CLI only, not read by the UI) still judges derived slope within
+  `--ellipse` 1000 m; `nearby_*.json` were not regenerated. What moved, landing 2026-12-16:
+  Mons Mouton 18 -> 0 (the slip story is now 0 -> 100 -> 0); connecting ridge surface
+  100 -> 0 (overall still 100 by comm, but 12 low-risk landing dates in the year instead
+  of 0, 9 with the map height error); Shackleton surface 87 -> 8 (overall 100);
+  Malapert A and Chandrayaan-3 unchanged; Malapert A's best neighbour is the same point
+  with risk 63 (was 52; slope 8.1 deg on the 60 m map against 6.4).
 - Roughness (`LDRM`, 80S to the pole only) is reported per grid point but not scored; its
   unit was not checked against the product description.
 - Mission-profile defaults: mission length, battery survival hours, max comm outage, slope
@@ -186,7 +193,7 @@ complete was not checked in the running app by the backend side. Ask Sezer.
   `web/src/engine/risk.ts`; change both and re-run `npm run validate`).
 - Landing precision / ellipse radius. Results flip with it: Malapert A `nearby` finds nothing
   low-risk at 1000 m but a risk-3 point 2 km E at 300 m.
-- Demo story. Candidates: Mons Mouton slip (risk 18 → 100 with a 7-day slip → 18 at +28 d);
+- Demo story. Candidates: Mons Mouton slip (risk 0 → 100 with a 7-day slip → 0 at +28 d);
   Malapert A "a point 2 km east saves it".
 - Official site coordinates (all approximate), date range of the tables.
 
@@ -213,8 +220,10 @@ complete was not checked in the running app by the backend side. Ask Sezer.
   (`nearby` and `mast` need the DEM, local or remote).
 - `risk` counts whole hourly samples; `metrics` interpolates events. Small differences
   between the two are expected.
-- `nearby` uses DEM-derived slope, `risk` uses LOLA LDSM → centre surface score can differ
-  slightly (Mons Mouton 23 vs 18).
+- `nearby` uses DEM-derived slope within `--ellipse` (1000 m), `risk` the slope map within
+  the landing precision (100 m) → the centre's surface score differs (Mons Mouton 23 vs 0).
+- `npm run validate` reads `web/public/data`; run `npm run data` first after regenerating
+  backend files, or it compares against stale copies.
 - CSV writers use LF line endings on purpose (CRLF created whole-file diffs in git).
 - `risk_<site>.json` is the reference for the frontend engine test: after regenerating it,
   run `npm run validate` in `web/`. Adding keys is safe; changing `window`/`slips`/`scan`
@@ -335,9 +344,10 @@ precision=100, snap=true`. 422 outside coverage or for a bad grid, 429 above 2 c
   Measured on the Mac with local files: grid=1 0.3 s, grid=5 1.8 s, cached 1 ms.
   `api/Dockerfile` and `api/start.sh` (fetches files listed in `LUNARIS_TERRAIN_URLS`) are
   written but were never built or run.
-- Grid results, landing 2026-12-16 (slope from the 120 m LDSM within 100 m): Malapert A site
-  risk 100 -> best neighbour 500 m N, 250 m W risk 52 (usable Sun 81.0 -> 88.1 %, longest
-  dark 2.6 d -> 38 h, slope 12.9 -> 6.4 deg), no low-risk point in the square; Mons Mouton
+- Grid results, landing 2026-12-16 (slope from the 60 m LDSM within 100 m, regenerated
+  2026-11-15): Malapert A site
+  risk 100 -> best neighbour 500 m N, 250 m W risk 63 (usable Sun 81.0 -> 88.1 %, longest
+  dark 2.6 d -> 38 h, slope 13.1 -> 8.1 deg), no low-risk point in the square; Mons Mouton
   site risk 0, 75 of 81 points low-risk; Chandrayaan-3 28 -> 20 at 375 m S, 375 m E;
   connecting ridge all 100 (comm) with usable Sun 11-100 % across the square; Shackleton
   floor all 100.
@@ -491,7 +501,7 @@ Commands: `cd web`, `npm run dev`, `npm run build`, `npm run validate`.
 sites): angles from `vectors.bin` equal the per-site tables within 0.00003 deg (Float32 is
 enough), and the center of every precomputed grid, scored from the vectors table, reproduces
 the backend's mission window. Best neighbours equal the backend's `grid` output (Malapert A
-500 m N, 250 m W, risk 52). A live test against the local API for a custom point
+500 m N, 250 m W, risk 63 since the 60 m slopes). A live test against the local API for a custom point
 (-85.3, 31.0, grid 5) gave the same scores as Python for landings in 2026 and 2029. `tsc -b`,
 `oxlint` and `vite build` pass. The client in `terrain.ts` was run in a
 browser against the local API on 2026-11-14 (`VITE_TERRAIN_API=http://localhost:8000` in
@@ -654,8 +664,9 @@ Each preset only overrides `DEFAULT_PROFILE` and carries a `basis` text shown in
 | `battery_rover` | 50 h           | 15 deg      | NASA VIPER lunar operations page (50 h continuous darkness, drives up to 15 deg). Other sources say "a little over four days" of darkness                                                          |
 
 A heated / nuclear-powered preset was left out: no sourced numbers. Mission length stays
-14 days in every preset. Seen in the UI: Mons Mouton, landing 2026-12-16, scores 18 (low,
-surface) with `solar_lander` and 0 with `battery_rover` (slope 5.9 deg against 15).
+14 days in every preset. With the surface rule of 2026-11-15 Mons Mouton, landing
+2026-12-16, scores 0 with every preset (slope 3.3 deg); before it was 18 with
+`solar_lander` and 0 with `battery_rover`.
 
 **Horizon uncertainty** (2026-11-14; Kerem rejected a fixed 0.5 deg margin as arbitrary).
 The margin is derived per azimuth from the data: `atan(height error / distance of the
@@ -790,16 +801,19 @@ Statio Shiv Shakti (69.373°S, 32.319°E). **Connecting ridge is not confirmed:*
 
 | Site             | Usable Sun | Longest dark | Link  | Longest outage | Slope p95 | Risk (power/comm/surface) | Low-risk landing dates per year |
 | ---------------- | ---------- | ------------ | ----- | -------------- | --------- | ------------------------- | ------------------------------- |
-| Connecting ridge | 100%       | 0 h          | 83.3% | 2.3 d          | 15.1°     | 0 / 100 / 100             | 0 of 352                        |
-| Mons Mouton      | 100%       | 0 h          | 99.7% | 1 h            | 5.9°      | 0 / 0 / 18 → low          | 22                              |
-| Malapert A       | 81.0%      | 2.6 d        | 99.7% | 1 h            | 15.9°     | 100 / 0 / 100             | 0                               |
-| Chandrayaan-3    | 89.9%      | 32 h         | 99.7% | 1 h            | 3.2°      | 28 / 0 / 0 → low          | 37                              |
-| Shackleton floor | 0%         | 14 d         | 0%    | 14 d           | 9.4°      | 100 / 100 / 87            | 0                               |
+| Connecting ridge | 100%       | 0 h          | 83.3% | 2.3 d          | 2.7°      | 0 / 100 / 0               | 12 of 352                       |
+| Mons Mouton      | 100%       | 0 h          | 99.7% | 1 h            | 3.3°      | 0 / 0 / 0 → low           | 22                              |
+| Malapert A       | 81.0%      | 2.6 d        | 99.7% | 1 h            | 13.1°     | 100 / 0 / 100             | 0                               |
+| Chandrayaan-3    | 89.9%      | 32 h         | 99.7% | 1 h            | 1.2°      | 28 / 0 / 0 → low          | 37                              |
+| Shackleton floor | 0%         | 14 d         | 0%    | 14 d           | 5.4°      | 100 / 100 / 8             | 0                               |
 
-Slip example (Mons Mouton): +0 d risk 18; +7 d Sun 51 %, 6.6 d dark → 100; +14 d Sun 1 % →
-100; +28 d back to 18. This is the natural demo story.
+Slope p95 is within the 100 m landing precision (60 m slope map) since 2026-11-15; within
+the 1000 m ellipse it was 15.1 / 5.9 / 15.9 / 3.2 / 9.4 deg.
 
-Ranking for that date: mons_mouton 18 (low, slip tolerance 1 d), chandrayaan3 28 (low),
+Slip example (Mons Mouton): +0 d risk 0; +7 d Sun 51 %, 6.6 d dark → 100; +14 d Sun 1 % →
+100; +28 d back to 0. This is the natural demo story.
+
+Ranking for that date: mons_mouton 0 (low, slip tolerance 1 d), chandrayaan3 28 (low),
 the other three 100. Mons Mouton low-risk landing windows: 14–17 Dec 2026, 13–15 Jan 2027,
 then short windows in May, Aug, Sep, Oct, Nov 2027 (22 dates in total).
 
@@ -875,9 +889,7 @@ backtest, horizon uncertainty, the daily contact rule, mission-limit sliders, th
 2. **Tell Sezer what changed in his area** on 2026-11-14 evening: profile selector, the
    "With map height error" line and the daily-contact footnote in the risk card, the
    "Mission limits" card. Ask him whether phase 8 is complete.
-3. **Team decisions** (see "Open decisions"): slope source and whether to regenerate
-   `grid_<site>.json` / `horizon_<site>.json` with the 60 m slope map; surface-score radius;
-   default mission profile and the unsourced numbers in it (24 h for `solar_lander`, 8 h of
+3. **Team decisions** (see "Open decisions"; the slope rule is decided): default mission profile and the unsourced numbers in it (24 h for `solar_lander`, 8 h of
    daily contact); the demo story; the connecting ridge longitude.
 4. **Frontend, if time allows:** terrain-service status from `/health`; try the custom-point
    nearby scan and saved points against the live API in a browser; a phone-sized check of
