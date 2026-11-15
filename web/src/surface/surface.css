@@ -1,6 +1,7 @@
 /* ---------- Surface view: canvas with an HTML overlay ---------- */
 
 .surface {
+  container-type: size;
   position: relative;
   width: 100%;
   height: 100%;
@@ -195,6 +196,21 @@
   height: 14px;
 }
 
+/* Mast height: the camera rises with it and the near terrain drops away by real geometry. */
+.surface__mast {
+  position: absolute;
+  right: 10px;
+  bottom: 30px;
+  width: 210px;
+  padding: 8px 10px 6px;
+  border-radius: 12px;
+  cursor: default;
+}
+
+.surface__mast .mast__note {
+  margin-bottom: 0;
+}
+
 .surface__readout {
   position: absolute;
   bottom: 10px;
@@ -211,7 +227,7 @@
   left: 10px;
   bottom: 8px;
   margin: 0;
-  max-width: min(80ch, calc(100% - 150px));
+  max-width: min(80ch, calc(100% - 240px));
   padding: 6px 9px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.55);
@@ -250,4 +266,26 @@
   overflow: hidden;
   box-shadow: var(--shadow-panel);
   border: 1px solid var(--glass-border);
+}
+
+/* A narrow stage (the Planner's overlay between the panels, phones): the mast panel moves up
+   under the tools and the caption takes the whole width. */
+@container (max-width: 560px) {
+  .surface__mast {
+    top: 70px;
+    bottom: auto;
+    width: 180px;
+  }
+
+  .surface__caption {
+    max-width: calc(100% - 20px);
+    bottom: 26px;
+    font-size: 10.5px;
+  }
+}
+
+@container (max-height: 380px) {
+  .surface__caption {
+    display: none;
+  }
 }

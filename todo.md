@@ -302,8 +302,8 @@ Estimates are for one developer working with Claude.
 
 ### Phase 6: mast lift (about 30 min)
 
-- [ ] The camera rises with `mastM`; the near terrain drops by real geometry.
-- [ ] `Estimate` label from `mast.mode`; disabled with a reason where it is `fixed`
+- [x] The camera rises with `mastM`; the near terrain drops by real geometry.
+- [x] `Estimate` label from `mast.mode`; disabled with a reason where it is `fixed`
       (hopped-to points, unless phase B's optional item is done).
 
 `feat(web): show the mast height in the surface view`

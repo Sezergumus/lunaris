@@ -5,6 +5,13 @@ import type { ScenarioView } from "../state/view.ts";
 import { Slider } from "../ui/Slider.tsx";
 import { Tip } from "../ui/Tooltip.tsx";
 
+/** Why the mast cannot be moved for the places on screen. */
+function fixedReason(views: ScenarioView[]): string {
+  const data = views[0]?.data;
+  if (!data || !data.terrain) return "Not adjustable: no terrain for this place (sphere model).";
+  return "Not adjustable: the distances to the skyline are not known for this point.";
+}
+
 /**
  * Height of the solar panel / antenna above ground. Moving it changes the horizon, and with
  * it the horizon view, the metric cards, the strips and the risk. While the thumb is dragged
@@ -47,7 +54,7 @@ export function MastControl({ views }: { views: ScenarioView[] }) {
         {views.length === 0
           ? "Applies to the place you select."
           : !adjustable
-            ? "Not adjustable for this place."
+            ? fixedReason(views)
             : estimated
               ? "Estimate, leans optimistic."
               : modes.includes("exact")

@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { CornerUpLeft, Earth, Sun, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
+import { MastControl } from "../panels/MastControl.tsx";
 import { loadSiteTerrainPatch } from "../data/load.ts";
 import { sampleAt } from "../engine/events.ts";
 import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG } from "../engine/risk.ts";
@@ -265,7 +266,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
     const pointers = new Map<number, { x: number; y: number }>();
     let pinch = 0;
     const onDown = (event: PointerEvent) => {
-      if ((event.target as HTMLElement).closest("button")) return;
+      if ((event.target as HTMLElement).closest("button, .surface__mast")) return;
       root.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 2) pinch = spread(pointers);
@@ -290,6 +291,7 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
       if (pointers.size < 2) pinch = 0;
     };
     const onWheel = (event: WheelEvent) => {
+      if ((event.target as HTMLElement).closest(".surface__mast")) return;
       event.preventDefault();
       modeActions.setFov(getMode().fovDeg * Math.exp(event.deltaY * 0.0015));
     };
@@ -372,6 +374,9 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
           <X aria-hidden="true" />
         </IconButton>
       ) : null}
+      <div className="surface__mast glass glass--thick">
+        <MastControl views={[view]} />
+      </div>
       <div ref={readoutRef} className="surface__readout" aria-hidden="true" />
       <p className="surface__caption">
         {terrain === "mesh"
