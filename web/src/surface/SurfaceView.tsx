@@ -4,17 +4,23 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { CornerUpLeft, Earth, Sun, X } from "lucide-react";
 import { HorizonView } from "../charts/HorizonView.tsx";
+import { obstruction, rangeAt, sentence } from "../charts/why.ts";
+import type { SkyTables } from "../data/load.ts";
 import { MastControl } from "../panels/MastControl.tsx";
+import { useSkyTables } from "../state/placeData.ts";
 import { loadSiteTerrainPatch } from "../data/load.ts";
 import { sampleAt } from "../engine/events.ts";
-import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG } from "../engine/risk.ts";
+import { EARTH_RADIUS_DEG, SUN_RADIUS_DEG, horizonAt } from "../engine/risk.ts";
+import { sampleIndex } from "../engine/sky.ts";
+import { formatDistance } from "../geo/polar.ts";
 import { getMode, modeActions, subscribeMode } from "../state/mode.ts";
 import { pointDistanceM } from "../engine/grid.ts";
 import { betterSpot, hopOrigin, neighbourPlace, offsetText, type NearbyResult } from "../state/nearby.ts";
-import { actions, getScenario, placeTitle, subscribeScenario } from "../state/scenario.ts";
+import { actions, getScenario, placeTitle, subscribeScenario, useScenario } from "../state/scenario.ts";
 import type { ScenarioView } from "../state/view.ts";
 import { Button, IconButton } from "../ui/Button.tsx";
 import { formatAngle } from "../ui/format.ts";
+import { destination } from "./geometry.ts";
 import { SurfaceScene, webgl2Available, type BeaconSpec } from "./scene.ts";
 import "./surface.css";
 
@@ -31,9 +37,16 @@ interface SurfaceViewProps {
   look?: "sun" | "earth";
   /** Scored grid around the place: nearby points become beacons one can hop to. */
   nearby?: NearbyResult | null;
-  /** Planner: the eight nearest points and the best spot, coloured by risk. Explorer: the best spot only. */
-  beacons?: "plan" | "explore";
+  /**
+   * Planner: guide lines, the bodies' tracks, the blocking skyline, and the eight nearest
+   * points and the best spot as beacons coloured by risk. Explorer: the Earth card, the
+   * permanently shadowed region pin, the "why" caption, and the best spot only.
+   */
+  mode?: "plan" | "explore";
 }
+
+const SPEED_OF_LIGHT_KM_S = 299792.458;
+const EARTH_RADIUS_KM = 6378.137;
 
 const LEVEL_COLOR = { low: "#30d158", medium: "#ffd60a", high: "#ff453a" } as const;
 const BEST_COLOR = "#0a84ff";
@@ -49,10 +62,10 @@ interface Beacon extends BeaconSpec {
 /** Signed difference a - b of two azimuths, -180..180. */
 const azDiff = (a: number, b: number) => ((((a - b) % 360) + 540) % 360) - 180;
 
-export default function SurfaceView({ view, onClose, look, nearby, beacons }: SurfaceViewProps) {
+export default function SurfaceView({ view, onClose, look, nearby, mode }: SurfaceViewProps) {
   const [supported] = useState(webgl2Available);
   if (!supported) return <Fallback view={view} reason="This browser cannot draw the 3D view (no WebGL 2)." />;
-  return <SurfaceCanvas view={view} onClose={onClose} look={look} nearby={nearby} beacons={beacons} />;
+  return <SurfaceCanvas view={view} onClose={onClose} look={look} nearby={nearby} mode={mode} />;
 }
 
 export function Fallback({ view, reason }: { view: ScenarioView; reason: string }) {
@@ -64,7 +77,7 @@ export function Fallback({ view, reason }: { view: ScenarioView; reason: string 
   );
 }
 
-function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode = "plan" }: SurfaceViewProps) {
+function SurfaceCanvas({ view, onClose, look, nearby = null, mode: beaconMode = "plan" }: SurfaceViewProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const compassRef = useRef<HTMLDivElement>(null);
@@ -73,6 +86,14 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
   const readoutRef = useRef<HTMLDivElement>(null);
   const landerRef = useRef<HTMLDivElement>(null);
   const beaconsRef = useRef<HTMLDivElement>(null);
+  const earthCardRef = useRef<HTMLDivElement>(null);
+  const psrRef = useRef<HTMLDivElement>(null);
+  const whyRef = useRef<HTMLParagraphElement>(null);
+  const { tables } = useSkyTables();
+  const tablesRef = useRef<SkyTables | null>(null);
+  const modeRef = useRef(beaconMode);
+  /** Last blockers handed to the scene, so the skyline highlight is rebuilt only when it changes. */
+  const blockersRef = useRef("");
   /** Camera position while flying to a nearby point (scene frame of the current place). */
   const flightRef = useRef<[number, number, number] | null>(null);
   const sceneRef = useRef<SurfaceScene | null>(null);
@@ -83,6 +104,8 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
   const [failed, setFailed] = useState(false);
   useLayoutEffect(() => {
     viewRef.current = view;
+    tablesRef.current = tables;
+    modeRef.current = beaconMode;
   });
 
   // Renderer, store subscriptions and the per-frame overlay.
@@ -120,7 +143,27 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
       placeLanderLabel(landerRef.current, scene.landerShadowInfo());
       placeBeaconLabels(beaconsRef.current, scene.beaconProjections());
       if (readoutRef.current) {
-        readoutRef.current.textContent = `Looking ${COMPASS[Math.round(m.headingDeg / 45) % 8]} ${m.headingDeg.toFixed(0)}°, ${formatAngle(m.pitchDeg, 0)}`;
+        // What is at the center of the view: direction, and the skyline there with its distance.
+        let skyline = "";
+        if (v.data.horizon) {
+          const km = rangeAt(v.data, m.headingDeg);
+          skyline = ` · skyline ${formatAngle(horizonAt(v.data.horizon, m.headingDeg), 1)}${km !== null ? ` at ${formatDistance(km * 1000)}` : ""}`;
+        }
+        readoutRef.current.textContent = `${COMPASS[Math.round(m.headingDeg / 45) % 8]} ${m.headingDeg.toFixed(0)}°, ${formatAngle(m.pitchDeg, 0)}${skyline}`;
+      }
+      const blocked = [obstruction(v.data, "sun", at), obstruction(v.data, "earth", at)].filter((o) => o !== null);
+      if (modeRef.current === "plan") {
+        // The stretch of skyline that hides a body (0.25 deg steps, so the key changes rarely).
+        const marks = blocked.filter((o) => o.byTerrain).map((o) => ({ azimuthDeg: Math.round(o.az * 4) / 4, color: o.kind === "sun" ? 0xffb340 : 0x64d2ff }));
+        const key = JSON.stringify(marks);
+        if (key !== blockersRef.current) {
+          blockersRef.current = key;
+          scene.setBlockers(marks);
+        }
+      } else {
+        if (whyRef.current) whyRef.current.textContent = blocked.map(sentence).join(" ");
+        writeEarthCard(earthCardRef.current, at, v.data.series.earthRadius[i] ?? EARTH_RADIUS_DEG, tablesRef.current, v.data.series.profile.station_min_elevation_deg);
+        placePsrPin(psrRef.current, scene, v.data);
       }
     };
     updateRef.current = update;
@@ -206,6 +249,31 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
   }, [nearby, beaconMode]);
 
   const terrainReady = loaded?.key === placeKey && loaded?.kind === "mesh";
+
+  // Planner labels on or off.
+  useEffect(() => {
+    sceneRef.current?.setGuides(beaconMode === "plan");
+    blockersRef.current = "";
+    updateRef.current();
+  }, [beaconMode]);
+
+  // The Sun's and the Earth's tracks over the mission window.
+  const windowHours = useScenario((s) => s.windowHours);
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const { sky } = data;
+    const first = sampleIndex(sky, view.startMs);
+    const sun: [number, number][] = [];
+    const earth: [number, number][] = [];
+    for (let k = 0; k <= windowHours / sky.stepHours; k++) {
+      const i = first + k;
+      if (i < 0 || i >= sky.count) continue;
+      sun.push([sky.sunAz[i], sky.sunAlt[i]]);
+      earth.push([sky.earthAz[i], sky.earthAlt[i]]);
+    }
+    scene.setTracks(sun, earth);
+  }, [data, view.startMs, windowHours]);
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
@@ -346,6 +414,13 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
         <span className="surface__mark-label">Earth</span>
       </div>
       <div ref={landerRef} className="surface__lander" aria-hidden="true" />
+      {beaconMode === "explore" ? (
+        <>
+          <div ref={psrRef} className="surface__psr" hidden aria-hidden="true" />
+          <div ref={earthCardRef} className="surface__earth-card" aria-live="off" />
+          <p ref={whyRef} className="surface__why" aria-live="polite" />
+        </>
+      ) : null}
       <div ref={beaconsRef} className="surface__beacons" key={data.place.id}>
         {terrainReady
           ? beaconList.map((beacon, i) => (
@@ -387,6 +462,54 @@ function SurfaceCanvas({ view, onClose, look, nearby = null, beacons: beaconMode
       </p>
     </div>
   );
+}
+
+/** Explorer: how far the Earth is, how long its light takes, and which ground station sees the Moon. */
+function writeEarthCard(el: HTMLDivElement | null, at: { ms: number; earthVisible: boolean }, earthRadiusDeg: number, tables: SkyTables | null, minStationDeg: number) {
+  if (!el) return;
+  const km = EARTH_RADIUS_KM / Math.sin((earthRadiusDeg * Math.PI) / 180);
+  const delay = km / SPEED_OF_LIGHT_KM_S;
+  let stations = "";
+  if (tables) {
+    const i = sampleIndex(tables.vectors, at.ms);
+    const up = tables.stations.filter((station) => (station.alt[i] ?? -90) > minStationDeg).map((station) => station.name[0].toUpperCase() + station.name.slice(1));
+    stations = up.length > 0 ? `${up.join(" and ")} can see the Moon` : "No ground station can see the Moon right now";
+  }
+  const lines = [
+    `Earth · ${Math.round(km).toLocaleString("en-US")} km away · its light takes ${delay.toFixed(2)} s`,
+    at.earthVisible ? stations : "Below the skyline: no direct radio link",
+  ];
+  el.textContent = lines.filter(Boolean).join("\n");
+}
+
+const COMPASS_SHORT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+
+/** Explorer: a pin at the nearest permanently shadowed region (built-in sites with the PSR map). */
+function placePsrPin(el: HTMLDivElement | null, scene: SurfaceScene, data: ScenarioView["data"]) {
+  if (!el) return;
+  const psr = data.place.kind === "site" ? data.terrain?.psr : null;
+  if (!psr) {
+    el.hidden = true;
+    return;
+  }
+  if (psr.siteInPsr) {
+    el.hidden = false;
+    el.dataset.here = "true";
+    el.style.left = "50%";
+    el.style.top = "86%";
+    el.textContent = "You are standing in a permanently shadowed region: no sunlight here at any time of year.";
+    return;
+  }
+  const spot = destination(data.lat, data.lon, psr.bearingDeg, psr.distanceM);
+  const point = scene.terrainPointAt(spot.lat, spot.lon);
+  const p = point ? scene.projectPoint(point.setY(point.y + 3)) : null;
+  el.hidden = !p || !p.inView;
+  el.dataset.here = "false";
+  if (!p || !p.inView) return;
+  el.style.left = `${(p.x * 100).toFixed(2)}%`;
+  el.style.top = `${(p.y * 100).toFixed(2)}%`;
+  const slope = Number.isFinite(psr.slopeMaxDeg) ? ` · slope on the way up to ${psr.slopeMaxDeg.toFixed(0)}°` : "";
+  el.textContent = `Permanently shadowed region · ${formatDistance(psr.distanceM)} ${COMPASS_SHORT[Math.round(psr.bearingDeg / 45) % 8]}${slope}`;
 }
 
 /** Beacon labels follow the tops of their poles; hidden while the pole is out of view. */

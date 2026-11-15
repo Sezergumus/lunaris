@@ -64,6 +64,17 @@ export function siteFrame(latDeg: number, lonDeg: number, groundHeightM: number)
   };
 }
 
+/** Point `distanceM` along the surface from (lat, lon) toward a bearing (great circle on the sphere). */
+export function destination(latDeg: number, lonDeg: number, bearingDeg: number, distanceM: number): { lat: number; lon: number } {
+  const lat = latDeg * DEG;
+  const lon = lonDeg * DEG;
+  const b = bearingDeg * DEG;
+  const d = distanceM / MOON_RADIUS_M;
+  const lat2 = Math.asin(Math.sin(lat) * Math.cos(d) + Math.cos(lat) * Math.sin(d) * Math.cos(b));
+  const lon2 = lon + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat), Math.cos(d) - Math.sin(lat) * Math.sin(lat2));
+  return { lat: lat2 / DEG, lon: lon2 / DEG };
+}
+
 /** Projected south polar stereographic coordinates of a point (port of lunar_terrain.latlon_to_xy). */
 export function latLonToProjected(latDeg: number, lonDeg: number): { x: number; y: number } {
   const lat = latDeg * DEG;

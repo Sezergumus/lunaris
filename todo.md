@@ -310,14 +310,14 @@ Estimates are for one developer working with Claude.
 
 ### Phase 7: labels per mode (about 1.5 h)
 
-- [ ] Explorer, Earth card: distance and one-way light delay from `vectors.bin`; ground
+- [x] Explorer, Earth card: distance and one-way light delay from `vectors.bin`; ground
       station in view (keep the per-station columns of `stations.bin` in `loadSkyTables`).
-- [ ] Explorer: permanently shadowed region pin from `surface.psr` (distance, bearing, slope
+- [x] Explorer: permanently shadowed region pin from `surface.psr` (distance, bearing, slope
       on the way), only where the file has it (ridge, Mons Mouton, Shackleton).
-- [ ] Explorer: the "why" sentence of the horizon chart as a caption.
-- [ ] Planner: elevation lines at 0°, 5°, 10° and azimuth lines every 30°; the Sun's and the
+- [x] Explorer: the "why" sentence of the horizon chart as a caption.
+- [x] Planner: elevation lines at 0°, 5°, 10° and azimuth lines every 30°; the Sun's and the
       Earth's track over the window; the stretch of skyline that blocks a body.
-- [ ] Readout at the center of the view: azimuth, elevation, skyline height and its distance.
+- [x] Readout at the center of the view: azimuth, elevation, skyline height and its distance.
 
 `feat(web): add Explorer and Planner labels to the surface view`
 

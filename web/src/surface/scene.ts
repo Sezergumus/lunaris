@@ -13,6 +13,7 @@
 import * as THREE from "three";
 import type { TerrainPatch } from "../data/load.ts";
 import type { Horizon } from "../engine/risk.ts";
+import { horizonAt } from "../engine/risk.ts";
 import { directionToScene, latLonToProjected, siteFrame, type SiteFrame } from "./geometry.ts";
 import { ShadowPass } from "./shadow.ts";
 import { SKY_DISTANCE, SkyLayer, type BodyState } from "./sky.ts";
@@ -148,6 +149,10 @@ export class SurfaceScene {
   private siteFrame: SiteFrame | null = null;
   private readonly beacons = new THREE.Group();
   private beaconTops: THREE.Vector3[] = [];
+  private patch: TerrainPatch | null = null;
+  private horizon: Horizon | null = null;
+  /** Planner labels: the stretch of skyline that blocks a body, drawn over the terrain. */
+  private readonly blockerScene = new THREE.Scene();
   private readonly landerShadow: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
   private frame = 0;
   private state: ViewState | null = null;
@@ -177,6 +182,7 @@ export class SurfaceScene {
   /** The engine's skyline for the curtain; null = flat. */
   setHorizon(horizon: Horizon | null) {
     this.sky.setHorizon(horizon);
+    this.horizon = horizon;
     let lowest = 0;
     if (horizon) {
       lowest = Infinity;
@@ -190,6 +196,7 @@ export class SurfaceScene {
   setTerrain(patch: TerrainPatch | null, latDeg: number, lonDeg: number, groundHeightM: number) {
     this.clearTerrain();
     this.siteFrame = siteFrame(latDeg, lonDeg, groundHeightM);
+    this.patch = patch;
     if (patch) {
       const frame = this.siteFrame;
       this.levels = buildLevels(patch, frame, terrainMaterial);
@@ -223,6 +230,67 @@ export class SurfaceScene {
     const out = new Float32Array(3);
     this.siteFrame.toScene(x, y, heightM, out, 0);
     return new THREE.Vector3(out[0], out[1], out[2]);
+  }
+
+  /** Scene position of the terrain surface at (lat, lon) from the finest patch level that holds it. */
+  terrainPointAt(latDeg: number, lonDeg: number): THREE.Vector3 | null {
+    if (!this.patch) return null;
+    const { x, y } = latLonToProjected(latDeg, lonDeg);
+    for (const level of this.patch.levels) {
+      const u = (x - level.x0) / level.pixelM - 0.5;
+      const v = (level.y0 - y) / level.pixelM - 0.5;
+      if (u < 0 || v < 0 || u >= level.size - 1 || v >= level.size - 1) continue;
+      const i = Math.floor(u);
+      const j = Math.floor(v);
+      const fu = u - i;
+      const fv = v - j;
+      const h = level.heights;
+      const n = level.size;
+      const top = h[j * n + i] * (1 - fu) + h[j * n + i + 1] * fu;
+      const bottom = h[(j + 1) * n + i] * (1 - fu) + h[(j + 1) * n + i + 1] * fu;
+      return this.groundToScene(latDeg, lonDeg, top * (1 - fv) + bottom * fv);
+    }
+    return null;
+  }
+
+  /** Where a scene point lands in the canvas for the current camera. */
+  projectPoint(point: THREE.Vector3): Projection {
+    return this.projectVector(point.clone().sub(this.cameraPosition()));
+  }
+
+  /** Planner labels: guide lines, the bodies' tracks, and the stretches of skyline that block them. */
+  setGuides(visible: boolean) {
+    this.sky.setGuides(visible);
+    this.blockerScene.visible = visible;
+    this.requestRender();
+  }
+
+  setTracks(sun: [number, number][], earth: [number, number][]) {
+    this.sky.setTracks(sun, earth);
+    this.requestRender();
+  }
+
+  /** Highlights the skyline +-spanDeg around each azimuth (a body the terrain hides). */
+  setBlockers(blockers: { azimuthDeg: number; color: number }[], spanDeg = 7) {
+    for (const child of [...this.blockerScene.children]) {
+      const line = child as THREE.Line;
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+      this.blockerScene.remove(line);
+    }
+    if (!this.horizon) return;
+    for (const { azimuthDeg, color } of blockers) {
+      const positions: number[] = [];
+      for (let off = -spanDeg; off <= spanDeg; off += 0.25) {
+        const az = azimuthDeg + off;
+        positions.push(...directionToScene(az, horizonAt(this.horizon, az)).map((v) => v * SKY_DISTANCE * 0.9));
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.95 }));
+      line.frustumCulled = false;
+      this.blockerScene.add(line);
+    }
   }
 
   /** Upright markers at nearby grid points; replaces the previous set. */
@@ -412,6 +480,11 @@ export class SurfaceScene {
     if (showLander) {
       this.setPlanes(0.05, 1e3);
       r.render(this.landerScene, this.camera);
+    }
+    if (this.blockerScene.visible && this.blockerScene.children.length > 0) {
+      this.blockerScene.position.copy(this.camera.position);
+      this.setPlanes(SKY_DISTANCE * 0.01, SKY_DISTANCE * 3);
+      r.render(this.blockerScene, this.camera);
     }
   }
 

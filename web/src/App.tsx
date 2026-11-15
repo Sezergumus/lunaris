@@ -355,7 +355,7 @@ export default function App() {
 
       {mode === "plan" && surfaceOpen && views.length > 0 ? (
         <div className="surface-overlay">
-          <SurfaceStage view={views[0]} onClose={leaveLevel} nearby={nearbyResult} beacons="plan" />
+          <SurfaceStage view={views[0]} onClose={leaveLevel} nearby={nearbyResult} mode="plan" />
         </div>
       ) : null}
 

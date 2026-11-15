@@ -111,6 +111,8 @@ export class SkyLayer {
   private readonly earth: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   private readonly stars: THREE.Points<THREE.BufferGeometry, THREE.ShaderMaterial>;
   private curtain: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null = null;
+  private readonly guides: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+  private readonly tracks = new THREE.Group();
   private readonly sunDirection = new THREE.Vector3();
 
   constructor() {
@@ -129,6 +131,54 @@ export class SkyLayer {
     );
     this.earth.renderOrder = 2;
     this.anchor.add(this.stars, this.glare, this.sun, this.earth);
+
+    // Planner guides: elevation lines at 0, 5 and 10 degrees, azimuth lines every 30 degrees.
+    // Drawn before the curtain, so the skyline cuts them where it rises above them.
+    const points: number[] = [];
+    const at = (az: number, el: number) => directionToScene(az, el).map((v) => v * SKY_DISTANCE * 0.95);
+    for (const el of [0, 5, 10]) {
+      for (let az = 0; az < 360; az += 1) points.push(...at(az, el), ...at(az + 1, el));
+    }
+    for (let az = 0; az < 360; az += 30) points.push(...at(az, -10), ...at(az, 30));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
+    this.guides = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthTest: false, depthWrite: false }));
+    this.guides.renderOrder = 2.5;
+    this.guides.frustumCulled = false;
+    this.guides.visible = false;
+    this.tracks.renderOrder = 2.6;
+    this.tracks.visible = false;
+    this.anchor.add(this.guides, this.tracks);
+  }
+
+  /** Planner labels: guide lines and the tracks of the Sun and the Earth. */
+  setGuides(visible: boolean) {
+    this.guides.visible = visible;
+    this.tracks.visible = visible;
+  }
+
+  /** The Sun's and the Earth's path over the mission window (directions as azimuth, elevation). */
+  setTracks(sun: [number, number][], earth: [number, number][]) {
+    for (const child of [...this.tracks.children]) {
+      const line = child as THREE.Line;
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+      this.tracks.remove(line);
+    }
+    for (const [path, color] of [
+      [sun, 0xffb340],
+      [earth, 0x64d2ff],
+    ] as const) {
+      if (path.length < 2) continue;
+      const positions = path.flatMap(([az, el]) => directionToScene(az, el).map((v) => v * SKY_DISTANCE * 0.96));
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      const line = new THREE.Line(geometry, new THREE.LineDashedMaterial({ color, transparent: true, opacity: 0.6, dashSize: SKY_DISTANCE * 0.004, gapSize: SKY_DISTANCE * 0.004, depthTest: false, depthWrite: false }));
+      line.computeLineDistances();
+      line.renderOrder = 2.6;
+      line.frustumCulled = false;
+      this.tracks.add(line);
+    }
   }
 
   /** The skyline the engine uses; null = the flat horizon of the sphere model. */

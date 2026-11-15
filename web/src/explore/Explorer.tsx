@@ -108,7 +108,7 @@ export function Explorer({ views, sites, nearby }: ExplorerProps) {
   return (
     <ExplorerShell title={onStage ? placeTitle(onStage.data.place) : null} caption={caption} actionsSlot={controls}>
       {onStage ? (
-        <SurfaceStage view={onStage} look={tour?.look ?? "sun"} nearby={onStage === a ? result : null} beacons="explore" />
+        <SurfaceStage view={onStage} look={tour?.look ?? "sun"} nearby={onStage === a ? result : null} mode="explore" />
       ) : (
         <p className="explorer__empty">Loading the Moon…</p>
       )}

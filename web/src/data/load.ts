@@ -31,6 +31,8 @@ export interface SkyTables {
   vectors: VectorTable;
   /** Highest Moon elevation over the DSN complexes per sample, on the vectors time axis. */
   stationMaxAlt: Float64Array;
+  /** Moon elevation at each DSN complex per sample (same axis), degrees. */
+  stations: { name: string; alt: Float64Array }[];
   /** Last instant covered; the date picker takes its limits from startMs and endMs. */
   endMs: number;
 }
@@ -111,6 +113,7 @@ export async function loadSkyTables(): Promise<SkyTables> {
       earth: [column(3), column(4), column(5)],
     },
     stationMaxAlt: highestPerSample(dsn, count),
+    stations: manifest.stations.map((name, i) => ({ name, alt: dsn[i] })),
     endMs: startMs + (count - 1) * stepHours * 3600000,
   };
 }
@@ -128,6 +131,19 @@ export interface SiteTerrain {
   slopeRadiusM: number | null;
   /** Largest LOLA height error inside the landing ellipse, meters; null when unknown. */
   heightErrorM: number | null;
+  /** Nearest permanently shadowed region (PSR map, 80 S to the pole); absent where not known. */
+  psr?: PsrAccess | null;
+}
+
+export interface PsrAccess {
+  /** The site itself lies in a permanently shadowed region. */
+  siteInPsr: boolean;
+  distanceM: number;
+  /** Clockwise from north, degrees. */
+  bearingDeg: number;
+  /** Slope along the straight line to it, degrees. */
+  slopeMeanDeg: number;
+  slopeMaxDeg: number;
 }
 
 const terrainCache = new Map<string, Promise<SiteTerrain>>();
@@ -144,6 +160,16 @@ export function loadSiteTerrain(key: string): Promise<SiteTerrain> {
       slopeP95Deg: doc.surface?.slope_landing_deg?.p95 ?? doc.surface?.slope_lola_deg?.p95 ?? null,
       slopeRadiusM: doc.surface?.slope_landing_deg ? doc.surface.slope_landing_deg.radius_m : (doc.surface?.radius_m ?? null),
       heightErrorM: doc.surface?.height_error_m?.max ?? null,
+      psr:
+        doc.surface?.psr?.nearest_distance_m != null
+          ? {
+              siteInPsr: doc.surface.psr.site_in_psr === true,
+              distanceM: doc.surface.psr.nearest_distance_m,
+              bearingDeg: doc.surface.psr.bearing_deg,
+              slopeMeanDeg: doc.surface.psr.path_slope_deg?.mean ?? NaN,
+              slopeMaxDeg: doc.surface.psr.path_slope_deg?.max ?? NaN,
+            }
+          : null,
     }));
     terrainCache.set(key, pending);
     pending.catch(() => terrainCache.delete(key));
@@ -156,7 +182,6 @@ export function loadSiteGrid(key: string): Promise<TerrainGrid> {
   return fetchJson<TerrainGrid>(`grid_${key}.json`);
 }
 
-/** Site list only (one small file), so the map can show pins before the tables arrive. */
 /** One square window of LOLA heights around a site, in south polar stereographic meters. */
 export interface PatchLevel {
   pixelM: number;
@@ -205,6 +230,7 @@ export function loadSiteTerrainPatch(key: string): Promise<TerrainPatch> {
   return pending;
 }
 
+/** Site list only (one small file), so the map can show pins before the tables arrive. */
 export async function loadSites(): Promise<SiteInfo[]> {
   return (await fetchJson<Manifest>("manifest.json")).sites;
 }

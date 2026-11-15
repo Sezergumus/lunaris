@@ -175,6 +175,65 @@
   border-radius: 50%;
 }
 
+/* Explorer labels. */
+.surface__earth-card {
+  position: absolute;
+  top: 70px;
+  left: 10px;
+  max-width: min(320px, calc(100% - 20px));
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--earth);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-line;
+  pointer-events: none;
+}
+
+.surface__earth-card:empty {
+  display: none;
+}
+
+.surface__why {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100% - 340px));
+  margin: 0;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.surface__why:empty {
+  display: none;
+}
+
+.surface__psr {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(160, 130, 255, 0.6);
+  background: rgba(20, 12, 40, 0.75);
+  color: #c9b8ff;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.surface__psr[data-here="true"] {
+  white-space: normal;
+  max-width: 80%;
+  text-align: center;
+  border-radius: 10px;
+}
+
 .surface__tools {
   position: absolute;
   top: 34px;
@@ -270,6 +329,14 @@
 
 /* A narrow stage (the Planner's overlay between the panels, phones): the mast panel moves up
    under the tools and the caption takes the whole width. */
+@container (max-width: 760px) {
+  .surface__why {
+    top: auto;
+    bottom: 64px;
+    max-width: calc(100% - 20px);
+  }
+}
+
 @container (max-width: 560px) {
   .surface__mast {
     top: 70px;

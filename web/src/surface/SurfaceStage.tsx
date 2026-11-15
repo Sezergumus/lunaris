@@ -31,14 +31,15 @@ interface SurfaceStageProps {
   onClose?: () => void;
   look?: "sun" | "earth";
   nearby?: NearbyResult | null;
-  beacons?: "plan" | "explore";
+  /** Planner or Explorer: which labels and beacons the 3D view shows. */
+  mode?: "plan" | "explore";
 }
 
-export function SurfaceStage({ view, onClose, look, nearby, beacons }: SurfaceStageProps) {
+export function SurfaceStage({ view, onClose, look, nearby, mode }: SurfaceStageProps) {
   return (
     <ChunkBoundary fallback={<ChartFallback view={view} note="The 3D view could not be loaded. The horizon chart shows the same skyline, Sun and Earth." />}>
       <Suspense fallback={<ChartFallback view={view} note="Loading the 3D view…" />}>
-        <SurfaceView view={view} onClose={onClose} look={look} nearby={nearby} beacons={beacons} />
+        <SurfaceView view={view} onClose={onClose} look={look} nearby={nearby} mode={mode} />
       </Suspense>
     </ChunkBoundary>
   );
