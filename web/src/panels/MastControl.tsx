@@ -58,7 +58,7 @@ export function MastControl({ views }: { views: ScenarioView[] }) {
             : estimated
               ? "Estimate, leans optimistic."
               : modes.includes("exact")
-                ? "Recomputed by the terrain service."
+                ? "Recomputed from terrain."
                 : `Precomputed at ${MAST_RANGE_M.min} m.`}
       </p>
     </section>
