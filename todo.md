@@ -10,7 +10,8 @@ View") in the Lunaris web UI (`web/`). Written 2026-11-15 ~05:45 local from a re
 code and the data files. A new session must be able to implement it from this file and
 `CLAUDE.md` alone.
 
-**Status:** approved by Sezer and Kerem, not started. One commit per phase (Conventional
+**Status:** approved by Sezer and Kerem. Phase B is done (files in `data/`); the frontend
+phases are not started. One commit per phase (Conventional
 Commits, English, no AI attribution, no push unless asked). Tick the boxes as the work lands.
 
 **Who does what:** phase B is backend (Kerem, local DEM). Everything else is frontend
@@ -87,7 +88,7 @@ New command `patch` in `lunar_sky.py` (function in `lunar_terrain.py`), one run 
 site: `python lunar_sky.py patch --site mons_mouton` → `data/terrain_<site>.json` and
 `data/terrain_<site>.bin`.
 
-- [ ] Four nested square windows of `height_m`, all through
+- [x] Four nested square windows of `height_m`, all through
       `read_window("height_m", x_site, y_site, radius_m, decimation)` so they share one
       center (the 60 m pixel corner nearest the site) and average resampling:
 
@@ -98,21 +99,43 @@ site: `python lunar_sky.py patch --site mons_mouton` → `data/terrain_<site>.js
       | 2 | 16 | 960 m | 122 880 | 256 × 256 |
       | 3 | 64 | 3 840 m | 245 760 | 128 × 128 |
 
-      Each level covers exactly the middle quarter (per side) of the next one. Level 1 has
-      the pixels of the far window `compute_horizon` already uses.
-- [ ] `terrain_<site>.bin`: Float32, little-endian, levels 0 to 3 one after the other, each
+      Each level covers exactly the middle quarter (per side) of the next one.
+
+      **As built (2026-11-15, Kerem's Mac):** `lunar_terrain.compute_patch` reads one
+      full-resolution window (8192 x 8192) and block-averages it for every level, instead
+      of four decimated `read_window` calls. A decimated read takes the file's overviews,
+      whose pixel grid is not aligned with the window (measured against the true block
+      average at Mons Mouton: up to 16 m at 240 m pixels, 113 m at 960 m, 938 m at 3 840 m),
+      which would open steps between levels. Now a coarse pixel equals the mean of the
+      16 finer pixels it covers (checked: difference 0.001 m or less at all five sites).
+      Level 1 therefore differs by a few meters from the far window of `compute_horizon`.
+- [x] `terrain_<site>.bin`: Float32, little-endian, levels 0 to 3 one after the other, each
       row by row with row 0 at the top (largest projected y), as `Grid.data`. 852 kB per
       site. Float32 on purpose: height steps of 0.1 m would show as bands under a 1–2° Sun.
-- [ ] `terrain_<site>.json`: `site` (key, name, lat, lon), `source`, `ground_height_m`
+- [x] `terrain_<site>.json`: `site` (key, name, lat, lon), `source`, `ground_height_m`
       (bilinear at the site, the value in `horizon_<site>.json`), and per level `pixel_m`,
       `size`, `x0` (left edge) and `y0` (top edge) in projected meters (`Grid.x0`, `Grid.y0`).
-- [ ] Fail with a message if a window is cut by the edge of the DEM or holds a NaN. (All five
+- [x] Fail with a message if a window is cut by the edge of the DEM or holds a NaN. (All five
       sites fit: the farthest, Chandrayaan-3, is 632 km from the pole; the DEM reaches 931 km.)
-- [ ] `web/scripts/build-data.mjs` copies both files and sets `terrain: true` on the site in
+- [x] `web/scripts/build-data.mjs` copies both files and sets `terrain: true` on the site in
       `manifest.json`.
-- [ ] Run for the five sites and commit the outputs in `data/` (about 4.3 MB in total).
-- [ ] Optional, only if time allows: `horizon_range_km` for every point of
-      `grid_<site>.json`. It enables the mast estimate after a hop (phase 6).
+- [x] Run for the five sites and commit the outputs in `data/` (about 4.3 MB in total).
+- [x] Optional: `horizon_range_km` for every point of `grid_<site>.json` (720 values per
+      point, km to 2 decimals, as in `horizon_<site>.json`). It enables the mast estimate
+      after a hop (phase 6). `compute_grid` / `grid_to_json` now return it, so the terrain
+      service does too once it is redeployed (the live service does not yet; the field is
+      optional in `TerrainPoint`). The five files were not regenerated: the ranges were
+      merged into them, so slopes and every other value are unchanged (a full re-run would
+      switch the slopes to the 60 m map, an open team decision in `CLAUDE.md`). Checked:
+      the fresh horizons equal the stored ones at all 405 points, and the center point's
+      ranges equal `horizon_<site>.json`. Files grew from about 0.45 to 0.76 MB each.
+
+Checked on 2026-11-15: `ground_height_m` equals `horizon_<site>.json` at all five sites; a
+skyline marched over the four levels (finest level that holds the point) against
+`horizon_deg` differs by at most 0.12 deg (mean 0.003 to 0.03 deg); the vertex formula
+below equals `xy_to_latlon` to 1e-12; a point at 61 S fails with the edge message and writes
+nothing. `npm run data` copies the files and sets `terrain: true`; `npm run validate` passes.
+In the `.bin` the levels start at Float32 offsets 0, 65 536, 131 072 and 196 608.
 
 `feat(backend): export nested terrain patches for the surface view`
 

@@ -87,11 +87,20 @@ model as an extra indicator (not started; no sourced Wh / W numbers).
 - 2026-11-15 ~05:45 (both sides): `todo.md` plans an educational Explorer mode
   (`mode=explore`: intro, guided tour, optional game) and a first-person 3D surface view
   (three.js, real LOLA terrain, shadows on the GPU; the engine's horizon still decides what
-  is visible). Approved, not started. **Backend task for Kerem: "Phase B" in `todo.md`**, a
-  `patch` command that writes `data/terrain_<site>.json` / `.bin` (four nested height
-  windows per site). Frontend phases and the claims the data does not support are in that
-  file. An AI agent works through it unattended (its instructions are at the top of
-  `todo.md`) and writes a summary at the end of that file.
+  is visible). Approved. **Phase B (backend) is done, 2026-11-15 ~10:00, Kerem's Mac:**
+  `python lunar_sky.py patch --site <key>` writes `data/terrain_<site>.json` / `.bin` (four
+  nested height windows, 60 / 240 / 960 / 3 840 m pixels, 852 kB per site, 1.6 s each with
+  the local DEM; `lunar_terrain.compute_patch` / `save_patch`); `build-data.mjs` copies them
+  and sets `terrain: true` in the manifest. The levels are exact block averages of one
+  full-resolution window, not decimated reads (see the pitfall below); checks and numbers
+  are under "Phase B" in `todo.md`. Also done: `horizon_range_km` for every point of
+  `grid_<site>.json` (merged into the existing files, slopes untouched, 0.76 MB each now)
+  and in `compute_grid` / `grid_to_json`, so `/horizon` returns it **after a redeploy; the
+  live service was not redeployed** and does not send it yet (`horizon_range_km?` in
+  `TerrainPoint`). With it the mast estimate and the horizon uncertainty become possible
+  for grid points and custom points; no UI code uses it yet. The frontend phases (0 to 9) are not started; an AI agent on Sezer's machine works
+  through them unattended (its instructions are at the top of `todo.md`) and writes a
+  summary at the end of that file.
 
 - Backend: complete for five sites over one year (geometry → metrics → terrain horizon →
   risk → alternatives: date alternatives, `rank`, `nearby`). Results in `data/`.
@@ -221,6 +230,11 @@ complete was not checked in the running app by the backend side. Ask Sezer.
 - `date_alternatives` matches the landing against the scan's midnight dates: with a landing
   time that is not 00:00 the "Requested date" line can say "NOT low risk" although the
   window itself scores low (seen in `backtest --profile solar_lander`). Trust the slip table.
+- `read_window` with `decimation > 1` reads the GeoTIFF's overviews, whose pixel grid is
+  not aligned with the window: the result is shifted by up to half a coarse pixel (against
+  the true block average at Mons Mouton: max 16 m at 240 m pixels, 938 m at 3 840 m).
+  Harmless for the far field of `compute_horizon` (beyond 20 km); for anything that must
+  line up between resolutions, read full resolution and average (`compute_patch`).
 - The terrain-sensitivity experiment (hypothetical uniform horizons by latitude) was a
   throwaway script; only its result table is kept below.
 
@@ -550,6 +564,7 @@ python lunar_sky.py rank     --landing 2026-12-16            # all precomputed s
 python lunar_sky.py nearby   --site malapert_a --landing 2026-12-16   # --radii 1,2,5,10 --ellipse 1000
 python lunar_sky.py vectors  --start 2026-12-01 --days 1491           # site-independent Sun/Earth vectors
 python lunar_sky.py grid     --site malapert_a --landing 2026-12-16   # --grid 9 --grid-step 125 --precision 100
+python lunar_sky.py patch    --site malapert_a                        # nested height windows for the 3D surface view
 python lunar_sky.py backtest                                          # Chandrayaan-3, August 2023 (pass/fail checks)
 # named mission profile for risk/rank/nearby/grid/backtest: --profile generic|solar_lander|battery_rover
 # custom point: --lat -85 --lon 30 --site custom85   step: --step 60 (min)
@@ -572,6 +587,7 @@ coordinates, see "Custom coordinates and nearby alternatives"):
 | `ephemeris_vectors.csv`                              | `utc, sun_x_km … earth_z_km`: Sun and Earth from the Moon's center in `MOON_ME_DE421`, hourly to 2030-12-31                                                                                     |
 | `grid_<site>.json`                                   | 9×9 points every 125 m around the site: horizon profile and slope per point (shape of the API response)                                                                                         |
 | `backtest_chandrayaan3.json`                         | the model run on the flown Chandrayaan-3 mission (2023): slip table, model sunset/sunrise, observed dates, `checks`, `passed`                                                                   |
+| `terrain_<site>.json`, `terrain_<site>.bin`          | four nested height windows around the site for the 3D surface view (level description; Float32 heights, row 0 at the top) |
 | `nearby_<site>.json`                                 | 33 candidate points (site + 8 bearings × rings): position, height, slope, indicators, scores, slip tolerance, low-risk date count; `best_for_date`, `most_slip_tolerant`, `most_low_risk_dates` |
 
 ### Conventions
